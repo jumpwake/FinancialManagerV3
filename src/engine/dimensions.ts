@@ -25,3 +25,24 @@ export function scoreCostEfficiency(agg: PortfolioAggregates): DimensionScore {
     weight: 0.10,
   };
 }
+
+export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
+  const extraPositions = agg.duplicate_groups.reduce((sum, g) => sum + g.tickers.length - 1, 0);
+  const effective = agg.holding_count - extraPositions;
+
+  const score =
+    effective <= 5  ? 10 :
+    effective <= 8  ? 8 :
+    effective <= 12 ? 6 :
+    effective <= 16 ? 4 : 2;
+
+  return {
+    id: "simplicity",
+    label: "Simplicity",
+    score,
+    rating: toRating(score),
+    display_value: `${agg.holding_count} holdings (${effective} effective)`,
+    note: "Effective positions after removing redundant fund overlaps",
+    weight: 0.08,
+  };
+}

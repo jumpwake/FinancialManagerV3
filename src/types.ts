@@ -30,9 +30,17 @@ export interface Portfolio {
   holdings: Holding[];
 }
 
+export interface DuplicateGroup {
+  label: string;
+  tickers: string[];
+  combined_weight: number;
+}
+
 export interface PortfolioAggregates {
   total_value: number;
   blended_expense_ratio: number;
+  holding_count: number;
+  duplicate_groups: DuplicateGroup[];
 }
 
 export type Rating = "green" | "yellow" | "red";

@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [] };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -59,5 +59,53 @@ describe("scoreCostEfficiency", () => {
     expect(score.score).toBe(10);
     expect(score.rating).toBe("green");
     expect(score.id).toBe("cost_efficiency");
+  });
+});
+
+function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 0,
+    duplicate_groups: [],
+    ...overrides,
+  };
+}
+
+describe("scoreSimplicity", () => {
+  test("returns 10 for ≤ 5 effective holdings", () => {
+    expect(scoreSimplicity(aggForSimplicity({ holding_count: 5 })).score).toBe(10);
+  });
+
+  test("returns 8 for 6–8 effective holdings", () => {
+    expect(scoreSimplicity(aggForSimplicity({ holding_count: 7 })).score).toBe(8);
+  });
+
+  test("returns 6 for 9–12 effective holdings", () => {
+    expect(scoreSimplicity(aggForSimplicity({ holding_count: 10 })).score).toBe(6);
+  });
+
+  test("returns 4 for 13–16 effective holdings", () => {
+    expect(scoreSimplicity(aggForSimplicity({ holding_count: 14 })).score).toBe(4);
+  });
+
+  test("returns 2 for > 16 effective holdings", () => {
+    expect(scoreSimplicity(aggForSimplicity({ holding_count: 20 })).score).toBe(2);
+  });
+
+  test("subtracts duplicate-extra positions from effective count", () => {
+    const agg = aggForSimplicity({
+      holding_count: 8,
+      duplicate_groups: [{ label: "us equity total market", tickers: ["A", "B"], combined_weight: 0.3 }],
+    });
+    expect(scoreSimplicity(agg).score).toBe(8);
+  });
+
+  test("display_value shows raw and effective counts", () => {
+    const agg = aggForSimplicity({
+      holding_count: 8,
+      duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
+    });
+    expect(scoreSimplicity(agg).display_value).toBe("8 holdings (7 effective)");
   });
 });

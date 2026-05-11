@@ -71,3 +71,39 @@ describe("computeAggregates", () => {
     });
   });
 });
+
+describe("computeAggregates — holding_count and duplicates", () => {
+  test("holding_count excludes cash positions", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "A", is_cash: false }),
+        makeHolding({ ticker: "B", is_cash: false }),
+        makeHolding({ ticker: "C", is_cash: true, asset_class: "cash", expense_ratio: null }),
+      ],
+    });
+    expect(computeAggregates(portfolio).holding_count).toBe(2);
+  });
+
+  test("duplicate_groups detects two funds in the same passive asset class", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 600, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "VTSAX", market_value: 400, asset_class: "us_equity_total_market" }),
+      ],
+    });
+    const dups = computeAggregates(portfolio).duplicate_groups;
+    expect(dups).toHaveLength(1);
+    expect(dups[0].tickers.sort()).toEqual(["FSKAX", "VTSAX"]);
+    expect(dups[0].combined_weight).toBeCloseTo(1.0, 6);
+  });
+
+  test("duplicate_groups empty when no class has 2+ funds", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "FXNAX", asset_class: "us_bond_aggregate" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).duplicate_groups).toEqual([]);
+  });
+});
