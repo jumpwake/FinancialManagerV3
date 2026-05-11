@@ -59,5 +59,15 @@ describe("computeAggregates", () => {
       });
       expect(computeAggregates(portfolio).blended_expense_ratio).toBe(0);
     });
+
+    test("excludes cash holdings even when they have an expense ratio", () => {
+      const portfolio = makePortfolio({
+        holdings: [
+          makeHolding({ ticker: "FUND", market_value: 100, expense_ratio: 0.001, is_cash: false }),
+          makeHolding({ ticker: "VMFXX", market_value: 100, expense_ratio: 0.0011, is_cash: true, asset_class: "cash" }),
+        ],
+      });
+      expect(computeAggregates(portfolio).blended_expense_ratio).toBeCloseTo(0.001, 6);
+    });
   });
 });
