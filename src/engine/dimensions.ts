@@ -27,7 +27,7 @@ export function scoreCostEfficiency(agg: PortfolioAggregates): DimensionScore {
 }
 
 export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
-  const extraPositions = agg.duplicate_groups.reduce((sum, g) => sum + g.tickers.length - 1, 0);
+  const extraPositions = agg.duplicate_groups.reduce((sum, g) => sum + (g.tickers.length - 1), 0);
   const effective = agg.holding_count - extraPositions;
 
   const score =
