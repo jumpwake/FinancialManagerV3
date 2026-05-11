@@ -1,0 +1,16 @@
+{
+  "snapshot_date": "2026-05-10",
+  "federal_funds_rate": 4.75,
+  "cpi_yoy_headline": 2.8,
+  "cpi_yoy_core": 2.6,
+  "yield_curve_spread_10y_2y": -0.12,
+  "yield_curve_status": "inverted",
+  "vix": 18.4,
+  "hy_credit_spread_oas_bps": 345,
+  "lei_consecutive_declines": 6,
+  "ism_manufacturing": 49.2,
+  "ism_services": 53.1,
+  "market_regime": "Late Cycle",
+  "sector_overweight": ["healthcare", "consumer_staples", "utilities"],
+  "sector_underweight": ["consumer_discretionary", "real_estate", "small_cap_growth"]
+}
