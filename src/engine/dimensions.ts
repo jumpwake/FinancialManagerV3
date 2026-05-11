@@ -46,3 +46,22 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
     weight: 0.08,
   };
 }
+
+export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
+  const t3 = agg.top3_weight;
+  const score =
+    t3 <= 0.35 ? 10 :
+    t3 <= 0.45 ? 8 :
+    t3 <= 0.55 ? 6 :
+    t3 <= 0.65 ? 4 : 2;
+
+  return {
+    id: "concentration",
+    label: "Concentration",
+    score,
+    rating: toRating(score),
+    display_value: `Top 3: ${(t3 * 100).toFixed(1)}% (${agg.top3_tickers.join(", ")})`,
+    note: "Top-3 holding weight as share of total portfolio",
+    weight: 0.12,
+  };
+}

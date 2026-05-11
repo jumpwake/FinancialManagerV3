@@ -33,5 +33,14 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     }
   }
 
-  return { total_value, blended_expense_ratio, holding_count, duplicate_groups };
+  const sorted = [...holdings].sort((a, b) =>
+    b.market_value !== a.market_value
+      ? b.market_value - a.market_value
+      : a.ticker.localeCompare(b.ticker)
+  );
+  const top3 = sorted.slice(0, 3);
+  const top3_weight = top3.reduce((sum, h) => sum + w(h), 0);
+  const top3_tickers = top3.map(h => h.ticker);
+
+  return { total_value, blended_expense_ratio, holding_count, duplicate_groups, top3_weight, top3_tickers };
 }

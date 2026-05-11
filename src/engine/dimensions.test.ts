@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [] };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [] };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -68,6 +68,8 @@ function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAgg
     blended_expense_ratio: 0.0002,
     holding_count: 0,
     duplicate_groups: [],
+    top3_weight: 0,
+    top3_tickers: [],
     ...overrides,
   };
 }
@@ -107,5 +109,44 @@ describe("scoreSimplicity", () => {
       duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
     });
     expect(scoreSimplicity(agg).display_value).toBe("8 holdings (7 effective)");
+  });
+});
+
+function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 10,
+    duplicate_groups: [],
+    top3_weight: top3,
+    top3_tickers: tickers,
+  };
+}
+
+describe("scoreConcentration", () => {
+  test("returns 10 for top3 ≤ 35%", () => {
+    expect(scoreConcentration(aggForConc(0.30)).score).toBe(10);
+  });
+
+  test("returns 8 for 35% < top3 ≤ 45%", () => {
+    expect(scoreConcentration(aggForConc(0.40)).score).toBe(8);
+  });
+
+  test("returns 6 for 45% < top3 ≤ 55%", () => {
+    expect(scoreConcentration(aggForConc(0.50)).score).toBe(6);
+  });
+
+  test("returns 4 for 55% < top3 ≤ 65%", () => {
+    expect(scoreConcentration(aggForConc(0.60)).score).toBe(4);
+  });
+
+  test("returns 2 for top3 > 65%", () => {
+    expect(scoreConcentration(aggForConc(0.80)).score).toBe(2);
+  });
+
+  test("display_value includes percentage and tickers", () => {
+    const s = scoreConcentration(aggForConc(0.42, ["FSKAX", "FTIHX", "FXNAX"]));
+    expect(s.display_value).toContain("42.0%");
+    expect(s.display_value).toContain("FSKAX, FTIHX, FXNAX");
   });
 });

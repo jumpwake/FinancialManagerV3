@@ -41,6 +41,8 @@ export interface PortfolioAggregates {
   blended_expense_ratio: number;
   holding_count: number;
   duplicate_groups: DuplicateGroup[];
+  top3_weight: number;
+  top3_tickers: string[];
 }
 
 export type Rating = "green" | "yellow" | "red";

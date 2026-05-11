@@ -107,3 +107,41 @@ describe("computeAggregates — holding_count and duplicates", () => {
     expect(computeAggregates(portfolio).duplicate_groups).toEqual([]);
   });
 });
+
+describe("computeAggregates — top3 concentration", () => {
+  test("top3_weight sums the three largest holdings", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "A", market_value: 500 }),
+        makeHolding({ ticker: "B", market_value: 300 }),
+        makeHolding({ ticker: "C", market_value: 100 }),
+        makeHolding({ ticker: "D", market_value: 100 }),
+      ],
+    });
+    expect(computeAggregates(portfolio).top3_weight).toBeCloseTo(0.9, 6);
+  });
+
+  test("top3_tickers ordered by descending market_value", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "D", market_value: 100 }),
+        makeHolding({ ticker: "A", market_value: 500 }),
+        makeHolding({ ticker: "C", market_value: 100 }),
+        makeHolding({ ticker: "B", market_value: 300 }),
+      ],
+    });
+    expect(computeAggregates(portfolio).top3_tickers).toEqual(["A", "B", "C"]);
+  });
+
+  test("top3 with fewer than 3 holdings uses all of them", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "A", market_value: 600 }),
+        makeHolding({ ticker: "B", market_value: 400 }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(agg.top3_tickers).toEqual(["A", "B"]);
+    expect(agg.top3_weight).toBeCloseTo(1.0, 6);
+  });
+});
