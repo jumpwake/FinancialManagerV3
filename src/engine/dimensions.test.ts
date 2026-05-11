@@ -5,7 +5,7 @@ import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0 };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [] };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -79,6 +79,7 @@ function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAgg
     fixed_income_weight: 0,
     individual_stock_weight: 0,
     balanced_weight: 0,
+    sector_holdings: [],
     ...overrides,
   };
 }
@@ -138,6 +139,7 @@ function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): Portfoli
     fixed_income_weight: 0,
     individual_stock_weight: 0,
     balanced_weight: 0,
+    sector_holdings: [],
   };
 }
 
@@ -186,6 +188,7 @@ function aggForCash(idle: number, pending: number = 0): PortfolioAggregates {
     fixed_income_weight: 0,
     individual_stock_weight: 0,
     balanced_weight: 0,
+    sector_holdings: [],
   };
 }
 
@@ -233,6 +236,7 @@ function aggForIntl(intl: number): PortfolioAggregates {
     fixed_income_weight: 0,
     individual_stock_weight: 0,
     balanced_weight: 0,
+    sector_holdings: [],
   };
 }
 
@@ -274,6 +278,7 @@ function aggForDiv(o: Partial<PortfolioAggregates>): PortfolioAggregates {
     fixed_income_weight: 0,
     individual_stock_weight: 0,
     balanced_weight: 0,
+    sector_holdings: [],
     ...o,
   };
 }

@@ -1,4 +1,4 @@
-import { Portfolio, PortfolioAggregates, DuplicateGroup, Holding } from "../types";
+import { Portfolio, PortfolioAggregates, DuplicateGroup, Holding, SectorHolding } from "../types";
 
 const DUPLICATE_CLASSES: string[] = [
   "us_equity_total_market",
@@ -75,6 +75,20 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     .filter(h => h.asset_class === "balanced" || h.asset_class === "target_date")
     .reduce((sum, h) => sum + w(h), 0);
 
+  const sector_map: Record<string, string[]> = {};
+  for (const h of holdings.filter(h => h.sector_tag)) {
+    const tag = h.sector_tag!;
+    if (!sector_map[tag]) sector_map[tag] = [];
+    sector_map[tag].push(h.ticker);
+  }
+  const sector_holdings: SectorHolding[] = Object.entries(sector_map).map(([sector_tag, tickers]) => ({
+    sector_tag,
+    tickers,
+    combined_weight: holdings
+      .filter(h => tickers.includes(h.ticker))
+      .reduce((sum, h) => sum + w(h), 0),
+  }));
+
   return {
     total_value,
     blended_expense_ratio,
@@ -91,6 +105,7 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     fixed_income_weight,
     individual_stock_weight,
     balanced_weight,
+    sector_holdings,
     pending_deployment_label: firstPending?.deployment_label,
     pending_deployment_date: firstPending?.deployment_date,
   };

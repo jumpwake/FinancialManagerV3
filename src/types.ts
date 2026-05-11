@@ -19,11 +19,13 @@ export interface Holding {
   label: string;
   market_value: number;
   asset_class: AssetClass;
+  sector_tag?: string;
   is_cash: boolean;
   is_pending_deployment: boolean;
   deployment_date?: string;
   deployment_label?: string;
   expense_ratio: number | null;
+  // do NOT add stock_metrics yet — that's Task 13
 }
 
 export interface Portfolio {
@@ -32,8 +34,31 @@ export interface Portfolio {
   holdings: Holding[];
 }
 
+export interface MacroContext {
+  snapshot_date: string;
+  federal_funds_rate: number;
+  cpi_yoy_headline: number;
+  cpi_yoy_core: number;
+  yield_curve_spread_10y_2y: number;
+  yield_curve_status: string;
+  vix: number;
+  hy_credit_spread_oas_bps: number;
+  lei_consecutive_declines: number;
+  ism_manufacturing: number;
+  ism_services: number;
+  market_regime: string;
+  sector_overweight: string[];
+  sector_underweight: string[];
+}
+
 export interface DuplicateGroup {
   label: string;
+  tickers: string[];
+  combined_weight: number;
+}
+
+export interface SectorHolding {
+  sector_tag: string;
   tickers: string[];
   combined_weight: number;
 }
@@ -54,6 +79,7 @@ export interface PortfolioAggregates {
   fixed_income_weight: number;
   individual_stock_weight: number;
   balanced_weight: number;
+  sector_holdings: SectorHolding[];
   pending_deployment_label?: string;
   pending_deployment_date?: string;
 }

@@ -248,3 +248,43 @@ describe("computeAggregates — sleeve weights", () => {
     expect(computeAggregates(portfolio).balanced_weight).toBeCloseTo(0.2, 6);
   });
 });
+
+describe("computeAggregates — sector_holdings", () => {
+  test("groups holdings by sector_tag with combined_weight", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "XLU", market_value: 100, asset_class: "us_equity_sector", sector_tag: "utilities" }),
+        makeHolding({ ticker: "XLP", market_value: 100, asset_class: "us_equity_sector", sector_tag: "consumer_staples" }),
+        makeHolding({ ticker: "FSKAX", market_value: 800, asset_class: "us_equity_total_market" }),
+      ],
+    });
+    const sh = computeAggregates(portfolio).sector_holdings;
+    expect(sh).toHaveLength(2);
+    const utilities = sh.find(s => s.sector_tag === "utilities")!;
+    expect(utilities.tickers).toEqual(["XLU"]);
+    expect(utilities.combined_weight).toBeCloseTo(0.1, 6);
+  });
+
+  test("multiple holdings sharing a sector_tag merge into one group", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "XLU", market_value: 100, asset_class: "us_equity_sector", sector_tag: "utilities" }),
+        makeHolding({ ticker: "VPU", market_value: 100, asset_class: "us_equity_sector", sector_tag: "utilities" }),
+        makeHolding({ ticker: "FSKAX", market_value: 800, asset_class: "us_equity_total_market" }),
+      ],
+    });
+    const sh = computeAggregates(portfolio).sector_holdings;
+    expect(sh).toHaveLength(1);
+    expect(sh[0].tickers.sort()).toEqual(["VPU", "XLU"]);
+    expect(sh[0].combined_weight).toBeCloseTo(0.2, 6);
+  });
+
+  test("holdings without sector_tag are not in sector_holdings", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 100, asset_class: "us_equity_total_market" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).sector_holdings).toEqual([]);
+  });
+});
