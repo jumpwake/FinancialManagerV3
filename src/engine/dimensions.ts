@@ -111,7 +111,7 @@ export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
 
 export function scoreDiversification(agg: PortfolioAggregates): DimensionScore {
   const buckets: Record<string, number> = {
-    us_equity: agg.equity_weight - agg.international_weight - agg.individual_stock_weight,
+    us_equity: agg.equity_weight - agg.individual_stock_weight,
     international: agg.international_weight,
     fixed_income: agg.fixed_income_weight,
     balanced: agg.balanced_weight,

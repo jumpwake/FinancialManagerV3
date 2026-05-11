@@ -320,4 +320,21 @@ describe("scoreDiversification", () => {
     });
     expect(scoreDiversification(agg).score).toBe(9);
   });
+
+  test("end-to-end: real portfolio with international + individual stock", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 500, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "FTIHX", market_value: 200, asset_class: "international_equity" }),
+        makeHolding({ ticker: "TSLA", market_value: 100, asset_class: "individual_stock" }),
+        makeHolding({ ticker: "FXNAX", market_value: 150, asset_class: "us_bond_aggregate" }),
+        makeHolding({ ticker: "VWENX", market_value: 50, asset_class: "balanced" }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    // us_equity = equity_weight (0.60: FSKAX + TSLA) - individual_stock_weight (0.10) = 0.50
+    // international = 0.20, fixed_income = 0.15, balanced = 0.05, individual_stock = 0.10
+    // All 5 buckets >= 3% → score 10
+    expect(scoreDiversification(agg).score).toBe(10);
+  });
 });
