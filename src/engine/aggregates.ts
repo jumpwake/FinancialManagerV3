@@ -8,6 +8,12 @@ const DUPLICATE_CLASSES: string[] = [
   "us_bond_short",
 ];
 
+const EQUITY_CLASSES: string[] = [
+  "us_equity_total_market", "us_equity_large_cap", "us_equity_large_cap_growth",
+  "us_equity_small_mid", "us_equity_sector", "individual_stock",
+];
+const BOND_CLASSES: string[] = ["us_bond_aggregate", "us_bond_short", "us_bond_tips"];
+
 export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
   const holdings = portfolio.holdings;
   const total_value = holdings.reduce((sum, h) => sum + h.market_value, 0);
@@ -53,6 +59,22 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
   const top3_weight = top3.reduce((sum, h) => sum + w(h), 0);
   const top3_tickers = top3.map(h => h.ticker);
 
+  const equity_weight = holdings
+    .filter(h => EQUITY_CLASSES.includes(h.asset_class))
+    .reduce((sum, h) => sum + w(h), 0);
+
+  const fixed_income_weight = holdings
+    .filter(h => BOND_CLASSES.includes(h.asset_class))
+    .reduce((sum, h) => sum + w(h), 0);
+
+  const individual_stock_weight = holdings
+    .filter(h => h.asset_class === "individual_stock")
+    .reduce((sum, h) => sum + w(h), 0);
+
+  const balanced_weight = holdings
+    .filter(h => h.asset_class === "balanced" || h.asset_class === "target_date")
+    .reduce((sum, h) => sum + w(h), 0);
+
   return {
     total_value,
     blended_expense_ratio,
@@ -65,6 +87,10 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     idle_cash_weight,
     pending_cash_weight,
     pending_cash_value,
+    equity_weight,
+    fixed_income_weight,
+    individual_stock_weight,
+    balanced_weight,
     pending_deployment_label: firstPending?.deployment_label,
     pending_deployment_date: firstPending?.deployment_date,
   };

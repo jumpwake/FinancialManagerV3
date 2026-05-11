@@ -200,3 +200,51 @@ describe("computeAggregates — cash partition", () => {
     expect(agg.pending_deployment_date).toBe("2026-05-29");
   });
 });
+
+describe("computeAggregates — sleeve weights", () => {
+  test("equity_weight covers US equity + sector + individual_stock classes", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 400, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "TSLA", market_value: 100, asset_class: "individual_stock" }),
+        makeHolding({ ticker: "XLU", market_value: 100, asset_class: "us_equity_sector" }),
+        makeHolding({ ticker: "FTIHX", market_value: 200, asset_class: "international_equity" }),
+        makeHolding({ ticker: "FXNAX", market_value: 200, asset_class: "us_bond_aggregate" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).equity_weight).toBeCloseTo(0.6, 6);
+  });
+
+  test("fixed_income_weight covers all us_bond_* classes", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 700, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "FXNAX", market_value: 200, asset_class: "us_bond_aggregate" }),
+        makeHolding({ ticker: "VFSUX", market_value: 100, asset_class: "us_bond_short" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).fixed_income_weight).toBeCloseTo(0.3, 6);
+  });
+
+  test("individual_stock_weight isolated from broader equity bucket", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 600, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "TSLA", market_value: 200, asset_class: "individual_stock" }),
+        makeHolding({ ticker: "NVDA", market_value: 200, asset_class: "individual_stock" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).individual_stock_weight).toBeCloseTo(0.4, 6);
+  });
+
+  test("balanced_weight covers balanced + target_date classes", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "VWENX", market_value: 100, asset_class: "balanced" }),
+        makeHolding({ ticker: "FXAIX", market_value: 100, asset_class: "target_date" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).balanced_weight).toBeCloseTo(0.2, 6);
+  });
+});

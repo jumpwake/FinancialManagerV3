@@ -50,6 +50,10 @@ export interface PortfolioAggregates {
   idle_cash_weight: number;
   pending_cash_weight: number;
   pending_cash_value: number;
+  equity_weight: number;
+  fixed_income_weight: number;
+  individual_stock_weight: number;
+  balanced_weight: number;
   pending_deployment_label?: string;
   pending_deployment_date?: string;
 }

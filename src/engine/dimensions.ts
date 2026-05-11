@@ -108,3 +108,26 @@ export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
     weight: 0.12,
   };
 }
+
+export function scoreDiversification(agg: PortfolioAggregates): DimensionScore {
+  const buckets: Record<string, number> = {
+    us_equity: agg.equity_weight - agg.international_weight - agg.individual_stock_weight,
+    international: agg.international_weight,
+    fixed_income: agg.fixed_income_weight,
+    balanced: agg.balanced_weight,
+    individual_stock: agg.individual_stock_weight,
+  };
+  const filledBuckets = Object.values(buckets).filter(w => w >= 0.03).length;
+  let score = filledBuckets >= 5 ? 10 : filledBuckets === 4 ? 8 : filledBuckets === 3 ? 6 : filledBuckets === 2 ? 4 : 2;
+  score = Math.max(1, score - agg.duplicate_groups.length);
+
+  return {
+    id: "diversification",
+    label: "Diversification",
+    score,
+    rating: toRating(score),
+    display_value: `${filledBuckets} asset buckets`,
+    note: "Distinct asset class buckets with ≥ 3% weight; penalized for overlapping funds",
+    weight: 0.12,
+  };
+}

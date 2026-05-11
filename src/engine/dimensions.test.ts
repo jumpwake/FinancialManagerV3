@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0 };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0 };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -75,6 +75,10 @@ function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAgg
     idle_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
+    equity_weight: 0,
+    fixed_income_weight: 0,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
     ...overrides,
   };
 }
@@ -130,6 +134,10 @@ function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): Portfoli
     idle_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
+    equity_weight: 0,
+    fixed_income_weight: 0,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
   };
 }
 
@@ -174,6 +182,10 @@ function aggForCash(idle: number, pending: number = 0): PortfolioAggregates {
     idle_cash_weight: idle,
     pending_cash_weight: pending,
     pending_cash_value: pending * 1000,
+    equity_weight: 0,
+    fixed_income_weight: 0,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
   };
 }
 
@@ -217,6 +229,10 @@ function aggForIntl(intl: number): PortfolioAggregates {
     pending_cash_weight: 0,
     pending_cash_value: 0,
     international_weight: intl,
+    equity_weight: 0,
+    fixed_income_weight: 0,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
   };
 }
 
@@ -238,5 +254,70 @@ describe("scoreInternational", () => {
   });
   test("returns 8 (not 10) for intl > 30% (over-allocation)", () => {
     expect(scoreInternational(aggForIntl(0.40)).score).toBe(8);
+  });
+});
+
+function aggForDiv(o: Partial<PortfolioAggregates>): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 5,
+    duplicate_groups: [],
+    top3_weight: 0,
+    top3_tickers: [],
+    cash_weight: 0,
+    idle_cash_weight: 0,
+    pending_cash_weight: 0,
+    pending_cash_value: 0,
+    international_weight: 0,
+    equity_weight: 0,
+    fixed_income_weight: 0,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
+    ...o,
+  };
+}
+
+describe("scoreDiversification", () => {
+  test("returns 10 when 5+ buckets ≥ 3%", () => {
+    const agg = aggForDiv({
+      equity_weight: 0.55, international_weight: 0.15, fixed_income_weight: 0.20,
+      balanced_weight: 0.05, individual_stock_weight: 0.05,
+    });
+    expect(scoreDiversification(agg).score).toBe(10);
+  });
+
+  test("returns 8 for 4 buckets", () => {
+    const agg = aggForDiv({
+      equity_weight: 0.60, international_weight: 0.15, fixed_income_weight: 0.20,
+      balanced_weight: 0.05,
+    });
+    expect(scoreDiversification(agg).score).toBe(8);
+  });
+
+  test("returns 6 for 3 buckets", () => {
+    const agg = aggForDiv({
+      equity_weight: 0.70, international_weight: 0.15, fixed_income_weight: 0.15,
+    });
+    expect(scoreDiversification(agg).score).toBe(6);
+  });
+
+  test("returns 4 for 2 buckets", () => {
+    const agg = aggForDiv({ equity_weight: 0.80, fixed_income_weight: 0.20 });
+    expect(scoreDiversification(agg).score).toBe(4);
+  });
+
+  test("returns 2 for ≤ 1 bucket", () => {
+    const agg = aggForDiv({ equity_weight: 1.0 });
+    expect(scoreDiversification(agg).score).toBe(2);
+  });
+
+  test("subtracts 1 per duplicate_group", () => {
+    const agg = aggForDiv({
+      equity_weight: 0.55, international_weight: 0.15, fixed_income_weight: 0.20,
+      balanced_weight: 0.05, individual_stock_weight: 0.05,
+      duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
+    });
+    expect(scoreDiversification(agg).score).toBe(9);
   });
 });
