@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [] };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0 };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -70,6 +70,10 @@ function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAgg
     duplicate_groups: [],
     top3_weight: 0,
     top3_tickers: [],
+    cash_weight: 0,
+    idle_cash_weight: 0,
+    pending_cash_weight: 0,
+    pending_cash_value: 0,
     ...overrides,
   };
 }
@@ -120,6 +124,10 @@ function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): Portfoli
     duplicate_groups: [],
     top3_weight: top3,
     top3_tickers: tickers,
+    cash_weight: 0,
+    idle_cash_weight: 0,
+    pending_cash_weight: 0,
+    pending_cash_value: 0,
   };
 }
 
@@ -148,5 +156,47 @@ describe("scoreConcentration", () => {
     const s = scoreConcentration(aggForConc(0.42, ["FSKAX", "FTIHX", "FXNAX"]));
     expect(s.display_value).toContain("42.0%");
     expect(s.display_value).toContain("FSKAX, FTIHX, FXNAX");
+  });
+});
+
+function aggForCash(idle: number, pending: number = 0): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 5,
+    duplicate_groups: [],
+    top3_weight: 0,
+    top3_tickers: [],
+    cash_weight: idle + pending,
+    idle_cash_weight: idle,
+    pending_cash_weight: pending,
+    pending_cash_value: pending * 1000,
+  };
+}
+
+describe("scoreCashEfficiency", () => {
+  test("returns 10 for idle ≤ 2%", () => {
+    expect(scoreCashEfficiency(aggForCash(0.01)).score).toBe(10);
+  });
+  test("returns 8 for 2% < idle ≤ 5%", () => {
+    expect(scoreCashEfficiency(aggForCash(0.04)).score).toBe(8);
+  });
+  test("returns 7 for 5% < idle ≤ 8%", () => {
+    expect(scoreCashEfficiency(aggForCash(0.07)).score).toBe(7);
+  });
+  test("returns 5 for 8% < idle ≤ 12%", () => {
+    expect(scoreCashEfficiency(aggForCash(0.10)).score).toBe(5);
+  });
+  test("returns 3 for 12% < idle ≤ 20%", () => {
+    expect(scoreCashEfficiency(aggForCash(0.15)).score).toBe(3);
+  });
+  test("returns 1 for idle > 20%", () => {
+    expect(scoreCashEfficiency(aggForCash(0.30)).score).toBe(1);
+  });
+  test("pending cash does not penalize the score", () => {
+    expect(scoreCashEfficiency(aggForCash(0.01, 0.25)).score).toBe(10);
+  });
+  test("display_value includes pending when present", () => {
+    expect(scoreCashEfficiency(aggForCash(0.04, 0.10)).display_value).toContain("pending");
   });
 });

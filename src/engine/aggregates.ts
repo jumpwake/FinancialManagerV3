@@ -33,6 +33,13 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     }
   }
 
+  const cash_weight = holdings.filter(h => h.is_cash).reduce((sum, h) => sum + w(h), 0);
+  const pending_holdings = holdings.filter(h => h.is_pending_deployment);
+  const pending_cash_weight = pending_holdings.reduce((sum, h) => sum + w(h), 0);
+  const pending_cash_value = pending_holdings.reduce((sum, h) => sum + h.market_value, 0);
+  const idle_cash_weight = cash_weight - pending_cash_weight;
+  const firstPending = pending_holdings[0];
+
   const sorted = [...holdings].sort((a, b) =>
     b.market_value !== a.market_value
       ? b.market_value - a.market_value
@@ -42,5 +49,18 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
   const top3_weight = top3.reduce((sum, h) => sum + w(h), 0);
   const top3_tickers = top3.map(h => h.ticker);
 
-  return { total_value, blended_expense_ratio, holding_count, duplicate_groups, top3_weight, top3_tickers };
+  return {
+    total_value,
+    blended_expense_ratio,
+    holding_count,
+    duplicate_groups,
+    top3_weight,
+    top3_tickers,
+    cash_weight,
+    idle_cash_weight,
+    pending_cash_weight,
+    pending_cash_value,
+    pending_deployment_label: firstPending?.deployment_label,
+    pending_deployment_date: firstPending?.deployment_date,
+  };
 }

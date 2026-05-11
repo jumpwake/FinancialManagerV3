@@ -21,6 +21,8 @@ export interface Holding {
   asset_class: AssetClass;
   is_cash: boolean;
   is_pending_deployment: boolean;
+  deployment_date?: string;
+  deployment_label?: string;
   expense_ratio: number | null;
 }
 
@@ -43,6 +45,12 @@ export interface PortfolioAggregates {
   duplicate_groups: DuplicateGroup[];
   top3_weight: number;
   top3_tickers: string[];
+  cash_weight: number;
+  idle_cash_weight: number;
+  pending_cash_weight: number;
+  pending_cash_value: number;
+  pending_deployment_label?: string;
+  pending_deployment_date?: string;
 }
 
 export type Rating = "green" | "yellow" | "red";

@@ -145,3 +145,46 @@ describe("computeAggregates — top3 concentration", () => {
     expect(agg.top3_weight).toBeCloseTo(1.0, 6);
   });
 });
+
+describe("computeAggregates — cash partition", () => {
+  test("cash_weight sums all is_cash holdings", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FUND", market_value: 800, is_cash: false }),
+        makeHolding({ ticker: "SPAXX", market_value: 100, is_cash: true, asset_class: "cash", expense_ratio: null }),
+        makeHolding({ ticker: "VMFXX", market_value: 100, is_cash: true, asset_class: "cash", expense_ratio: null }),
+      ],
+    });
+    expect(computeAggregates(portfolio).cash_weight).toBeCloseTo(0.2, 6);
+  });
+
+  test("pending_cash_weight isolates is_pending_deployment cash", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FUND", market_value: 800, is_cash: false }),
+        makeHolding({ ticker: "SPAXX", market_value: 150, is_cash: true, is_pending_deployment: true, asset_class: "cash", expense_ratio: null }),
+        makeHolding({ ticker: "VMFXX", market_value: 50, is_cash: true, asset_class: "cash", expense_ratio: null }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(agg.pending_cash_weight).toBeCloseTo(0.15, 6);
+    expect(agg.pending_cash_value).toBe(150);
+    expect(agg.idle_cash_weight).toBeCloseTo(0.05, 6);
+  });
+
+  test("pending_deployment_label and _date copied from first pending holding", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({
+          ticker: "SPAXX", market_value: 100, is_cash: true, is_pending_deployment: true,
+          asset_class: "cash", expense_ratio: null,
+          deployment_label: "Tranche 3",
+          deployment_date: "2026-05-29",
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(agg.pending_deployment_label).toBe("Tranche 3");
+    expect(agg.pending_deployment_date).toBe("2026-05-29");
+  });
+});

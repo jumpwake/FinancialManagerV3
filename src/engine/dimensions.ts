@@ -65,3 +65,27 @@ export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
     weight: 0.12,
   };
 }
+
+export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
+  const idle = agg.idle_cash_weight;
+  const score =
+    idle <= 0.02 ? 10 :
+    idle <= 0.05 ? 8 :
+    idle <= 0.08 ? 7 :
+    idle <= 0.12 ? 5 :
+    idle <= 0.20 ? 3 : 1;
+
+  const display = agg.pending_cash_weight > 0
+    ? `${(idle * 100).toFixed(1)}% idle + ${(agg.pending_cash_weight * 100).toFixed(1)}% pending`
+    : `${(idle * 100).toFixed(1)}% idle`;
+
+  return {
+    id: "cash_efficiency",
+    label: "Cash efficiency",
+    score,
+    rating: toRating(score),
+    display_value: display,
+    note: "Pending deployment cash is excluded from penalty — it has an active plan",
+    weight: 0.12,
+  };
+}
