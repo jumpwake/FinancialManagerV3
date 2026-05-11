@@ -1,0 +1,48 @@
+export type AssetClass =
+  | "us_equity_total_market"
+  | "us_equity_large_cap"
+  | "us_equity_large_cap_growth"
+  | "us_equity_small_mid"
+  | "us_equity_sector"
+  | "international_equity"
+  | "us_bond_aggregate"
+  | "us_bond_short"
+  | "us_bond_tips"
+  | "balanced"
+  | "target_date"
+  | "individual_stock"
+  | "cash"
+  | "cash_pending";
+
+export interface Holding {
+  ticker: string;
+  label: string;
+  market_value: number;
+  asset_class: AssetClass;
+  is_cash: boolean;
+  is_pending_deployment: boolean;
+  expense_ratio: number | null;
+}
+
+export interface Portfolio {
+  snapshot_date: string;
+  account_label: string;
+  holdings: Holding[];
+}
+
+export interface PortfolioAggregates {
+  total_value: number;
+  blended_expense_ratio: number;
+}
+
+export type Rating = "green" | "yellow" | "red";
+
+export interface DimensionScore {
+  id: string;
+  label: string;
+  score: number;
+  rating: Rating;
+  display_value: string;
+  note: string;
+  weight: number;
+}
