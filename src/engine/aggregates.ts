@@ -33,6 +33,10 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     }
   }
 
+  const international_weight = holdings
+    .filter(h => h.asset_class === "international_equity")
+    .reduce((sum, h) => sum + w(h), 0);
+
   const cash_weight = holdings.filter(h => h.is_cash).reduce((sum, h) => sum + w(h), 0);
   const pending_holdings = holdings.filter(h => h.is_pending_deployment);
   const pending_cash_weight = pending_holdings.reduce((sum, h) => sum + w(h), 0);
@@ -56,6 +60,7 @@ export function computeAggregates(portfolio: Portfolio): PortfolioAggregates {
     duplicate_groups,
     top3_weight,
     top3_tickers,
+    international_weight,
     cash_weight,
     idle_cash_weight,
     pending_cash_weight,

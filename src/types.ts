@@ -45,6 +45,7 @@ export interface PortfolioAggregates {
   duplicate_groups: DuplicateGroup[];
   top3_weight: number;
   top3_tickers: string[];
+  international_weight: number;
   cash_weight: number;
   idle_cash_weight: number;
   pending_cash_weight: number;

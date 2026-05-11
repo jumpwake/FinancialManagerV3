@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0 };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0 };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -70,6 +70,7 @@ function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAgg
     duplicate_groups: [],
     top3_weight: 0,
     top3_tickers: [],
+    international_weight: 0,
     cash_weight: 0,
     idle_cash_weight: 0,
     pending_cash_weight: 0,
@@ -124,6 +125,7 @@ function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): Portfoli
     duplicate_groups: [],
     top3_weight: top3,
     top3_tickers: tickers,
+    international_weight: 0,
     cash_weight: 0,
     idle_cash_weight: 0,
     pending_cash_weight: 0,
@@ -167,6 +169,7 @@ function aggForCash(idle: number, pending: number = 0): PortfolioAggregates {
     duplicate_groups: [],
     top3_weight: 0,
     top3_tickers: [],
+    international_weight: 0,
     cash_weight: idle + pending,
     idle_cash_weight: idle,
     pending_cash_weight: pending,
@@ -198,5 +201,42 @@ describe("scoreCashEfficiency", () => {
   });
   test("display_value includes pending when present", () => {
     expect(scoreCashEfficiency(aggForCash(0.04, 0.10)).display_value).toContain("pending");
+  });
+});
+
+function aggForIntl(intl: number): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 5,
+    duplicate_groups: [],
+    top3_weight: 0,
+    top3_tickers: [],
+    cash_weight: 0,
+    idle_cash_weight: 0,
+    pending_cash_weight: 0,
+    pending_cash_value: 0,
+    international_weight: intl,
+  };
+}
+
+describe("scoreInternational", () => {
+  test("returns 10 for 15% ≤ intl ≤ 30%", () => {
+    expect(scoreInternational(aggForIntl(0.20)).score).toBe(10);
+  });
+  test("returns 8 for 10% ≤ intl < 15%", () => {
+    expect(scoreInternational(aggForIntl(0.12)).score).toBe(8);
+  });
+  test("returns 6 for 5% ≤ intl < 10%", () => {
+    expect(scoreInternational(aggForIntl(0.07)).score).toBe(6);
+  });
+  test("returns 4 for 2% ≤ intl < 5%", () => {
+    expect(scoreInternational(aggForIntl(0.03)).score).toBe(4);
+  });
+  test("returns 2 for intl < 2%", () => {
+    expect(scoreInternational(aggForIntl(0.01)).score).toBe(2);
+  });
+  test("returns 8 (not 10) for intl > 30% (over-allocation)", () => {
+    expect(scoreInternational(aggForIntl(0.40)).score).toBe(8);
   });
 });

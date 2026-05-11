@@ -66,6 +66,25 @@ export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
   };
 }
 
+export function scoreInternational(agg: PortfolioAggregates): DimensionScore {
+  const intl = agg.international_weight;
+  const score =
+    intl >= 0.15 && intl <= 0.30 ? 10 :
+    intl >= 0.10                 ? 8 :
+    intl >= 0.05                 ? 6 :
+    intl >= 0.02                 ? 4 : 2;
+
+  return {
+    id: "international",
+    label: "International exposure",
+    score,
+    rating: toRating(score),
+    display_value: `${(intl * 100).toFixed(1)}% international`,
+    note: "Target 15–30% for a globally diversified portfolio",
+    weight: 0.06,
+  };
+}
+
 export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
   const idle = agg.idle_cash_weight;
   const score =

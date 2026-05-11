@@ -146,6 +146,18 @@ describe("computeAggregates — top3 concentration", () => {
   });
 });
 
+describe("computeAggregates — international_weight", () => {
+  test("sums international_equity holdings as fraction of total", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 700, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "FTIHX", market_value: 300, asset_class: "international_equity" }),
+      ],
+    });
+    expect(computeAggregates(portfolio).international_weight).toBeCloseTo(0.3, 6);
+  });
+});
+
 describe("computeAggregates — cash partition", () => {
   test("cash_weight sums all is_cash holdings", () => {
     const portfolio = makePortfolio({
