@@ -19,7 +19,8 @@ import { loadUserContext, saveUserContext } from "./server/userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
 import { runPulseCheck } from "./ai/pulseCheck";
-import type { AccountConfig, Holding, Finding, PulseVerdict } from "./types";
+import { runTacticalAdvisor } from "./ai/tacticalAdvisor";
+import type { AccountConfig, Holding, Finding, PulseVerdict, TacticalAdvisorOutput } from "./types";
 
 const SAMPLE_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
@@ -193,6 +194,33 @@ async function main() {
     saveUserContext(USER_CONTEXT_FILE, userContext);
   }
 
+  // Generate tactical advisor recommendations (single Anthropic API call)
+  let tactical_advisor: TacticalAdvisorOutput | null = null;
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log("");
+    console.log("Calling Anthropic API for tactical advisor recommendations...");
+    try {
+      tactical_advisor = await runTacticalAdvisor({
+        portfolio: effectedPortfolio,
+        aggregates,
+        macro,
+        dimension_scores,
+        portfolio_score,
+        portfolio_grade,
+        flags,
+        gap_items,
+        accounts,
+        open_situations: userContext.situations,
+      });
+      console.log(`  Tactical plan: ${tactical_advisor.tactical_plan.next_7_days.length} moves in next 7d, ${tactical_advisor.tactical_plan.next_30_days.length} moves in next 30d`);
+      if (tactical_advisor.deployment_recommendation) {
+        console.log(`  Deployment: ${tactical_advisor.deployment_recommendation.moves.length} moves, projected grade ${tactical_advisor.deployment_recommendation.projected_grade}`);
+      }
+    } catch (err) {
+      console.warn("  Tactical advisor failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
   // Assemble the analysis output
   const output = {
     generated_at: new Date().toISOString(),
@@ -210,6 +238,7 @@ async function main() {
     score_trajectory,
     findings,
     narratives,  // null if API key wasn't set
+    tactical_advisor,  // null if API key wasn't set or call failed
     situations: userContext.situations,
     notes: userContext.notes,
   };
