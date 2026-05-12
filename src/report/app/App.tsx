@@ -63,9 +63,33 @@ export default function App() {
   );
 
   const handleTrackMove = useCallback(async (move: TacticalMove) => {
-    console.log("Track move clicked:", move);
-    // Full implementation lands in W3.10
-  }, []);
+    const target_date = new Date();
+    target_date.setDate(target_date.getDate() + 30);  // default to 30 days
+
+    const payload = {
+      title: move.action.slice(0, 80),
+      intent: move.rationale,
+      status: "open" as const,
+      target_date: target_date.toISOString().slice(0, 10),
+      related_findings: [] as string[],
+      portfolio_effects: move.category === "deploy_cash"
+        ? [{ type: "mark_cash_pending", amount_usd: move.dollars, deployment_label: move.target_account }]
+        : [] as never[],
+    };
+
+    try {
+      const r = await fetch("/api/situations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await loadSituations();
+      setScope({ type: "global" });
+    } catch (err) {
+      console.warn("Failed to create Situation:", err);
+    }
+  }, [loadSituations]);
 
   if (error) {
     return (
@@ -127,7 +151,19 @@ export default function App() {
         />
 
         <Section label="1 — Allocation breakdown">
-          <AllocationBreakdown data={typedData} />
+          <AllocationBreakdown
+            data={typedData}
+            onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
+            onTrackMove={(deploymentMove) => handleTrackMove({
+              id: deploymentMove.id,
+              category: "deploy_cash",
+              action: `Buy $${deploymentMove.dollars.toLocaleString()} of ${deploymentMove.ticker} in ${deploymentMove.target_account}`,
+              target_account: deploymentMove.target_account,
+              dollars: deploymentMove.dollars,
+              rationale: deploymentMove.rationale,
+              scenarios_addressed: [],
+            })}
+          />
         </Section>
         <Section label="2 — Benchmark comparison">
           <BenchmarkComparison data={typedData} />
