@@ -1,0 +1,46 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderChatInput > emits a global-scope context block including header, top flags, and macro 1`] = `
+"{
+  "user_message": "Why is my grade B+?",
+  "scope": {
+    "type": "global"
+  },
+  "analysis_scope": {
+    "portfolio_grade": "B+",
+    "portfolio_score": 7.4,
+    "top_flags": [
+      {
+        "ticker": "CASH",
+        "severity": "yellow",
+        "title": "Idle cash 24.7%",
+        "body": "",
+        "finding_key": "diversification:cash_drag"
+      }
+    ],
+    "dimension_scores": [
+      {
+        "id": "diversification",
+        "label": "Diversification",
+        "score": 6.8,
+        "rating": "yellow",
+        "display_value": "—",
+        "note": "",
+        "weight": 0.15
+      }
+    ],
+    "macro": {
+      "market_regime": "late_cycle",
+      "vix": 18.2,
+      "yield_curve_spread_10y_2y": 0.42
+    },
+    "aggregates": {
+      "total_value": 2500000,
+      "cash_weight": 0.247
+    }
+  },
+  "open_situations": [],
+  "notes_in_scope": [],
+  "history": []
+}"
+`;
