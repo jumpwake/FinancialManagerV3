@@ -104,3 +104,33 @@ describe("renderChatInput dimension scope", () => {
     expect(parsed.analysis_scope.all_dimensions).toHaveLength(2);
   });
 });
+
+describe("renderChatInput tactical_move scope", () => {
+  it("includes the targeted tactical move and the broader tactical plan", () => {
+    const out = renderChatInput({
+      user_message: "Why this move?",
+      scope: { type: "tactical_move", move_id: "mv_1" },
+      analysis: {
+        portfolio_grade: "B",
+        macro: { market_regime: "Late Cycle" },
+        tactical_advisor: {
+          tactical_plan: {
+            summary: "Lift to A−",
+            target_grade: "A−",
+            next_7_days: [
+              { id: "mv_1", category: "deploy_cash", action: "Buy $40K VBTLX", target_account: "Pre-Tax IRA", dollars: 40_000, rationale: "...", scenarios_addressed: ["yield_curve"] },
+            ],
+            next_30_days: [],
+            scenario_resilience_notes: [],
+          },
+          deployment_recommendation: null,
+        },
+      },
+      situations: [], notes: [], history: [],
+    });
+    const parsed = JSON.parse(out);
+    expect(parsed.analysis_scope.move.id).toBe("mv_1");
+    expect(parsed.analysis_scope.move.action).toMatch(/VBTLX/);
+    expect(parsed.analysis_scope.tactical_plan_summary).toBe("Lift to A−");
+  });
+});
