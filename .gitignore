@@ -5,3 +5,4 @@ output/
 *.log
 .vite/
 .vitest-cache/
+.superpowers/
