@@ -1,7 +1,7 @@
 import { describe, test, it, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions, scoreAssetLocation } from "./dimensions";
 import { computeAggregates } from "./aggregates";
-import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
+import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { PortfolioAggregates, DimensionScore } from "../types";
 
@@ -737,5 +737,58 @@ describe("scoreDiversification does not penalize cross-account groups", () => {
     } as unknown as PortfolioAggregates;
     const result = scoreDiversification(agg);
     expect(result.score).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("scoreAssetLocation", () => {
+  it("returns neutral score when no account config is provided", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "FSKAX", market_value: 1000, asset_class: "us_equity_total_market", account_id: "fid" }),
+    ]});
+    const result = scoreAssetLocation(p, undefined);
+    expect(result.score).toBe(7);
+  });
+
+  it("penalizes individual stocks held in pre-tax (locks LTCG into ordinary income)", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "TSLA", market_value: 100, asset_class: "individual_stock", account_id: "fid_401k" }),
+      makeHolding({ ticker: "FSKAX", market_value: 900, asset_class: "us_equity_total_market", account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "fid_401k", account_type: "pretax_ira" }),
+        makeAccount({ id: "vng_roth", account_type: "roth_ira" }),
+      ],
+    };
+    const result = scoreAssetLocation(p, accounts);
+    expect(result.score).toBeLessThan(7);
+  });
+
+  it("rewards growth equity placed in Roth (highest-growth in tax-free account)", () => {
+    const pBad = makePortfolio({ holdings: [
+      makeHolding({ ticker: "QQQ", market_value: 1000, asset_class: "us_equity_large_cap_growth", account_id: "fid_401k" }),
+    ]});
+    const pGood = makePortfolio({ holdings: [
+      makeHolding({ ticker: "QQQ", market_value: 1000, asset_class: "us_equity_large_cap_growth", account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "fid_401k", account_type: "pretax_ira" }),
+        makeAccount({ id: "vng_roth", account_type: "roth_ira" }),
+      ],
+    };
+    const bad = scoreAssetLocation(pBad, accounts).score;
+    const good = scoreAssetLocation(pGood, accounts).score;
+    expect(good).toBeGreaterThan(bad);
+  });
+
+  it("score is clamped to [1, 10]", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "TSLA", market_value: 1000, asset_class: "individual_stock", account_id: "fid_401k" }),
+    ]});
+    const accounts = { accounts: [ makeAccount({ id: "fid_401k", account_type: "pretax_ira" }) ] };
+    const result = scoreAssetLocation(p, accounts);
+    expect(result.score).toBeGreaterThanOrEqual(1);
+    expect(result.score).toBeLessThanOrEqual(10);
   });
 });

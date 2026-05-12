@@ -1,4 +1,4 @@
-import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio } from "../types";
+import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -285,6 +285,11 @@ const QUALITY_TICKERS: Record<string, number> = {
   "XLP": 1.0, "VFSUX": 0.5, "FXNAX": 0.5, "VBTLX": 0.5,
 };
 
+const GROWTH_CLASSES = new Set<string>([
+  "us_equity_large_cap_growth",
+  "us_equity_small_mid",
+]);
+
 export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
   const total = agg.total_value;
   let raw = 0;
@@ -304,5 +309,70 @@ export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates)
     display_value: score >= 7 ? "Strong defensive tilt" : score >= 5 ? "Moderate" : "Weak",
     note: "Presence of quality/defensive/dividend-oriented holdings",
     weight: 0.06,
+  };
+}
+
+export function scoreAssetLocation(
+  portfolio: Portfolio,
+  accounts: AccountConfig | undefined,
+): DimensionScore {
+  if (!accounts || accounts.accounts.length === 0) {
+    return {
+      id: "asset_location",
+      label: "Asset location",
+      score: 7,
+      rating: toRating(7),
+      display_value: "Neutral (no account model)",
+      note: "Set up data/accounts.json with account_type per account to enable tax-aware scoring",
+      weight: 0.08,
+    };
+  }
+
+  const typeById = new Map<string, AccountType>();
+  for (const a of accounts.accounts) typeById.set(a.id, a.account_type);
+
+  const total = portfolio.holdings.reduce((s, h) => s + h.market_value, 0);
+  const w = (h: Holding) => (total > 0 ? h.market_value / total : 0);
+
+  let raw = 7;
+
+  for (const h of portfolio.holdings) {
+    const t = typeById.get(h.account_id);
+    if (!t) continue;
+    const tax = taxTreatmentFor(t);
+    const wt = w(h);
+
+    // Penalties
+    if (tax === "taxable_currently" && (h.asset_class === "balanced" || h.asset_class === "target_date")) {
+      raw -= wt * 30;
+    }
+    if (tax === "tax_deferred" && GROWTH_CLASSES.has(h.asset_class)) {
+      raw -= wt * 20;
+    }
+    if (tax === "tax_deferred" && h.asset_class === "individual_stock") {
+      raw -= wt * 20;
+    }
+    if (tax === "tax_free_growth" && h.asset_class === "us_equity_total_market") {
+      raw -= wt * 10;
+    }
+
+    // Bonuses
+    if (tax === "tax_free_growth" && (GROWTH_CLASSES.has(h.asset_class) || h.asset_class === "individual_stock")) {
+      raw += wt * 20;
+    }
+    if (tax === "tax_deferred" && (h.asset_class === "us_bond_aggregate" || h.asset_class === "us_bond_short" || h.asset_class === "us_bond_tips" || h.asset_class === "balanced")) {
+      raw += wt * 10;
+    }
+  }
+
+  const score = Math.max(1, Math.min(10, raw));
+  return {
+    id: "asset_location",
+    label: "Asset location",
+    score,
+    rating: toRating(score),
+    display_value: score >= 8 ? "Strong placement" : score >= 6 ? "Reasonable" : "Inefficient — move tax-heavy assets",
+    note: "Tax-efficiency of asset placement across Roth / Pre-Tax / Taxable accounts",
+    weight: 0.08,
   };
 }
