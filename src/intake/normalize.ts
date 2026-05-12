@@ -25,7 +25,7 @@ interface FidelityRawAccount {
 }
 
 /** Flatten one or more Fidelity raw accounts into a single Holding[] (does NOT dedupe across accounts — see consolidatePortfolio in Task 25). */
-export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holding[] {
+export function normalizeFidelityAccounts(accounts: FidelityRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {
     for (const raw of account.holdings) {
@@ -39,6 +39,7 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holdi
           label: raw.description || "Money Market",
           market_value,
           asset_class: "cash",
+          account_id,
           is_cash: true,
           is_pending_deployment: false,
           expense_ratio: null,
@@ -53,6 +54,7 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holdi
         label: raw.description || ticker,
         market_value,
         asset_class: meta?.asset_class ?? "us_equity_total_market",
+        account_id,
         sector_tag: meta?.sector_tag,
         is_cash: false,
         is_pending_deployment: false,
@@ -75,7 +77,7 @@ interface EmpowerRawAccount {
   holdings: EmpowerRawHolding[];
 }
 
-export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[]): Holding[] {
+export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {
     for (const raw of account.holdings) {
@@ -88,6 +90,7 @@ export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[]): Holding
         label: raw.symbol,
         market_value,
         asset_class: meta?.asset_class ?? "us_equity_total_market",
+        account_id,
         sector_tag: meta?.sector_tag,
         is_cash: false,
         is_pending_deployment: false,
@@ -141,7 +144,7 @@ export function consolidatePortfolio(
   };
 }
 
-export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holding[] {
+export function normalizeVanguardAccounts(accounts: VanguardRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {
     for (const raw of account.holdings) {
@@ -155,6 +158,7 @@ export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holdi
         label: ticker,
         market_value,
         asset_class: meta?.asset_class ?? "us_equity_total_market",
+        account_id,
         sector_tag: meta?.sector_tag,
         is_cash: false,
         is_pending_deployment: false,
@@ -170,6 +174,7 @@ export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holdi
         label: `Vanguard settlement fund (${account.account_number})`,
         market_value: settlement,
         asset_class: "cash",
+        account_id,
         is_cash: true,
         is_pending_deployment: false,
         expense_ratio: null,

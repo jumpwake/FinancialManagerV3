@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import { parseMoneyString, normalizeFidelityAccounts, normalizeEmpowerAccounts, normalizeVanguardAccounts, consolidatePortfolio } from "./normalize";
 import { parsePortfolio } from "./parsePortfolio";
 import { computeAggregates } from "../engine/aggregates";
@@ -39,7 +39,7 @@ describe("normalizeFidelityAccounts", () => {
         ],
       },
     ];
-    const holdings = normalizeFidelityAccounts(raw);
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings).toHaveLength(2);
     const fskax = holdings.find(h => h.ticker === "FSKAX")!;
     expect(fskax.market_value).toBe(600);
@@ -57,7 +57,7 @@ describe("normalizeFidelityAccounts", () => {
         ],
       },
     ];
-    const holdings = normalizeFidelityAccounts(raw);
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings).toHaveLength(1);
     const cash = holdings[0];
     expect(cash.is_cash).toBe(true);
@@ -75,14 +75,14 @@ describe("normalizeFidelityAccounts", () => {
         ],
       },
     ];
-    const holdings = normalizeFidelityAccounts(raw);
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings[0].ticker).toBe("FSKAX");
     expect(holdings[0].label).toBe("FIDELITY TOTAL MARKET INDEX FUND");
   });
 
   test("loads and normalizes the real Fidelity sample file", () => {
     const raw = JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio/20260509_FidelityRetirement.json"), "utf-8"));
-    const holdings = normalizeFidelityAccounts(raw);
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings.length).toBeGreaterThan(0);
     // Should include FSKAX from Kelly401k and from Kevin401k (2 separate holdings — Task 25 will dedupe)
     const fskaxHoldings = holdings.filter(h => h.ticker === "FSKAX");
@@ -103,7 +103,7 @@ describe("normalizeFidelityAccounts", () => {
         ],
       },
     ];
-    const holdings = normalizeFidelityAccounts(raw);
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings[0].sector_tag).toBe("utilities");
   });
 });
@@ -118,7 +118,7 @@ describe("normalizeEmpowerAccounts", () => {
         ],
       },
     ];
-    const holdings = normalizeEmpowerAccounts(raw);
+    const holdings = normalizeEmpowerAccounts(raw, "acct_a");
     expect(holdings).toHaveLength(1);
     const h = holdings[0];
     expect(h.market_value).toBeCloseTo(258681.46, 2);
@@ -134,12 +134,12 @@ describe("normalizeEmpowerAccounts", () => {
         holdings: [{ symbol: "Target Retirement 2040 Fund", balance: "$31,790.66", quantity: "393" }],
       },
     ];
-    expect(normalizeEmpowerAccounts(raw)[0].asset_class).toBe("target_date");
+    expect(normalizeEmpowerAccounts(raw, "acct_a")[0].asset_class).toBe("target_date");
   });
 
   test("loads the real Empower sample file", () => {
     const raw = JSON.parse(require("fs").readFileSync(require("path").resolve("data/SamplePortfolio/20260509_EmpowerKelly.json"), "utf-8"));
-    const holdings = normalizeEmpowerAccounts(raw);
+    const holdings = normalizeEmpowerAccounts(raw, "acct_a");
     expect(holdings).toHaveLength(3);
     expect(holdings.every(h => h.market_value > 0)).toBe(true);
     const labels = holdings.map(h => h.label).sort();
@@ -158,7 +158,7 @@ describe("normalizeVanguardAccounts", () => {
         settlement_fund: "$5,000.00",
       },
     ];
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     expect(holdings).toHaveLength(1);
     expect(holdings[0].is_cash).toBe(true);
     expect(holdings[0].asset_class).toBe("cash");
@@ -176,7 +176,7 @@ describe("normalizeVanguardAccounts", () => {
         settlement_fund: "$0.00",
       },
     ];
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     // Two holdings + the settlement_fund (which is $0 so should be skipped)
     expect(holdings).toHaveLength(2);
     const vtsax = holdings.find(h => h.ticker === "VTSAX")!;
@@ -194,7 +194,7 @@ describe("normalizeVanguardAccounts", () => {
         settlement_fund: "$0.00",
       },
     ];
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     const stockHoldings = holdings.filter(h => !h.is_cash);
     expect(stockHoldings).toHaveLength(1);
     expect(stockHoldings[0].ticker).toBe("BRK-B");
@@ -203,7 +203,7 @@ describe("normalizeVanguardAccounts", () => {
 
   test("loads the real VanguardBusiness sample file", () => {
     const raw = JSON.parse(require("fs").readFileSync(require("path").resolve("data/SamplePortfolio/20260509_VanguardBusiness.json"), "utf-8"));
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     // 3 holdings (VFSUX, QQQ, NVDA) + 1 settlement_fund cash
     expect(holdings).toHaveLength(4);
     expect(holdings.filter(h => h.is_cash)).toHaveLength(1);
@@ -214,7 +214,7 @@ describe("normalizeVanguardAccounts", () => {
     const raw = [
       { account_number: "X", holdings: [], settlement_fund: "$0.00" },
     ];
-    expect(normalizeVanguardAccounts(raw)).toEqual([]);
+    expect(normalizeVanguardAccounts(raw, "acct_a")).toEqual([]);
   });
 });
 
@@ -269,7 +269,7 @@ describe("stock_metrics attachment", () => {
     const raw = [
       { account_number: "X", holdings: [{ symbol: "NVDA", quantity: "100", balance: "$10,000.00" }], settlement_fund: "$0" },
     ];
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     const nvda = holdings.find(h => h.ticker === "NVDA")!;
     expect(nvda.stock_metrics).toBeDefined();
     expect(nvda.stock_metrics!.pe_ratio).toBeCloseTo(44.74, 2);
@@ -280,7 +280,7 @@ describe("stock_metrics attachment", () => {
     const raw = [
       { account_number: "X", holdings: [{ symbol: "TSLA", quantity: "100", balance: "$10,000.00" }], settlement_fund: "$0" },
     ];
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     const tsla = holdings.find(h => h.ticker === "TSLA")!;
     expect(tsla.stock_metrics).toBeDefined();
     expect(tsla.stock_metrics!.pe_ratio).toBeCloseTo(410.29, 2);
@@ -291,7 +291,7 @@ describe("stock_metrics attachment", () => {
     const raw = [
       { account_number: "X", holdings: [{ symbol: "BRK B", quantity: "10", balance: "$5,000.00" }], settlement_fund: "$0" },
     ];
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     const brk = holdings.find(h => h.ticker === "BRK-B")!;
     expect(brk.stock_metrics).toBeDefined();
     expect(brk.stock_metrics!.pe_ratio).toBeCloseTo(26.12, 2);
@@ -304,7 +304,7 @@ describe("stock_metrics attachment", () => {
         holdings: [{ symbol: "FSKAX", description: "Fidelity Total Market", quantity: "5", balance: "$1000.00" }],
       },
     ];
-    const holdings = normalizeFidelityAccounts(raw);
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings[0].stock_metrics).toBeUndefined();
   });
 
@@ -315,7 +315,7 @@ describe("stock_metrics attachment", () => {
     const { scoreSingleStockRisk } = await import("../engine/dimensions");
 
     const raw = JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio/20260509_VanguardPersonal.json"), "utf-8"));
-    const holdings = normalizeVanguardAccounts(raw);
+    const holdings = normalizeVanguardAccounts(raw, "acct_a");
     // Build a portfolio that's mostly TSLA so the penalty shows clearly
     const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
     const agg = computeAggregates(portfolio);
@@ -323,6 +323,41 @@ describe("stock_metrics attachment", () => {
     // TSLA's P/E 410 + declining EPS + high beta + declining revenue should drag the score well below 10
     expect(score.score).toBeLessThan(10);
     expect(score.display_value).toContain("TSLA");
+  });
+});
+
+describe("normalize attaches account_id", () => {
+  it("Fidelity holdings carry the account_id passed in", () => {
+    const result = normalizeFidelityAccounts(
+      [
+        {
+          account_id: "raw_fid",
+          account_name: "Fidelity Retirement",
+          account_label: "Fidelity",
+          total_value: "$1000",
+          holdings: [
+            { symbol: "FSKAX", description: "Total Mkt", quantity: "10", balance: "$1,000" },
+          ],
+        },
+      ],
+      "fidelity_retirement",
+    );
+    expect(result[0].account_id).toBe("fidelity_retirement");
+  });
+
+  it("Vanguard settlement cash carries the account_id", () => {
+    const result = normalizeVanguardAccounts(
+      [
+        {
+          account_number: "X123",
+          settlement_fund: "$500",
+          holdings: [],
+        },
+      ],
+      "vanguard_personal",
+    );
+    expect(result[0].account_id).toBe("vanguard_personal");
+    expect(result[0].is_cash).toBe(true);
   });
 });
 
@@ -334,11 +369,11 @@ describe("end-to-end normalization", () => {
 
     const load = (file: string) => JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio", file), "utf-8"));
 
-    const fidelityHoldings = normalizeFidelityAccounts(load("20260509_FidelityRetirement.json"));
-    const empowerHoldings  = normalizeEmpowerAccounts(load("20260509_EmpowerKelly.json"));
-    const vbHoldings       = normalizeVanguardAccounts(load("20260509_VanguardBusiness.json"));
-    const vkdbHoldings     = normalizeVanguardAccounts(load("20260509_VanguardKDB.json"));
-    const vpHoldings       = normalizeVanguardAccounts(load("20260509_VanguardPersonal.json"));
+    const fidelityHoldings = normalizeFidelityAccounts(load("20260509_FidelityRetirement.json"), "acct_a");
+    const empowerHoldings  = normalizeEmpowerAccounts(load("20260509_EmpowerKelly.json"), "acct_a");
+    const vbHoldings       = normalizeVanguardAccounts(load("20260509_VanguardBusiness.json"), "acct_a");
+    const vkdbHoldings     = normalizeVanguardAccounts(load("20260509_VanguardKDB.json"), "acct_a");
+    const vpHoldings       = normalizeVanguardAccounts(load("20260509_VanguardPersonal.json"), "acct_a");
 
     const all = [...fidelityHoldings, ...empowerHoldings, ...vbHoldings, ...vkdbHoldings, ...vpHoldings];
     const portfolio = consolidatePortfolio(all, "2026-05-09", "All Accounts");
