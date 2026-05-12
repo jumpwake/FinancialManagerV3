@@ -1,4 +1,4 @@
-import { PortfolioAggregates, DimensionScore, Rating } from "../types";
+import { PortfolioAggregates, DimensionScore, Rating, MacroContext } from "../types";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -128,6 +128,33 @@ export function scoreDiversification(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `${filledBuckets} asset buckets`,
     note: "Distinct asset class buckets with ≥ 3% weight; penalized for overlapping funds",
+    weight: 0.12,
+  };
+}
+
+export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
+  const fi = agg.fixed_income_weight;
+  const targets: Record<string, { min: number; max: number }> = {
+    "Late Cycle":  { min: 0.18, max: 0.30 },
+    "Mid Cycle":   { min: 0.15, max: 0.25 },
+    "Early Cycle": { min: 0.10, max: 0.20 },
+    "Recession":   { min: 0.25, max: 0.40 },
+  };
+  const target = targets[macro.market_regime] ?? { min: 0.15, max: 0.25 };
+
+  const score =
+    fi >= target.min && fi <= target.max ? 9 :
+    fi >= target.min * 0.8               ? 7 :
+    fi >= target.min * 0.5               ? 5 :
+    fi > target.max                      ? 7 : 3;
+
+  return {
+    id: "bond_balance",
+    label: "Bond balance",
+    score,
+    rating: toRating(score),
+    display_value: `${(fi * 100).toFixed(1)}% FI (target ${(target.min * 100).toFixed(0)}–${(target.max * 100).toFixed(0)}%)`,
+    note: `Target range for ${macro.market_regime} regime`,
     weight: 0.12,
   };
 }

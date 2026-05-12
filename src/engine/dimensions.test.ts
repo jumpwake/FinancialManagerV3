@@ -1,7 +1,8 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
+import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { PortfolioAggregates } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
@@ -341,5 +342,68 @@ describe("scoreDiversification", () => {
     // international = 0.20, fixed_income = 0.15, balanced = 0.05, individual_stock = 0.10
     // All 5 buckets >= 3% → score 10
     expect(scoreDiversification(agg).score).toBe(10);
+  });
+});
+
+function aggForBond(fi: number): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 5,
+    duplicate_groups: [],
+    top3_weight: 0,
+    top3_tickers: [],
+    cash_weight: 0,
+    idle_cash_weight: 0,
+    pending_cash_weight: 0,
+    pending_cash_value: 0,
+    international_weight: 0,
+    equity_weight: 1 - fi,
+    fixed_income_weight: fi,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
+    sector_holdings: [],
+  };
+}
+
+describe("scoreBondBalance", () => {
+  test("returns 9 for Late Cycle when FI is 18–30%", () => {
+    const agg = aggForBond(0.22);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Late Cycle" })).score).toBe(9);
+  });
+
+  test("returns 9 for Mid Cycle when FI is 15–25%", () => {
+    const agg = aggForBond(0.20);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Mid Cycle" })).score).toBe(9);
+  });
+
+  test("returns 9 for Recession when FI is 25–40%", () => {
+    const agg = aggForBond(0.30);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Recession" })).score).toBe(9);
+  });
+
+  test("returns 7 for slightly below target (>= 0.8x min)", () => {
+    const agg = aggForBond(0.15);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Late Cycle" })).score).toBe(7);
+  });
+
+  test("returns 5 for half target", () => {
+    const agg = aggForBond(0.10);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Late Cycle" })).score).toBe(5);
+  });
+
+  test("returns 3 for severely underweight", () => {
+    const agg = aggForBond(0.05);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Late Cycle" })).score).toBe(3);
+  });
+
+  test("returns 7 when over the target range (overweight penalty is mild)", () => {
+    const agg = aggForBond(0.50);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Late Cycle" })).score).toBe(7);
+  });
+
+  test("unknown regime falls back to 15–25% target", () => {
+    const agg = aggForBond(0.20);
+    expect(scoreBondBalance(agg, makeMacro({ market_regime: "Unknown" })).score).toBe(9);
   });
 });
