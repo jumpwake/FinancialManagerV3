@@ -111,6 +111,3 @@ npx tsc --noEmit -p src/report/app/tsconfig.json
 ## What's still TODO
 
 - The "Post-T3 projected weights" toggle in `AllocationBreakdown.tsx` is stubbed (TODO comment)
-- React UI hasn't been visually QA'd in a browser — built per spec, not iterated against rendered output
-- The dev doc spec is older than the implementation in several places; trust the code, not §6 / §13 / §15
-- No production build target tested — `npm run build` should work but hasn't been exercised
