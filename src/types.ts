@@ -103,6 +103,13 @@ export interface Flag {
   body: string;
 }
 
+export interface GapItem {
+  title: string;
+  type: "red" | "amber" | "blue";
+  body: string;
+  progress: number;
+}
+
 export type Rating = "green" | "yellow" | "red";
 
 export interface DimensionScore {

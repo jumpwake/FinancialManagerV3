@@ -1,4 +1,4 @@
-import { Portfolio, MacroContext, PortfolioAggregates, Flag } from "../types";
+import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem } from "../types";
 
 export function generateFlags(
   portfolio: Portfolio,
@@ -75,4 +75,64 @@ export function generateFlags(
   }
 
   return flags;
+}
+
+export function generateGapItems(
+  agg: PortfolioAggregates,
+  dimensions: DimensionScore[],
+  macro: MacroContext
+): GapItem[] {
+  const gaps: GapItem[] = [];
+  const dim = (id: string) => dimensions.find(d => d.id === id)!;
+
+  if (agg.idle_cash_weight > 0.05) {
+    gaps.push({
+      title: "Cash drag",
+      type: "red",
+      body: `${(agg.idle_cash_weight * 100).toFixed(1)}% idle cash reducing returns. Target ≤ 3%.`,
+      progress: Math.round((1 - agg.idle_cash_weight / 0.30) * 100),
+    });
+  }
+
+  const stockRiskDim = dim("single_stock_risk");
+  if (stockRiskDim.score < 6) {
+    gaps.push({
+      title: "Single-stock risk",
+      type: "red",
+      body: `${stockRiskDim.display_value}. Deteriorating fundamentals in high-weight positions.`,
+      progress: Math.round(stockRiskDim.score * 10),
+    });
+  }
+
+  const bondDim = dim("bond_balance");
+  if (bondDim.score < 7) {
+    gaps.push({
+      title: "Fixed income underweight",
+      type: "amber",
+      body: `${(agg.fixed_income_weight * 100).toFixed(1)}% FI vs. ${macro.market_regime} target. Add FXNAX or VBTLX weight.`,
+      progress: Math.round((agg.fixed_income_weight / 0.20) * 100),
+    });
+  }
+
+  if (agg.duplicate_groups.length > 0) {
+    const g = agg.duplicate_groups[0];
+    gaps.push({
+      title: "Fund overlap / redundancy",
+      type: "amber",
+      body: `${g.tickers.join(" + ")} hold nearly identical securities. Consolidate to reduce complexity.`,
+      progress: 20,
+    });
+  }
+
+  const concDim = dim("concentration");
+  if (concDim.score < 7) {
+    gaps.push({
+      title: "Top-3 concentration",
+      type: "amber",
+      body: `${(agg.top3_weight * 100).toFixed(1)}% in top 3 holdings (${agg.top3_tickers.join(", ")}). Target ≤ 45%.`,
+      progress: Math.round(((1 - agg.top3_weight) / 0.65) * 100),
+    });
+  }
+
+  return gaps;
 }

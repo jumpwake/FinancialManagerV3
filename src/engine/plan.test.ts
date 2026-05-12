@@ -1,8 +1,14 @@
 import { describe, test, expect } from "vitest";
-import { generateFlags } from "./plan";
+import { generateFlags, generateGapItems } from "./plan";
 import { computeAggregates } from "./aggregates";
+import { scoreAllDimensions } from "./dimensions";
 import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
+import { Portfolio } from "../types";
+
+function dimsFor(portfolio: Portfolio, macro = makeMacro()) {
+  return scoreAllDimensions(portfolio, computeAggregates(portfolio), macro);
+}
 
 describe("generateFlags — individual stocks", () => {
   test("emits RED flag for P/E > 100 + declining EPS", () => {
@@ -96,5 +102,50 @@ describe("generateFlags — portfolio-level", () => {
     });
     const flags = generateFlags(portfolio, computeAggregates(portfolio), makeMacro());
     expect(flags.some(f => f.title.includes("Redundant"))).toBe(true);
+  });
+});
+
+describe("generateGapItems", () => {
+  test("emits RED 'Cash drag' when idle_cash > 5%", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 900 }),
+        makeHolding({ ticker: "SPAXX", market_value: 100, is_cash: true, asset_class: "cash", expense_ratio: null }),
+      ],
+    });
+    const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro());
+    expect(gaps.some(g => g.title === "Cash drag" && g.type === "red")).toBe(true);
+  });
+
+  test("emits AMBER FI underweight when bond_balance score < 7", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro());
+    expect(gaps.some(g => g.title.includes("Fixed income") && g.type === "amber")).toBe(true);
+  });
+
+  test("emits AMBER overlap gap when duplicate_groups non-empty", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 500, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "VTSAX", market_value: 500, asset_class: "us_equity_total_market" }),
+      ],
+    });
+    const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro());
+    expect(gaps.some(g => g.title.includes("overlap"))).toBe(true);
+  });
+
+  test("no RED gaps emitted for a healthy portfolio", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 550, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "FTIHX", market_value: 200, asset_class: "international_equity" }),
+        makeHolding({ ticker: "FXNAX", market_value: 200, asset_class: "us_bond_aggregate" }),
+        makeHolding({ ticker: "VWENX", market_value: 50, asset_class: "balanced" }),
+      ],
+    });
+    const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro({ market_regime: "Mid Cycle" }));
+    expect(gaps.find(g => g.type === "red")).toBeUndefined();
   });
 });
