@@ -1,6 +1,6 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, it } from "vitest";
 import { computeAggregates } from "./aggregates";
-import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
+import { makeHolding, makePortfolio, makeAccount } from "../../tests/fixtures/samplePortfolio";
 
 describe("computeAggregates", () => {
   describe("total_value", () => {
@@ -286,5 +286,76 @@ describe("computeAggregates — sector_holdings", () => {
       ],
     });
     expect(computeAggregates(portfolio).sector_holdings).toEqual([]);
+  });
+});
+
+describe("aggregates — cross-account groups", () => {
+  it("FSKAX in two accounts is recorded as cross_account_groups, not duplicate_groups", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 1000, asset_class: "us_equity_total_market", account_id: "fid" }),
+        makeHolding({ ticker: "VTSAX", market_value: 1000, asset_class: "us_equity_total_market", account_id: "vng_personal" }),
+      ],
+    });
+    const agg = computeAggregates(p);
+    expect(agg.duplicate_groups).toHaveLength(0);
+    expect(agg.cross_account_groups).toHaveLength(1);
+    expect(agg.cross_account_groups[0].asset_class).toBe("us_equity_total_market");
+    expect(agg.cross_account_groups[0].combined_weight).toBeCloseTo(1.0, 2);
+  });
+
+  it("Two same-asset-class entries in the SAME account remain duplicates", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 1000, asset_class: "us_equity_total_market", account_id: "fid" }),
+        makeHolding({ ticker: "ITOT",  market_value: 1000, asset_class: "us_equity_total_market", account_id: "fid" }),
+      ],
+    });
+    const agg = computeAggregates(p);
+    expect(agg.duplicate_groups).toHaveLength(1);
+    expect(agg.duplicate_groups[0].tickers).toContain("FSKAX");
+    expect(agg.duplicate_groups[0].tickers).toContain("ITOT");
+  });
+});
+
+describe("aggregates — composition decomposition", () => {
+  it("VWENX with 60/5/35/0 composition contributes to equity AND FI weights", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({
+          ticker: "VWENX",
+          market_value: 1000,
+          asset_class: "balanced",
+          account_id: "vng",
+          underlying_composition: { us_equity: 0.60, international_equity: 0.05, fixed_income: 0.35, cash: 0.0 },
+        }),
+      ],
+    });
+    const agg = computeAggregates(p);
+    expect(agg.equity_weight).toBeCloseTo(0.60, 2);
+    expect(agg.international_weight).toBeCloseTo(0.05, 2);
+    expect(agg.fixed_income_weight).toBeCloseTo(0.35, 2);
+    expect(agg.balanced_weight).toBeCloseTo(1.0, 2);
+  });
+});
+
+describe("aggregates — constrained cash", () => {
+  it("Cash in an account marked excluded_from_deployment goes to constrained_cash_weight, not idle", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "Cash", market_value: 500, asset_class: "cash", is_cash: true, account_id: "vng_business" }),
+        makeHolding({ ticker: "Cash", market_value: 500, asset_class: "cash", is_cash: true, account_id: "vng_personal" }),
+      ],
+    });
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "vng_business", constraints: { excluded_from_deployment: true } }),
+        makeAccount({ id: "vng_personal" }),
+      ],
+    };
+    const agg = computeAggregates(p, accounts);
+    expect(agg.constrained_cash_weight).toBeCloseTo(0.5, 2);
+    expect(agg.idle_cash_weight).toBeCloseTo(0.5, 2);
+    expect(agg.cash_weight).toBeCloseTo(1.0, 2);
   });
 });
