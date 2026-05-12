@@ -178,7 +178,7 @@ export default function AllocationBreakdown({
           </thead>
           <tbody>
             {sorted.map((h, i) => (
-              <tr key={h.ticker} style={{ borderBottom: i < sorted.length - 1 ? `1px solid ${COLORS.border}` : undefined }}>
+              <tr key={`${h.account_id}::${h.ticker}`} style={{ borderBottom: i < sorted.length - 1 ? `1px solid ${COLORS.border}` : undefined }}>
                 <td style={{ padding: "8px 14px", fontSize: 13, color: COLORS.text }}>
                   <span style={{ fontWeight: 500 }}>{h.ticker}</span>
                   <span style={{ color: COLORS.textMuted, marginLeft: 8, fontSize: 12 }}>{h.label}</span>
