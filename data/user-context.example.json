@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "situations": [
+    {
+      "id": "sit_2026-05-12_rollover-t3",
+      "title": "Rollover IRA — T3 deployment",
+      "intent": "3-tranche rollover of $600k from old IRA into 60/40 equity/FI. T1 ($200k) deployed 2026-02-14 into FTIHX/FXNAX. T2 ($200k) deployed 2026-04-02 same allocation. T3 ($200k) pending — watching for fear signals before deploying.",
+      "status": "open",
+      "target_date": "2026-06-30",
+      "related_findings": ["diversification:cash_drag"],
+      "portfolio_effects": [
+        {
+          "type": "mark_cash_pending",
+          "amount_usd": 200000,
+          "deployment_label": "Rollover T3"
+        }
+      ],
+      "verdict_history": [],
+      "created_at": "2026-05-12T11:45:00Z",
+      "updated_at": "2026-05-12T11:45:00Z",
+      "closed_at": null,
+      "closure_reason": null
+    }
+  ],
+  "notes": [
+    {
+      "id": "note_2026-05-12_dupe-funds",
+      "target": { "type": "flag", "finding_key": "cost:duplicate_funds" },
+      "body": "VTSAX at Vanguard, FSKAX at Fidelity — cross-brokerage consolidation not worth the friction.",
+      "suppress_flag": true,
+      "created_at": "2026-05-12T11:50:00Z"
+    }
+  ],
+  "chat_history": []
+}

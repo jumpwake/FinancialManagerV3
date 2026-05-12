@@ -6,3 +6,4 @@ output/
 .vite/
 .vitest-cache/
 .superpowers/
+data/user-context.json
