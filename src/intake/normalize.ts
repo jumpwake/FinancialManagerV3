@@ -153,8 +153,9 @@ interface VanguardRawAccount {
 }
 
 /**
- * Merge duplicate tickers across all accounts/brokers into a single Portfolio.
- * Holdings with the same ticker have their market_values summed.
+ * Merge duplicate (account_id, ticker) pairs within a Portfolio.
+ * Holdings with the same account_id AND ticker have their market_values summed.
+ * Holdings with the same ticker but different account_ids are kept separate.
  * All other fields (label, asset_class, expense_ratio, sector_tag) are taken from the first occurrence.
  * Output is sorted by market_value descending.
  */
@@ -163,18 +164,19 @@ export function consolidatePortfolio(
   snapshot_date: string,
   account_label: string
 ): Portfolio {
-  const byTicker: Record<string, Holding> = {};
+  const byKey: Record<string, Holding> = {};
   for (const h of holdings) {
-    if (byTicker[h.ticker]) {
-      byTicker[h.ticker] = {
-        ...byTicker[h.ticker],
-        market_value: byTicker[h.ticker].market_value + h.market_value,
+    const key = `${h.account_id}::${h.ticker}`;
+    if (byKey[key]) {
+      byKey[key] = {
+        ...byKey[key],
+        market_value: byKey[key].market_value + h.market_value,
       };
     } else {
-      byTicker[h.ticker] = { ...h };
+      byKey[key] = { ...h };
     }
   }
-  const merged = Object.values(byTicker).sort((a, b) => b.market_value - a.market_value);
+  const merged = Object.values(byKey).sort((a, b) => b.market_value - a.market_value);
   return {
     snapshot_date,
     account_label,

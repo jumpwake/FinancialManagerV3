@@ -406,6 +406,36 @@ describe("normalize attaches underlying_composition", () => {
   });
 });
 
+describe("consolidatePortfolio is account-aware", () => {
+  it("merges identical (ticker, account_id) within the same account", () => {
+    const merged = consolidatePortfolio(
+      [
+        { ticker: "FSKAX", label: "FSKAX", market_value: 100, asset_class: "us_equity_total_market", account_id: "fid", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+        { ticker: "FSKAX", label: "FSKAX", market_value: 50,  asset_class: "us_equity_total_market", account_id: "fid", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+      ],
+      "2026-05-09",
+      "All Accounts",
+    );
+    expect(merged.holdings).toHaveLength(1);
+    expect(merged.holdings[0].market_value).toBe(150);
+    expect(merged.holdings[0].account_id).toBe("fid");
+  });
+
+  it("does NOT merge same ticker across different accounts", () => {
+    const merged = consolidatePortfolio(
+      [
+        { ticker: "FSKAX", label: "FSKAX", market_value: 100, asset_class: "us_equity_total_market", account_id: "fid", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+        { ticker: "FSKAX", label: "FSKAX", market_value: 80,  asset_class: "us_equity_total_market", account_id: "vng_personal", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+      ],
+      "2026-05-09",
+      "All Accounts",
+    );
+    expect(merged.holdings).toHaveLength(2);
+    expect(merged.holdings.find(h => h.account_id === "fid")!.market_value).toBe(100);
+    expect(merged.holdings.find(h => h.account_id === "vng_personal")!.market_value).toBe(80);
+  });
+});
+
 describe("end-to-end normalization", () => {
   test("all 5 sample files normalize, consolidate, validate, and aggregate cleanly", async () => {
     const fs = await import("node:fs");
