@@ -7,6 +7,7 @@
       "label": "Fidelity Total Market Index Fund",
       "market_value": 680000,
       "asset_class": "us_equity_total_market",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.00015
@@ -16,6 +17,7 @@
       "label": "Fidelity Government Money Market",
       "market_value": 483000,
       "asset_class": "cash",
+      "account_id": "fid",
       "is_cash": true,
       "is_pending_deployment": true,
       "deployment_date": "2026-05-29",
@@ -27,6 +29,7 @@
       "label": "Fidelity Total International Index Fund",
       "market_value": 270000,
       "asset_class": "international_equity",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.00006
@@ -36,6 +39,7 @@
       "label": "Fidelity US Bond Index Fund",
       "market_value": 160000,
       "asset_class": "us_bond_aggregate",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.00025
@@ -45,6 +49,7 @@
       "label": "Vanguard Wellington Fund Admiral",
       "market_value": 110000,
       "asset_class": "balanced",
+      "account_id": "vng",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.0017
@@ -54,6 +59,7 @@
       "label": "Tesla Inc",
       "market_value": 58000,
       "asset_class": "individual_stock",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": null,
@@ -74,6 +80,7 @@
       "label": "NVIDIA Corporation",
       "market_value": 52000,
       "asset_class": "individual_stock",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": null,
@@ -95,6 +102,7 @@
       "market_value": 48000,
       "asset_class": "us_equity_sector",
       "sector_tag": "utilities",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.0008
@@ -104,6 +112,7 @@
       "label": "Vanguard Short-Term Investment-Grade",
       "market_value": 38000,
       "asset_class": "us_bond_short",
+      "account_id": "vng",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.001
@@ -113,6 +122,7 @@
       "label": "Invesco Nasdaq-100 ETF",
       "market_value": 36000,
       "asset_class": "us_equity_large_cap_growth",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": 0.002
@@ -122,6 +132,7 @@
       "label": "Berkshire Hathaway Class B",
       "market_value": 32000,
       "asset_class": "individual_stock",
+      "account_id": "fid",
       "is_cash": false,
       "is_pending_deployment": false,
       "expense_ratio": null,
@@ -142,6 +153,7 @@
       "label": "Vanguard Federal Money Market",
       "market_value": 22000,
       "asset_class": "cash",
+      "account_id": "vng",
       "is_cash": true,
       "is_pending_deployment": false,
       "expense_ratio": null
