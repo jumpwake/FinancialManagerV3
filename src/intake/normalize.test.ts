@@ -361,6 +361,51 @@ describe("normalize attaches account_id", () => {
   });
 });
 
+describe("normalize attaches underlying_composition", () => {
+  it("VWENX gets composition from tickerMetadata", () => {
+    const result = normalizeVanguardAccounts(
+      [{
+        account_number: "X",
+        settlement_fund: "$0",
+        holdings: [{ symbol: "VWENX", quantity: "100", balance: "$10,000" }],
+      }],
+      "vanguard_personal",
+    );
+    expect(result[0].underlying_composition).toBeDefined();
+    expect(result[0].underlying_composition!.us_equity).toBeCloseTo(0.60, 2);
+    expect(result[0].underlying_composition!.fixed_income).toBeCloseTo(0.35, 2);
+  });
+
+  it("a target-date fund gets composition from the glide path helper", () => {
+    const result = normalizeVanguardAccounts(
+      [{
+        account_number: "X",
+        settlement_fund: "$0",
+        holdings: [{ symbol: "VFORX", quantity: "100", balance: "$10,000" }],
+      }],
+      "vanguard_personal",
+    );
+    expect(result[0].underlying_composition).toBeDefined();
+    // 2040 fund today (2026): glide path → ~80% equity (us + intl)
+    const c = result[0].underlying_composition!;
+    expect(c.us_equity + c.international_equity).toBeCloseTo(0.80, 1);
+  });
+
+  it("a regular total-market fund (FSKAX) gets no composition", () => {
+    const result = normalizeFidelityAccounts(
+      [{
+        account_id: "X",
+        account_name: "X",
+        account_label: "X",
+        total_value: "$1",
+        holdings: [{ symbol: "FSKAX", description: "Total Market", quantity: "1", balance: "$1,000" }],
+      }],
+      "fidelity_retirement",
+    );
+    expect(result[0].underlying_composition).toBeUndefined();
+  });
+});
+
 describe("end-to-end normalization", () => {
   test("all 5 sample files normalize, consolidate, validate, and aggregate cleanly", async () => {
     const fs = await import("node:fs");
