@@ -247,10 +247,11 @@ export interface Note {
 }
 
 export interface ChatScope {
-  type: "global" | "flag" | "gap" | "situation" | "dimension";
+  type: "global" | "flag" | "gap" | "situation" | "dimension" | "tactical_move";
   finding_key?: string;
   situation_id?: string;
   dimension_id?: string;
+  move_id?: string;
 }
 
 export interface ChatToolCall {
@@ -268,6 +269,51 @@ export interface ChatMessage {
   created_at: string;
 }
 
+// Wave 3 — Tactical Advisor types (mirror of src/types.ts)
+
+export interface DeploymentMove {
+  id: string;
+  ticker: string;
+  dollars: number;
+  target_account: string;
+  rationale: string;
+}
+
+export type TacticalMoveCategory =
+  | "deploy_cash"
+  | "rebalance"
+  | "trim"
+  | "asset_location_swap"
+  | "scenario_hedge"
+  | "tax_loss_harvest";
+
+export interface TacticalMove {
+  id: string;
+  category: TacticalMoveCategory;
+  action: string;
+  target_account: string;
+  dollars: number;
+  rationale: string;
+  scenarios_addressed: string[];
+  expected_score_delta?: number;
+}
+
+export interface TacticalAdvisorOutput {
+  deployment_recommendation: {
+    summary: string;
+    moves: DeploymentMove[];
+    projected_grade: string;
+    projected_dimension_deltas: Record<string, number>;
+  } | null;
+  tactical_plan: {
+    summary: string;
+    target_grade: string;
+    next_7_days: TacticalMove[];
+    next_30_days: TacticalMove[];
+    scenario_resilience_notes: string[];
+  };
+}
+
 export interface AnalysisOutput {
   generated_at: string;
   portfolio: Portfolio;
@@ -283,6 +329,7 @@ export interface AnalysisOutput {
   score_trajectory: ScorePoint[];
   findings: Finding[];
   narratives: AINarratives | null;
+  tactical_advisor: TacticalAdvisorOutput | null;
   accounts?: AccountConfig | null;
   situations?: Situation[];
   notes?: Note[];
