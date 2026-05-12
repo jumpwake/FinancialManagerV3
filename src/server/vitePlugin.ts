@@ -1,3 +1,4 @@
+import "dotenv/config";
 import type { Plugin } from "vite";
 import * as path from "node:path";
 import { handleSituationsRoute } from "./handlers/situations";
