@@ -14,11 +14,16 @@ import { scoreAllDimensions, computePortfolioScore, scoreToGrade } from "./engin
 import { generateFlags, generateGapItems, generatePlanPhases } from "./engine/plan";
 import { REFERENCE_MODELS } from "./engine/benchmarks";
 import { generateNarratives } from "./ai/narratives";
-import type { Finding } from "./types";
+import { loadUserContext, saveUserContext } from "./server/userContextStore";
+import { applyPortfolioEffects } from "./engine/portfolioEffects";
+import { applyNoteSuppressions } from "./engine/suppression";
+import { runPulseCheck } from "./ai/pulseCheck";
+import type { Finding, PulseVerdict } from "./types";
 
 const SAMPLE_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
 const OUTPUT_FILE = "output/analysis.json";
+const USER_CONTEXT_FILE = "data/user-context.json";
 
 function loadJSON(filePath: string): unknown {
   return JSON.parse(fs.readFileSync(path.resolve(filePath), "utf-8"));
@@ -34,6 +39,13 @@ function fmtPct(n: number): string {
 
 async function main() {
   console.log("Portfolio Analyzer V3 — loading raw brokerage data...");
+
+  const userContext = loadUserContext(USER_CONTEXT_FILE);
+  if (userContext.situations.length || userContext.notes.length) {
+    console.log(
+      `  Loaded user-context.json: ${userContext.situations.length} situations, ${userContext.notes.length} notes`,
+    );
+  }
 
   // Normalize each broker's exports into a flat Holding[]
   const fidelity = normalizeFidelityAccounts(loadJSON(`${SAMPLE_DIR}/20260509_FidelityRetirement.json`) as any);
@@ -60,13 +72,22 @@ async function main() {
   const macro = parseMacro(loadJSON(MACRO_FILE));
   console.log(`  Macro regime: ${macro.market_regime}`);
 
+  // Apply open Situation portfolio_effects before scoring
+  const effectedPortfolio = applyPortfolioEffects(portfolio, userContext.situations);
+
   // Run engine
-  const aggregates = computeAggregates(portfolio);
-  const dimension_scores = scoreAllDimensions(portfolio, aggregates, macro);
+  const aggregates = computeAggregates(effectedPortfolio);
+  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro);
   const portfolio_score = computePortfolioScore(dimension_scores);
   const portfolio_grade = scoreToGrade(portfolio_score);
-  const flags = generateFlags(portfolio, aggregates, macro);
-  const gap_items = generateGapItems(aggregates, dimension_scores, macro);
+  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro);
+  const rawGapItems = generateGapItems(aggregates, dimension_scores, macro);
+
+  // Apply Note suppressions (cosmetic — flags retain finding_key, annotated with suppressed_by)
+  const suppressed = applyNoteSuppressions(rawFlags, rawGapItems, userContext.notes);
+  const flags = suppressed.flags;
+  const gap_items = suppressed.gaps;
+
   const { phases: plan_phases, trajectory: score_trajectory } =
     generatePlanPhases(aggregates, macro, portfolio_score);
 
@@ -78,7 +99,7 @@ async function main() {
     console.log("Calling Anthropic API for narratives...");
     try {
       narratives = await generateNarratives({
-        portfolio,
+        portfolio: effectedPortfolio,
         macro,
         aggregates,
         portfolio_score,
@@ -101,10 +122,62 @@ async function main() {
     console.log("ANTHROPIC_API_KEY not set — skipping AI narratives. Set it in .env to enable.");
   }
 
+  // Pulse-check every open Situation (one Anthropic call per open situation)
+  const openSituations = userContext.situations.filter((s) => s.status === "open");
+  if (openSituations.length > 0 && process.env.ANTHROPIC_API_KEY) {
+    console.log("");
+    console.log(`Running pulse-check on ${openSituations.length} open situation(s)...`);
+    await Promise.all(
+      openSituations.map(async (sit) => {
+        const related_flags = flags.filter((f) =>
+          sit.related_findings.includes(f.finding_key),
+        );
+        let verdict: PulseVerdict;
+        try {
+          verdict = await runPulseCheck({
+            situation: sit,
+            macro,
+            portfolio: effectedPortfolio,
+            related_flags,
+          });
+          console.log(`  ${sit.title}: ${verdict.verdict.toUpperCase()} (${verdict.confidence})`);
+        } catch (err) {
+          verdict = {
+            run_at: new Date().toISOString(),
+            macro_snapshot: {
+              regime: macro.market_regime,
+              vix: macro.vix,
+              yield_curve_10y_2y: macro.yield_curve_spread_10y_2y,
+              hy_credit_spread_oas_bps: macro.hy_credit_spread_oas_bps,
+              lei_consecutive_declines: macro.lei_consecutive_declines,
+            },
+            verdict: "monitor",
+            confidence: "low",
+            rationale: "",
+            suggested_action: "",
+            reconsider_when: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+          console.warn(`  ${sit.title}: pulse-check failed — ${verdict.error}`);
+        }
+        sit.verdict_history.push(verdict);
+        sit.updated_at = verdict.run_at;
+      }),
+    );
+  } else if (openSituations.length > 0) {
+    console.log("");
+    console.log(`${openSituations.length} open situation(s) but ANTHROPIC_API_KEY not set — skipping pulse-check.`);
+  }
+
+  // Persist updated user-context if pulse-check produced verdicts
+  if (openSituations.length > 0) {
+    saveUserContext(USER_CONTEXT_FILE, userContext);
+  }
+
   // Assemble the analysis output
   const output = {
     generated_at: new Date().toISOString(),
-    portfolio,
+    portfolio: effectedPortfolio,
     macro,
     aggregates,
     portfolio_score,
@@ -117,6 +190,8 @@ async function main() {
     score_trajectory,
     findings,
     narratives,  // null if API key wasn't set
+    situations: userContext.situations,
+    notes: userContext.notes,
   };
 
   // Write JSON
@@ -126,7 +201,7 @@ async function main() {
   // Console summary
   console.log("");
   console.log("═══════════════════════════════════════════════════════════");
-  console.log(`  ${portfolio.account_label} — ${portfolio.snapshot_date}`);
+  console.log(`  ${effectedPortfolio.account_label} — ${effectedPortfolio.snapshot_date}`);
   console.log(`  Total value: ${fmtMoney(aggregates.total_value)}`);
   console.log(`  Grade: ${portfolio_grade}  Score: ${portfolio_score.toFixed(2)} / 10`);
   console.log("═══════════════════════════════════════════════════════════");
