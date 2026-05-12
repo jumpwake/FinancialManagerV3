@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
@@ -542,5 +542,56 @@ describe("scoreSingleStockRisk", () => {
     const s = scoreSingleStockRisk(portfolio, agg);
     expect(s.display_value).toContain("TSLA");
     expect(s.display_value).toContain("NVDA");
+  });
+});
+
+describe("scoreQualityTilt", () => {
+  test("returns low score (≤ 5) when no quality tickers held", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "TSLA", market_value: 1000, asset_class: "individual_stock" })],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(scoreQualityTilt(portfolio, agg).score).toBeLessThanOrEqual(2);
+  });
+
+  test("returns higher score when BRK-B + VWENX both held at meaningful weights", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 600 }),
+        makeHolding({ ticker: "BRK-B", market_value: 200, asset_class: "individual_stock" }),
+        makeHolding({ ticker: "VWENX", market_value: 200, asset_class: "balanced" }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const s = scoreQualityTilt(portfolio, agg);
+    expect(s.score).toBeGreaterThanOrEqual(7);
+    expect(s.display_value).toBe("Strong defensive tilt");
+  });
+
+  test("medium tilt for partial defensive holdings", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({ ticker: "XLU", market_value: 200, asset_class: "us_equity_sector", sector_tag: "utilities" }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const s = scoreQualityTilt(portfolio, agg);
+    expect(s.score).toBeGreaterThanOrEqual(5);
+    expect(s.score).toBeLessThanOrEqual(7);
+  });
+
+  test("score capped at 10", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "BRK-B", market_value: 200, asset_class: "individual_stock" }),
+        makeHolding({ ticker: "VWENX", market_value: 200, asset_class: "balanced" }),
+        makeHolding({ ticker: "XLV", market_value: 200, asset_class: "us_equity_sector" }),
+        makeHolding({ ticker: "XLU", market_value: 200, asset_class: "us_equity_sector" }),
+        makeHolding({ ticker: "XLP", market_value: 200, asset_class: "us_equity_sector" }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(scoreQualityTilt(portfolio, agg).score).toBe(10);
   });
 });

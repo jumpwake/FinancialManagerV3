@@ -231,3 +231,30 @@ export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggrega
     weight: 0.12,
   };
 }
+
+const QUALITY_TICKERS: Record<string, number> = {
+  "BRK-B": 1.5, "VWENX": 1.5, "XLV": 1.0, "XLU": 1.0,
+  "XLP": 1.0, "VFSUX": 0.5, "FXNAX": 0.5, "VBTLX": 0.5,
+};
+
+export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
+  const total = agg.total_value;
+  let raw = 0;
+  for (const h of portfolio.holdings) {
+    if (QUALITY_TICKERS[h.ticker]) {
+      const wt = Math.min(2, total > 0 ? (h.market_value / total) / 0.02 : 0);
+      raw += QUALITY_TICKERS[h.ticker] * wt;
+    }
+  }
+  const score = Math.min(10, Math.max(1, raw * 2.5));
+
+  return {
+    id: "quality_tilt",
+    label: "Quality / defensive tilt",
+    score,
+    rating: toRating(score),
+    display_value: score >= 7 ? "Strong defensive tilt" : score >= 5 ? "Moderate" : "Weak",
+    note: "Presence of quality/defensive/dividend-oriented holdings",
+    weight: 0.06,
+  };
+}
