@@ -1,0 +1,130 @@
+[
+    {
+        "account_id": "Z40558528",
+        "account_name": "Kelly401k",
+        "account_label": "BIS Kelly 401k",
+        "total_value": "$642,296.45",
+        "holdings": [
+            {
+                "symbol": "Cash",
+                "description": "HELD IN MONEY MARKET",
+                "quantity": "",
+                "balance": "$210,305.04"
+            },
+            {
+                "symbol": "FSKAX",
+                "description": "FIDELITY TOTAL MARKET INDEX FUND",
+                "quantity": "1,293.81",
+                "balance": "$262,552.86"
+            },
+            {
+                "symbol": "FTIHX",
+                "description": "FIDELITY TOTAL INTL INDEX FUND",
+                "quantity": "4,384.254",
+                "balance": "$85,712.16"
+            },
+            {
+                "symbol": "FXNAX",
+                "description": "FIDELITY U.S. BOND INDEX FUND",
+                "quantity": "5,003.48",
+                "balance": "$52,436.47"
+            },
+            {
+                "symbol": "XLU",
+                "description": "SELECT SECTOR SPDR TRUST STATE STREET UTILITIES SELECT SECTOR SPDR ETF",
+                "quantity": "233.407",
+                "balance": "$10,437.96"
+            },
+            {
+                "symbol": "XLV",
+                "description": "SELECT SECTOR SPDR TRUST STATE STREET HEALTH CARE SELECT SECTOR SPDR ETF",
+                "quantity": "145.32",
+                "balance": "$20,851.96"
+            }
+        ]
+    },
+    {
+        "account_id": "Z40558526",
+        "account_name": "Kevin401k",
+        "account_label": "BIS Kevin 401k",
+        "total_value": "$1,013,722.68",
+        "holdings": [
+            {
+                "symbol": "Cash",
+                "description": "HELD IN MONEY MARKET",
+                "quantity": "",
+                "balance": "$248,974.90"
+            },
+            {
+                "symbol": "FSKAX",
+                "description": "FIDELITY TOTAL MARKET INDEX FUND",
+                "quantity": "1,595.316",
+                "balance": "$323,737.47"
+            },
+            {
+                "symbol": "FTIHX",
+                "description": "FIDELITY TOTAL INTL INDEX FUND",
+                "quantity": "6,331.173",
+                "balance": "$123,774.43"
+            },
+            {
+                "symbol": "FXNAX",
+                "description": "FIDELITY U.S. BOND INDEX FUND",
+                "quantity": "7,800.154",
+                "balance": "$81,745.61"
+            },
+            {
+                "symbol": "XLI",
+                "description": "SELECT SECTOR SPDR TRUST STATE STREET INDUSTRIAL SELECT SECTOR SPDR ETF",
+                "quantity": "318",
+                "balance": "$55,077.60"
+            },
+            {
+                "symbol": "XLP",
+                "description": "SELECT SECTOR SPDR TRUST STATE STREET CONSUMER STAPLES SELECT SECTOR SPDR ETF",
+                "quantity": "668",
+                "balance": "$56,232.24"
+            },
+            {
+                "symbol": "XLU",
+                "description": "SELECT SECTOR SPDR TRUST STATE STREET UTILITIES SELECT SECTOR SPDR ETF",
+                "quantity": "754.751",
+                "balance": "$33,752.46"
+            },
+            {
+                "symbol": "XLV",
+                "description": "SELECT SECTOR SPDR TRUST STATE STREET HEALTH CARE SELECT SECTOR SPDR ETF",
+                "quantity": "630.204",
+                "balance": "$90,427.97"
+            }
+        ]
+    },
+    {
+        "account_id": "Z40558531",
+        "account_name": "KellyRoth",
+        "account_label": "",
+        "total_value": "$5,000.00",
+        "holdings": [
+            {
+                "symbol": "Cash",
+                "description": "HELD IN MONEY MARKET",
+                "quantity": "",
+                "balance": "$5,000.00"
+            }
+        ]
+    },
+    {
+        "account_id": "Z40558530",
+        "account_name": "KevinRoth",
+        "account_label": "",
+        "total_value": "$5,000.00",
+        "holdings": [
+            {
+                "symbol": "Cash",
+                "description": "HELD IN MONEY MARKET",
+                "quantity": "",
+                "balance": "$5,000.00"
+            }
+        ]
+    }
+]

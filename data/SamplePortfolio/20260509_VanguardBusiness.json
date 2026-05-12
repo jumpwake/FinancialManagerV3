@@ -1,0 +1,23 @@
+[
+    {
+        "account_number": "476667116104008",
+        "holdings": [
+            {
+                "symbol": "VFSUX",
+                "quantity": "11,508.255",
+                "balance": "$120,031.10"
+            },
+            {
+                "symbol": "QQQ",
+                "quantity": "44.135",
+                "balance": "$31,390.14"
+            },
+            {
+                "symbol": "NVDA",
+                "quantity": "244.014",
+                "balance": "$52,511.81"
+            }
+        ],
+        "settlement_fund": "$60,681.37"
+    }
+]
