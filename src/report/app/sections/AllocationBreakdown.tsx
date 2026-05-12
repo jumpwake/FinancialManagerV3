@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -5,7 +6,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { AnalysisOutput, AssetClass } from "../types";
+import { AnalysisOutput, AssetClass, DeploymentMove } from "../types";
 import { COLORS } from "../theme";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -69,7 +70,17 @@ const cardStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
-export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) {
+interface AllocationBreakdownProps {
+  data: AnalysisOutput;
+  onDiscussMove?: (move_id: string) => void;
+  onTrackMove?: (move: DeploymentMove) => void;
+}
+
+export default function AllocationBreakdown({
+  data,
+  onDiscussMove,
+  onTrackMove,
+}: AllocationBreakdownProps) {
   const { aggregates: agg, portfolio } = data;
   const total = agg.total_value;
   const sorted = [...portfolio.holdings].sort((a, b) => b.market_value - a.market_value);
@@ -236,8 +247,95 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
         </div>
       )}
 
-      {/* TODO: "Post-T3 projected sector weights" toggle — nice-to-have, re-renders donut/table
-          with pending cash redistributed proportionally across non-cash holdings */}
+      {data.tactical_advisor?.deployment_recommendation && (
+        <PostT3Toggle
+          deployment={data.tactical_advisor.deployment_recommendation}
+          portfolio={data.portfolio}
+          accounts={data.accounts}
+          currentGrade={data.portfolio_grade}
+          onDiscussMove={onDiscussMove}
+          onTrackMove={onTrackMove}
+        />
+      )}
+    </div>
+  );
+}
+
+function PostT3Toggle({
+  deployment,
+  portfolio,
+  accounts: _accounts,
+  currentGrade,
+  onDiscussMove,
+  onTrackMove,
+}: {
+  deployment: NonNullable<NonNullable<AnalysisOutput["tactical_advisor"]>["deployment_recommendation"]>;
+  portfolio: AnalysisOutput["portfolio"];
+  accounts: AnalysisOutput["accounts"];
+  currentGrade: string;
+  onDiscussMove?: (move_id: string) => void;
+  onTrackMove?: (move: DeploymentMove) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pendingValue = portfolio.holdings
+    .filter(h => h.is_pending_deployment)
+    .reduce((s, h) => s + h.market_value, 0);
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: COLORS.card,
+          border: `1px solid ${COLORS.border}`,
+          color: COLORS.text,
+          padding: "8px 14px",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontSize: 13,
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
+        {open ? "▼" : "▶"}  Project post-deployment allocation
+        <span style={{ color: COLORS.textMuted, marginLeft: 8 }}>
+          ({fmt$(pendingValue)} pending → {currentGrade} → {deployment.projected_grade})
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 12, padding: 14, border: `1px solid ${COLORS.border}`, borderRadius: 6 }}>
+          <div style={{ fontSize: 13, color: COLORS.text, marginBottom: 12, lineHeight: 1.6 }}>
+            {deployment.summary}
+          </div>
+
+          {deployment.moves.map(move => (
+            <div key={move.id} style={{ marginBottom: 10, padding: "10px 12px", background: COLORS.bg, borderLeft: `3px solid ${COLORS.amber}`, borderRadius: 4 }}>
+              <div style={{ fontSize: 13, color: COLORS.text, marginBottom: 4 }}>
+                <strong>{fmt$(move.dollars)}</strong> → <strong>{move.ticker}</strong> in <em>{move.target_account}</em>
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.5 }}>{move.rationale}</div>
+              <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => onDiscussMove?.(move.id)}
+                  style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+                >
+                  💬 Discuss
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTrackMove?.(move)}
+                  style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+                >
+                  + Situation
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
