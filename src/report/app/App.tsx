@@ -1,23 +1,14 @@
 import { useEffect, useState } from "react";
-
-// Loose type — the real shape lives in src/types.ts but this file lives under
-// a different tsconfig root (the Vite app), so we don't import the engine types.
-// Replace with a proper import in the next task if it makes sense.
-interface AnalysisOutput {
-  generated_at: string;
-  portfolio: { account_label: string; snapshot_date: string; holdings: unknown[] };
-  portfolio_score: number;
-  portfolio_grade: string;
-  narratives?: {
-    headline_summary: string;
-    benchmark_context: string;
-    strengths: string[];
-    gaps: string[];
-    additional_takeaways: string[];
-    phase1_macro_note: string;
-  } | null;
-  [k: string]: unknown;
-}
+import { AnalysisOutput } from "./types";
+import { COLORS } from "./theme";
+import AllocationBreakdown from "./sections/AllocationBreakdown";
+import BenchmarkComparison from "./sections/BenchmarkComparison";
+import DimensionScorecard from "./sections/DimensionScorecard";
+import KeyFindings from "./sections/KeyFindings";
+import RadarChart from "./sections/RadarChart";
+import AdditionalTakeaways from "./sections/AdditionalTakeaways";
+import Gaps from "./sections/Gaps";
+import Flags from "./sections/Flags";
 
 export default function App() {
   const [data, setData] = useState<AnalysisOutput | null>(null);
@@ -29,41 +20,89 @@ export default function App() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then(setData)
+      .then((json: AnalysisOutput) => setData(json))
       .catch(err => setError(err.message || String(err)));
   }, []);
 
   if (error) {
     return (
-      <div style={{ padding: "2rem", color: "#E24B4A" }}>
+      <div style={{ padding: "2rem", color: COLORS.red }}>
         Failed to load analysis: {error}
-        <div style={{ color: "#888", marginTop: 8, fontSize: 13 }}>
+        <div style={{ color: COLORS.textMuted, marginTop: 8, fontSize: 13 }}>
           Did you run <code>npm run analyze</code> first? It writes <code>output/analysis.json</code>.
         </div>
       </div>
     );
   }
 
-  if (!data) return <div style={{ padding: "2rem", color: "#888" }}>Loading analysis...</div>;
+  if (!data) {
+    return <div style={{ padding: "2rem", color: COLORS.textMuted }}>Loading analysis...</div>;
+  }
+
+  const typedData = data as AnalysisOutput;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem", fontFamily: "system-ui, sans-serif" }}>
+      {/* Header */}
       <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4 }}>
-          {data.portfolio.account_label}
+        <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
+          {typedData.portfolio.account_label}
         </h1>
-        <p style={{ fontSize: 13, color: "#888" }}>
-          Generated {new Date(data.generated_at).toLocaleDateString()} · {data.portfolio.holdings.length} holdings · Grade <strong>{data.portfolio_grade}</strong> ({data.portfolio_score.toFixed(1)}/10)
+        <p style={{ fontSize: 13, color: COLORS.textMuted }}>
+          Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
+          {typedData.portfolio.holdings.length} holdings · Grade{" "}
+          <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
+          ({typedData.portfolio_score.toFixed(1)}/10)
         </p>
-        {data.narratives?.headline_summary && (
+        {typedData.narratives?.headline_summary && (
           <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
-            {data.narratives.headline_summary}
+            {typedData.narratives.headline_summary}
           </p>
         )}
       </div>
-      <div style={{ padding: 16, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 6, color: "#888" }}>
-        TODO: Render the 8 sections (allocation, benchmark, scorecard, key findings, radar, takeaways, gaps, flags).
-      </div>
+
+      <Section label="1 — Allocation breakdown">
+        <AllocationBreakdown data={typedData} />
+      </Section>
+      <Section label="2 — Benchmark comparison">
+        <BenchmarkComparison data={typedData} />
+      </Section>
+      <Section label="3 — Dimension scorecard">
+        <DimensionScorecard data={typedData} />
+      </Section>
+      <Section label="4 — Key findings">
+        <KeyFindings data={typedData} />
+      </Section>
+      <Section label="5 — Radar">
+        <RadarChart data={typedData} />
+      </Section>
+      <Section label="6 — Additional takeaways">
+        <AdditionalTakeaways data={typedData} />
+      </Section>
+      <Section label="7 — Gaps">
+        <Gaps data={typedData} />
+      </Section>
+      <Section label="8 — Flags">
+        <Flags data={typedData} />
+      </Section>
+    </div>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: "2.5rem" }}>
+      <p style={{
+        fontSize: 11,
+        fontWeight: 500,
+        color: COLORS.textMuted,
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        marginBottom: 12,
+      }}>
+        {label}
+      </p>
+      {children}
     </div>
   );
 }
