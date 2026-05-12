@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AnalysisOutput, ChatScope, Situation } from "./types";
+import { AnalysisOutput, ChatScope, Situation, TacticalMove } from "./types";
 import { COLORS } from "./theme";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
@@ -9,6 +9,7 @@ import RadarChart from "./sections/RadarChart";
 import AdditionalTakeaways from "./sections/AdditionalTakeaways";
 import Gaps from "./sections/Gaps";
 import Flags from "./sections/Flags";
+import NextMoves from "./sections/NextMoves";
 import { OpenSituations } from "./sections/OpenSituations";
 import { Sidebar } from "./sidebar/Sidebar";
 
@@ -61,6 +62,11 @@ export default function App() {
     [loadSituations],
   );
 
+  const handleTrackMove = useCallback(async (move: TacticalMove) => {
+    console.log("Track move clicked:", move);
+    // Full implementation lands in W3.10
+  }, []);
+
   if (error) {
     return (
       <div style={{ padding: "2rem", color: COLORS.red }}>
@@ -100,6 +106,18 @@ export default function App() {
               {typedData.narratives.headline_summary}
             </p>
           )}
+          <a
+            href="#next-moves"
+            style={{
+              fontSize: 12,
+              color: COLORS.accentBlue,
+              textDecoration: "none",
+              marginTop: 10,
+              display: "inline-block",
+            }}
+          >
+            ↓ Jump to recommended moves
+          </a>
         </div>
 
         <OpenSituations
@@ -135,6 +153,15 @@ export default function App() {
         <Section label="8 — Flags">
           <Flags data={typedData} onDiscuss={(k) => setScope({ type: "flag", finding_key: k })} />
         </Section>
+        <div id="next-moves">
+          <Section label="9 — Next moves">
+            <NextMoves
+              data={typedData}
+              onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
+              onTrackMove={(move) => handleTrackMove(move)}
+            />
+          </Section>
+        </div>
       </main>
 
       <Sidebar
