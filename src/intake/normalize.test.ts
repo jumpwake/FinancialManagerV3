@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { parseMoneyString, normalizeFidelityAccounts } from "./normalize";
+import { parseMoneyString, normalizeFidelityAccounts, normalizeEmpowerAccounts, normalizeVanguardAccounts } from "./normalize";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -102,5 +102,115 @@ describe("normalizeFidelityAccounts", () => {
     ];
     const holdings = normalizeFidelityAccounts(raw);
     expect(holdings[0].sector_tag).toBe("utilities");
+  });
+});
+
+describe("normalizeEmpowerAccounts", () => {
+  test("handles descriptive symbols (no real ticker)", () => {
+    const raw = [
+      {
+        account_name: "EmpowerTest",
+        holdings: [
+          { symbol: "US Large Company Stocks Fund", balance: "$258,681.46", quantity: "11,259.45" },
+        ],
+      },
+    ];
+    const holdings = normalizeEmpowerAccounts(raw);
+    expect(holdings).toHaveLength(1);
+    const h = holdings[0];
+    expect(h.market_value).toBeCloseTo(258681.46, 2);
+    expect(h.asset_class).toBe("us_equity_large_cap");
+    expect(h.label).toBe("US Large Company Stocks Fund");
+    expect(h.is_cash).toBe(false);
+  });
+
+  test("maps Target Retirement to target_date asset class", () => {
+    const raw = [
+      {
+        account_name: "Test",
+        holdings: [{ symbol: "Target Retirement 2040 Fund", balance: "$31,790.66", quantity: "393" }],
+      },
+    ];
+    expect(normalizeEmpowerAccounts(raw)[0].asset_class).toBe("target_date");
+  });
+
+  test("loads the real Empower sample file", () => {
+    const raw = JSON.parse(require("fs").readFileSync(require("path").resolve("data/SamplePortfolio/20260509_EmpowerKelly.json"), "utf-8"));
+    const holdings = normalizeEmpowerAccounts(raw);
+    expect(holdings).toHaveLength(3);
+    expect(holdings.every(h => h.market_value > 0)).toBe(true);
+    const labels = holdings.map(h => h.label).sort();
+    expect(labels).toContain("US Large Company Stocks Fund");
+    expect(labels).toContain("US Small/Mid Company Stocks Fund");
+    expect(labels).toContain("Target Retirement 2040 Fund");
+  });
+});
+
+describe("normalizeVanguardAccounts", () => {
+  test("emits cash holding from settlement_fund", () => {
+    const raw = [
+      {
+        account_number: "12345",
+        holdings: [],
+        settlement_fund: "$5,000.00",
+      },
+    ];
+    const holdings = normalizeVanguardAccounts(raw);
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0].is_cash).toBe(true);
+    expect(holdings[0].asset_class).toBe("cash");
+    expect(holdings[0].market_value).toBe(5000);
+  });
+
+  test("flattens regular holdings with metadata lookup", () => {
+    const raw = [
+      {
+        account_number: "12345",
+        holdings: [
+          { symbol: "VTSAX", quantity: "100", balance: "$15,000.00" },
+          { symbol: "NVDA", quantity: "50", balance: "$10,000.00" },
+        ],
+        settlement_fund: "$0.00",
+      },
+    ];
+    const holdings = normalizeVanguardAccounts(raw);
+    // Two holdings + the settlement_fund (which is $0 so should be skipped)
+    expect(holdings).toHaveLength(2);
+    const vtsax = holdings.find(h => h.ticker === "VTSAX")!;
+    expect(vtsax.market_value).toBe(15000);
+    expect(vtsax.asset_class).toBe("us_equity_total_market");
+    const nvda = holdings.find(h => h.ticker === "NVDA")!;
+    expect(nvda.asset_class).toBe("individual_stock");
+  });
+
+  test("normalizes 'BRK B' to canonical 'BRK-B'", () => {
+    const raw = [
+      {
+        account_number: "12345",
+        holdings: [{ symbol: "BRK B", quantity: "10", balance: "$5,000.00" }],
+        settlement_fund: "$0.00",
+      },
+    ];
+    const holdings = normalizeVanguardAccounts(raw);
+    const stockHoldings = holdings.filter(h => !h.is_cash);
+    expect(stockHoldings).toHaveLength(1);
+    expect(stockHoldings[0].ticker).toBe("BRK-B");
+    expect(stockHoldings[0].asset_class).toBe("individual_stock");
+  });
+
+  test("loads the real VanguardBusiness sample file", () => {
+    const raw = JSON.parse(require("fs").readFileSync(require("path").resolve("data/SamplePortfolio/20260509_VanguardBusiness.json"), "utf-8"));
+    const holdings = normalizeVanguardAccounts(raw);
+    // 3 holdings (VFSUX, QQQ, NVDA) + 1 settlement_fund cash
+    expect(holdings).toHaveLength(4);
+    expect(holdings.filter(h => h.is_cash)).toHaveLength(1);
+    expect(holdings.find(h => h.ticker === "VFSUX")?.asset_class).toBe("us_bond_short");
+  });
+
+  test("skips empty holdings arrays + zero settlement_fund", () => {
+    const raw = [
+      { account_number: "X", holdings: [], settlement_fund: "$0.00" },
+    ];
+    expect(normalizeVanguardAccounts(raw)).toEqual([]);
   });
 });

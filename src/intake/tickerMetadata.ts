@@ -30,6 +30,10 @@ export const TICKER_METADATA: Record<string, TickerMetadata> = {
   // Money market
   "SPAXX":  { asset_class: "cash", expense_ratio: null },
   "VMFXX":  { asset_class: "cash", expense_ratio: null },
+  // Empower descriptive symbols (no real ticker — use the description as the key)
+  "US Large Company Stocks Fund":       { asset_class: "us_equity_large_cap",        expense_ratio: 0.001 },
+  "US Small/Mid Company Stocks Fund":   { asset_class: "us_equity_small_mid",        expense_ratio: 0.001 },
+  "Target Retirement 2040 Fund":        { asset_class: "target_date",                expense_ratio: 0.0008 },
 };
 
 /** Normalize variant tickers (e.g. "BRK B" → "BRK-B"). */

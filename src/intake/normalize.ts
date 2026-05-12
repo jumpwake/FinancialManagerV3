@@ -62,3 +62,86 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holdi
   }
   return out;
 }
+
+interface EmpowerRawHolding {
+  symbol: string;
+  balance: string;
+  quantity: string;
+}
+
+interface EmpowerRawAccount {
+  account_name: string;
+  holdings: EmpowerRawHolding[];
+}
+
+export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[]): Holding[] {
+  const out: Holding[] = [];
+  for (const account of accounts) {
+    for (const raw of account.holdings) {
+      const market_value = parseMoneyString(raw.balance);
+      if (market_value <= 0) continue;
+
+      const meta = lookupTicker(raw.symbol);
+      out.push({
+        ticker: raw.symbol,
+        label: raw.symbol,
+        market_value,
+        asset_class: meta?.asset_class ?? "us_equity_total_market",
+        sector_tag: meta?.sector_tag,
+        is_cash: false,
+        is_pending_deployment: false,
+        expense_ratio: meta?.expense_ratio ?? null,
+      });
+    }
+  }
+  return out;
+}
+
+interface VanguardRawHolding {
+  symbol: string;
+  quantity: string;
+  balance: string;
+}
+
+interface VanguardRawAccount {
+  account_number: string;
+  holdings: VanguardRawHolding[];
+  settlement_fund: string;
+}
+
+export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holding[] {
+  const out: Holding[] = [];
+  for (const account of accounts) {
+    for (const raw of account.holdings) {
+      const market_value = parseMoneyString(raw.balance);
+      if (market_value <= 0) continue;
+
+      const ticker = canonicalTicker(raw.symbol);
+      const meta = lookupTicker(raw.symbol);
+      out.push({
+        ticker,
+        label: ticker,
+        market_value,
+        asset_class: meta?.asset_class ?? "us_equity_total_market",
+        sector_tag: meta?.sector_tag,
+        is_cash: false,
+        is_pending_deployment: false,
+        expense_ratio: meta?.expense_ratio ?? null,
+      });
+    }
+
+    const settlement = parseMoneyString(account.settlement_fund);
+    if (settlement > 0) {
+      out.push({
+        ticker: "Cash",
+        label: `Vanguard settlement fund (${account.account_number})`,
+        market_value: settlement,
+        asset_class: "cash",
+        is_cash: true,
+        is_pending_deployment: false,
+        expense_ratio: null,
+      });
+    }
+  }
+  return out;
+}
