@@ -13,7 +13,12 @@ function gapIcon(type: GapItem["type"]): string {
   return "ⓘ";
 }
 
-export default function Gaps({ data }: { data: AnalysisOutput }) {
+interface Props {
+  data: AnalysisOutput;
+  onDiscuss?: (finding_key: string) => void;
+}
+
+export default function Gaps({ data, onDiscuss }: Props) {
   const gaps = data.gap_items;
 
   if (!gaps || gaps.length === 0) {
@@ -29,25 +34,62 @@ export default function Gaps({ data }: { data: AnalysisOutput }) {
       {gaps.map((gap, i) => {
         const color = gapColor(gap.type);
         const icon = gapIcon(gap.type);
+        const isSuppressed = !!gap.suppressed_by;
         return (
           <div
-            key={i}
+            key={gap.finding_key ?? i}
             style={{
-              background: COLORS.card,
-              border: `1px solid ${COLORS.border}`,
+              background: isSuppressed ? "transparent" : COLORS.card,
+              border: isSuppressed ? "1px dashed #555" : `1px solid ${COLORS.border}`,
               borderRadius: 8,
               padding: "14px 16px",
               display: "flex",
               flexDirection: "column",
+              opacity: isSuppressed ? 0.6 : 1,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 16, color }}>{icon}</span>
               <span style={{ fontSize: 13, fontWeight: 600, color }}>{gap.title}</span>
+              {isSuppressed && (
+                <span style={{
+                  padding: "1px 5px",
+                  borderRadius: 3,
+                  background: "#1a3a2a",
+                  color: "#4ade80",
+                  fontSize: 10,
+                  fontWeight: 600,
+                }}>
+                  💬 suppressed
+                </span>
+              )}
+              {onDiscuss && (
+                <button
+                  onClick={() => onDiscuss(gap.finding_key)}
+                  title="Discuss in chat"
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 12,
+                    padding: "2px 8px",
+                    background: "transparent",
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 4,
+                    color: COLORS.text,
+                    cursor: "pointer",
+                  }}
+                >
+                  💬
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6, flex: 1, marginBottom: 12 }}>
               {gap.body}
             </div>
+            {isSuppressed && gap.suppressed_by && (
+              <div style={{ marginBottom: 10, fontSize: 11, color: "#888", fontStyle: "italic" }}>
+                Suppressed by your note: "{gap.suppressed_by.body}"
+              </div>
+            )}
             <div style={{ height: 4, background: COLORS.border, borderRadius: 2, overflow: "hidden" }}>
               <div style={{
                 height: "100%",
