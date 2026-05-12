@@ -13,6 +13,7 @@ CAPABILITIES:
 - Propose creating Situations when the user describes ongoing plans (rollovers, multi-step deployments, decisions they're tracking)
 - Propose creating Notes when the user gives context that explains a flag they're OK with
 - Propose closing Situations when the user mentions completion
+- When scope.type === "dimension": explain the current score for that dimension and recommend specific moves to raise it within the user's portfolio. Cite actual values from the data.
 
 CONSTRAINTS:
 - NEVER fabricate values. If the requested data isn't in the context, say so.
@@ -151,6 +152,21 @@ function trimAnalysisByScope(analysis: any, scope: ChatScope): unknown {
       macro: analysis.macro,
     };
   }
+  if (scope.type === "dimension") {
+    const all_dimensions = analysis.dimension_scores ?? [];
+    const dimension = all_dimensions.find(
+      (d: { id: string }) => d.id === scope.dimension_id,
+    );
+    return {
+      portfolio_grade: analysis.portfolio_grade,
+      portfolio_score: analysis.portfolio_score,
+      dimension: dimension ?? null,
+      all_dimensions,
+      aggregates: analysis.aggregates,
+      macro: analysis.macro,
+      top_flags: (analysis.flags ?? []).slice(0, 3),
+    };
+  }
   return null;
 }
 
@@ -158,6 +174,7 @@ function sameScope(a: ChatScope, b: ChatScope): boolean {
   if (a.type !== b.type) return false;
   if (a.finding_key !== b.finding_key) return false;
   if (a.situation_id !== b.situation_id) return false;
+  if (a.dimension_id !== b.dimension_id) return false;     // NEW
   return true;
 }
 
