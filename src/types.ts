@@ -142,3 +142,12 @@ export interface DimensionScore {
   note: string;
   weight: number;
 }
+
+export interface ReferenceModel {
+  id: string;
+  label: string;
+  description: string;
+  grade: string;
+  score: number;
+  dimension_scores: Record<string, number>;
+}
