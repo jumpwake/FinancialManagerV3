@@ -3,7 +3,7 @@ import { generateFlags, generateGapItems, generatePlanPhases } from "./plan";
 import { computeAggregates } from "./aggregates";
 import { scoreAllDimensions } from "./dimensions";
 import { buildFindingKey } from "./findingKeys";
-import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
+import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { Portfolio } from "../types";
 
@@ -322,5 +322,40 @@ describe("generateFlags — regime-sensitive text", () => {
     expect(p2FiAction!.description).toContain("Recessionary");  // capitalize() is applied in phase 2
     expect(p2FiAction!.description).not.toContain("Late-cycle");
     expect(p2FiAction!.description).toContain("with inverted yield curve");
+  });
+});
+
+describe("plan.ts — asset-location flags", () => {
+  it("emits a yellow flag when VWENX is in taxable", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({
+        ticker: "VWENX",
+        market_value: 100_000,
+        asset_class: "balanced",
+        account_id: "vng_taxable",
+        underlying_composition: { us_equity: 0.60, international_equity: 0.05, fixed_income: 0.35, cash: 0.0 },
+      }),
+    ]});
+    const accounts = {
+      accounts: [ makeAccount({ id: "vng_taxable", account_type: "taxable_brokerage", label: "Vanguard Taxable" }) ],
+    };
+    const macro = makeMacro({ market_regime: "Late Cycle" });
+    const agg = computeAggregates(p, accounts);
+    const flags = generateFlags(p, agg, macro, accounts);
+    expect(flags.some(f => f.ticker === "VWENX" && /taxable/i.test(f.body))).toBe(true);
+  });
+
+  it("excludes constrained-account cash from idle-cash flag", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "Cash", market_value: 500_000, asset_class: "cash", is_cash: true, account_id: "vng_business" }),
+    ]});
+    const accounts = {
+      accounts: [ makeAccount({ id: "vng_business", account_type: "business_taxable", constraints: { excluded_from_deployment: true } }) ],
+    };
+    const macro = makeMacro({ market_regime: "Late Cycle" });
+    const agg = computeAggregates(p, accounts);
+    const flags = generateFlags(p, agg, macro, accounts);
+    // No CASH idle-cash flag because all the cash is constrained
+    expect(flags.find(f => f.ticker === "CASH" && /idle cash/i.test(f.title))).toBeUndefined();
   });
 });
