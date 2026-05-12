@@ -17,6 +17,12 @@ export function Sidebar({ scope, onScopeChange, initialHistory = [] }: Props) {
 
   useEffect(() => persistCollapsed(collapsed), [collapsed]);
 
+  // Auto-open the sidebar when something gets scoped from elsewhere
+  // (e.g., 💬 button on a flag/gap row, or "Discuss in chat" on a situation card).
+  useEffect(() => {
+    if (scope.type !== "global") setCollapsed(false);
+  }, [scope.type, scope.finding_key, scope.situation_id]);
+
   if (collapsed) {
     return (
       <button
