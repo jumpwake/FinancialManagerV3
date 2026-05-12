@@ -27,8 +27,15 @@ export function scoreCostEfficiency(agg: PortfolioAggregates): DimensionScore {
 }
 
 export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
-  const extraPositions = agg.duplicate_groups.reduce((sum, g) => sum + (g.tickers.length - 1), 0);
-  const effective = agg.holding_count - extraPositions;
+  const extraFromSameAccountDups = agg.duplicate_groups.reduce(
+    (sum, g) => sum + (g.tickers.length - 1),
+    0,
+  );
+  const extraFromCrossAccount = agg.cross_account_groups.reduce(
+    (sum, g) => sum + (g.tickers_by_account.length - 1),
+    0,
+  );
+  const effective = agg.holding_count - extraFromSameAccountDups - extraFromCrossAccount;
 
   const score =
     effective <= 5  ? 10 :
@@ -42,8 +49,8 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
     score,
     rating: toRating(score),
     display_value: `${agg.holding_count} holdings (${effective} effective)`,
-    note: "Effective positions after removing redundant fund overlaps",
-    weight: 0.08,
+    note: "Effective positions after collapsing fund overlaps within and across accounts",
+    weight: 0.08,  // weight rebalanced in W2.14
   };
 }
 

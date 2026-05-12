@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
@@ -661,5 +661,61 @@ describe("scoreAllDimensions", () => {
     const dims = scoreAllDimensions(portfolio, agg, makeMacro());
     const totalWeight = dims.reduce((sum, d) => sum + d.weight, 0);
     expect(totalWeight).toBeCloseTo(1.0, 2);
+  });
+});
+
+describe("scoreSimplicity ignores cross-account duplicates for effective count", () => {
+  it("FSKAX in Fidelity + VTSAX in Vanguard counts as 1 effective position, not 2", () => {
+    const agg = {
+      holding_count: 2,
+      duplicate_groups: [],
+      cross_account_groups: [
+        {
+          asset_class: "us_equity_total_market" as const,
+          label: "us equity total market",
+          tickers_by_account: [
+            { account_id: "fid", ticker: "FSKAX" },
+            { account_id: "vng", ticker: "VTSAX" },
+          ],
+          combined_weight: 0.5,
+        },
+      ],
+      // minimum stub fields for the function (it only reads the above three):
+      total_value: 1, blended_expense_ratio: 0, top3_weight: 0, top3_tickers: [],
+      international_weight: 0, cash_weight: 0, idle_cash_weight: 0,
+      constrained_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0,
+      equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0,
+      balanced_weight: 0, sector_holdings: [],
+    } as unknown as PortfolioAggregates;
+    const result = scoreSimplicity(agg);
+    // effective = holding_count - extraSameAccount - extraCrossAccount
+    //           = 2 - 0 - 1 = 1
+    expect(result.display_value).toMatch(/1 effective/);
+  });
+});
+
+describe("scoreDiversification does not penalize cross-account groups", () => {
+  it("Two FSKAX/VTSAX cross-account holdings don't subtract from the score", () => {
+    const agg = {
+      equity_weight: 0.6,
+      international_weight: 0.15,
+      fixed_income_weight: 0.20,
+      balanced_weight: 0.0,
+      individual_stock_weight: 0.05,
+      duplicate_groups: [],
+      cross_account_groups: [
+        {
+          asset_class: "us_equity_total_market" as const,
+          label: "us equity total market",
+          tickers_by_account: [
+            { account_id: "fid", ticker: "FSKAX" },
+            { account_id: "vng", ticker: "VTSAX" },
+          ],
+          combined_weight: 0.6,
+        },
+      ],
+    } as unknown as PortfolioAggregates;
+    const result = scoreDiversification(agg);
+    expect(result.score).toBeGreaterThanOrEqual(8);
   });
 });
