@@ -232,6 +232,44 @@ export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggrega
   };
 }
 
+export function scoreToGrade(score: number): string {
+  if (score >= 9.0) return "A+";
+  if (score >= 8.5) return "A";
+  if (score >= 8.0) return "A−";
+  if (score >= 7.5) return "B+";
+  if (score >= 7.0) return "B";
+  if (score >= 6.5) return "B−";
+  if (score >= 6.0) return "C+";
+  if (score >= 5.5) return "C";
+  if (score >= 5.0) return "C−";
+  if (score >= 4.5) return "D+";
+  if (score >= 4.0) return "D";
+  return "F";
+}
+
+export function computePortfolioScore(dimensions: DimensionScore[]): number {
+  return dimensions.reduce((sum, d) => sum + d.score * d.weight, 0);
+}
+
+export function scoreAllDimensions(
+  portfolio: Portfolio,
+  agg: PortfolioAggregates,
+  macro: MacroContext
+): DimensionScore[] {
+  return [
+    scoreCostEfficiency(agg),
+    scoreDiversification(agg),
+    scoreCashEfficiency(agg),
+    scoreMacroAlignment(agg, macro),
+    scoreSingleStockRisk(portfolio, agg),
+    scoreSimplicity(agg),
+    scoreBondBalance(agg, macro),
+    scoreConcentration(agg),
+    scoreInternational(agg),
+    scoreQualityTilt(portfolio, agg),
+  ];
+}
+
 const QUALITY_TICKERS: Record<string, number> = {
   "BRK-B": 1.5, "VWENX": 1.5, "XLV": 1.0, "XLU": 1.0,
   "XLP": 1.0, "VFSUX": 0.5, "FXNAX": 0.5, "VBTLX": 0.5,

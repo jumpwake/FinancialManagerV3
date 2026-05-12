@@ -1,9 +1,9 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
-import { PortfolioAggregates } from "../types";
+import { PortfolioAggregates, DimensionScore } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
   return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [] };
@@ -593,5 +593,59 @@ describe("scoreQualityTilt", () => {
     });
     const agg = computeAggregates(portfolio);
     expect(scoreQualityTilt(portfolio, agg).score).toBe(10);
+  });
+});
+
+describe("scoreToGrade", () => {
+  test.each([
+    [9.5, "A+"], [8.8, "A"], [8.2, "A−"], [7.8, "B+"], [7.2, "B"],
+    [6.7, "B−"], [6.2, "C+"], [5.7, "C"], [5.2, "C−"], [4.7, "D+"],
+    [4.2, "D"], [3.0, "F"],
+  ])("score %f → grade %s", (score, grade) => {
+    expect(scoreToGrade(score)).toBe(grade);
+  });
+
+  test("grade for boundary case 9.0", () => {
+    expect(scoreToGrade(9.0)).toBe("A+");
+  });
+});
+
+describe("computePortfolioScore", () => {
+  test("weighted sum of dimension scores", () => {
+    const dimensions: DimensionScore[] = [
+      { id: "a", label: "A", score: 10, rating: "green", display_value: "", note: "", weight: 0.5 },
+      { id: "b", label: "B", score: 4,  rating: "red",   display_value: "", note: "", weight: 0.5 },
+    ];
+    expect(computePortfolioScore(dimensions)).toBe(7);
+  });
+});
+
+describe("scoreAllDimensions", () => {
+  test("returns 10 dimension scores for a sample portfolio", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 600, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "FTIHX", market_value: 200, asset_class: "international_equity" }),
+        makeHolding({ ticker: "FXNAX", market_value: 200, asset_class: "us_bond_aggregate" }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const macro = makeMacro();
+    const dims = scoreAllDimensions(portfolio, agg, macro);
+    expect(dims).toHaveLength(10);
+    const ids = dims.map(d => d.id).sort();
+    expect(ids).toEqual([
+      "bond_balance", "cash_efficiency", "concentration", "cost_efficiency",
+      "diversification", "international", "macro_alignment", "quality_tilt",
+      "simplicity", "single_stock_risk",
+    ]);
+  });
+
+  test("dimension weights sum to 1.0 (within rounding)", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX" })] });
+    const agg = computeAggregates(portfolio);
+    const dims = scoreAllDimensions(portfolio, agg, makeMacro());
+    const totalWeight = dims.reduce((sum, d) => sum + d.weight, 0);
+    expect(totalWeight).toBeCloseTo(1.0, 2);
   });
 });
