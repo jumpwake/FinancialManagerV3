@@ -1,4 +1,4 @@
-import { Holding, Portfolio, StockMetrics } from "../../src/types";
+import { Holding, Portfolio, StockMetrics, AccountMetadata } from "../../src/types";
 
 export function makeHolding(overrides: Partial<Holding> = {}): Holding {
   return {
@@ -9,6 +9,7 @@ export function makeHolding(overrides: Partial<Holding> = {}): Holding {
     is_cash: false,
     is_pending_deployment: false,
     expense_ratio: 0.0002,
+    account_id: "test_account",
     ...overrides,
   };
 }
@@ -33,6 +34,18 @@ export function makeStockMetrics(overrides: Partial<StockMetrics> = {}): StockMe
     net_debt_ebitda: 1.0,
     beta: 1.0,
     analyst_consensus: 3.5,
+    ...overrides,
+  };
+}
+
+export function makeAccount(overrides: Partial<AccountMetadata> = {}): AccountMetadata {
+  return {
+    id: "test_account",
+    label: "Test Account",
+    broker: "Vanguard",
+    account_type: "taxable_brokerage",
+    owner: "you",
+    source_files: ["test.json"],
     ...overrides,
   };
 }
