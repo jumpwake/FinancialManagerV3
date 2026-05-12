@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk } from "./dimensions";
 import { computeAggregates } from "./aggregates";
-import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
+import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { PortfolioAggregates } from "../types";
 
@@ -464,5 +464,83 @@ describe("scoreMacroAlignment", () => {
     const agg = aggForMacro([]);
     const macro = makeMacro({ market_regime: "Late Cycle" });
     expect(scoreMacroAlignment(agg, macro).display_value).toContain("Late Cycle");
+  });
+});
+
+describe("scoreSingleStockRisk", () => {
+  test("returns 10 / green when portfolio holds no individual stocks", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const agg = computeAggregates(portfolio);
+    const s = scoreSingleStockRisk(portfolio, agg);
+    expect(s.score).toBe(10);
+    expect(s.rating).toBe("green");
+    expect(s.display_value).toBe("No individual stocks");
+  });
+
+  test("clean stock (P/E 20, positive EPS, beta 1) → no penalty", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "BRK-B", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 20, eps_growth_yoy: 0.10, beta: 0.9, revenue_growth_yoy: 0.05 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(scoreSingleStockRisk(portfolio, agg).score).toBe(10);
+  });
+
+  test("extreme P/E (>100) + declining EPS triggers heavy penalty", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47, beta: 1.8, revenue_growth_yoy: -0.03 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const s = scoreSingleStockRisk(portfolio, agg);
+    expect(s.score).toBeLessThan(5);
+    expect(s.display_value).toContain("TSLA");
+  });
+
+  test("elevated P/E (>50) but otherwise healthy → mild penalty", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "NVDA", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 55, eps_growth_yoy: 0.50, beta: 1.2, revenue_growth_yoy: 0.40 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const s = scoreSingleStockRisk(portfolio, agg);
+    expect(s.score).toBe(9);
+  });
+
+  test("display_value lists all flagged tickers comma-separated", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 700 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 150, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47, beta: 1.8 }),
+        }),
+        makeHolding({
+          ticker: "NVDA", market_value: 150, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 55, beta: 2.2 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const s = scoreSingleStockRisk(portfolio, agg);
+    expect(s.display_value).toContain("TSLA");
+    expect(s.display_value).toContain("NVDA");
   });
 });

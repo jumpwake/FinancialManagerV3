@@ -1,4 +1,4 @@
-import { PortfolioAggregates, DimensionScore, Rating, MacroContext } from "../types";
+import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio } from "../types";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -178,6 +178,56 @@ export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext):
     rating: toRating(score),
     display_value: `${(fi * 100).toFixed(1)}% FI (target ${(target.min * 100).toFixed(0)}–${(target.max * 100).toFixed(0)}%)`,
     note: `Target range for ${macro.market_regime} regime`,
+    weight: 0.12,
+  };
+}
+
+export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
+  const total = agg.total_value;
+  const stocks = portfolio.holdings.filter(h => h.asset_class === "individual_stock" && h.stock_metrics);
+
+  if (stocks.length === 0) {
+    return {
+      id: "single_stock_risk",
+      label: "Single-stock risk",
+      score: 10,
+      rating: "green",
+      display_value: "No individual stocks",
+      note: "No single-stock exposure",
+      weight: 0.12,
+    };
+  }
+
+  let totalPenalty = 0;
+  const flaggedTickers: string[] = [];
+  for (const s of stocks) {
+    const m = s.stock_metrics!;
+    const w = s.market_value / total;
+    let penalty = 0;
+
+    if (m.pe_ratio !== null && m.pe_ratio > 100) penalty += 2;
+    else if (m.pe_ratio !== null && m.pe_ratio > 50) penalty += 1;
+
+    if (m.eps_growth_yoy !== null && m.eps_growth_yoy < -0.15) penalty += 1.5;
+    if (m.beta !== null && m.beta > 1.5) penalty += 1;
+    if (m.revenue_growth_yoy !== null && m.revenue_growth_yoy < 0) penalty += 1;
+
+    if (penalty > 0) {
+      flaggedTickers.push(s.ticker);
+      const stockShare = agg.individual_stock_weight > 0 ? w / agg.individual_stock_weight : 0;
+      totalPenalty += penalty * stockShare;
+    }
+  }
+
+  const score = Math.max(1, 10 - totalPenalty);
+
+  return {
+    id: "single_stock_risk",
+    label: "Single-stock risk",
+    score,
+    rating: toRating(score),
+    display_value: flaggedTickers.length > 0 ? `${flaggedTickers.join(", ")} flagged` : "No flags",
+    note: "Penalizes stocks with P/E > 100, negative EPS growth, high beta, or declining revenue",
     weight: 0.12,
   };
 }
