@@ -96,6 +96,13 @@ export interface PortfolioAggregates {
   pending_deployment_date?: string;
 }
 
+export interface Flag {
+  ticker: string;
+  severity: "red" | "yellow";
+  title: string;
+  body: string;
+}
+
 export type Rating = "green" | "yellow" | "red";
 
 export interface DimensionScore {
