@@ -148,6 +148,20 @@ describe("generateGapItems", () => {
     const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro({ market_regime: "Mid Cycle" }));
     expect(gaps.find(g => g.type === "red")).toBeUndefined();
   });
+
+  test("emits RED 'Single-stock risk' when stock_risk dimension score < 6", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 500 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 500, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47, beta: 1.8, revenue_growth_yoy: -0.03 }),
+        }),
+      ],
+    });
+    const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro());
+    expect(gaps.some(g => g.title === "Single-stock risk" && g.type === "red")).toBe(true);
+  });
 });
 
 describe("generatePlanPhases", () => {

@@ -91,7 +91,7 @@ export function generateGapItems(
       title: "Cash drag",
       type: "red",
       body: `${(agg.idle_cash_weight * 100).toFixed(1)}% idle cash reducing returns. Target ≤ 3%.`,
-      progress: Math.round((1 - agg.idle_cash_weight / 0.30) * 100),
+      progress: Math.max(0, Math.round((1 - agg.idle_cash_weight / 0.30) * 100)),
     });
   }
 
@@ -131,7 +131,7 @@ export function generateGapItems(
       title: "Top-3 concentration",
       type: "amber",
       body: `${(agg.top3_weight * 100).toFixed(1)}% in top 3 holdings (${agg.top3_tickers.join(", ")}). Target ≤ 45%.`,
-      progress: Math.round(((1 - agg.top3_weight) / 0.65) * 100),
+      progress: Math.min(100, Math.round(((1 - agg.top3_weight) / 0.65) * 100)),
     });
   }
 
@@ -273,12 +273,13 @@ export function generatePlanPhases(
     insight: "Once automation is running, the main job is reviewing the Sunday report.",
   });
 
+  const cap = (s: number) => Math.min(10, Number(s.toFixed(1)));
   const trajectory: ScorePoint[] = [
-    { label: "Today",          score: baseScore,                                                  grade: scoreToGrade(baseScore) },
-    { label: "After phase 1",  score: Number((baseScore + p1Delta).toFixed(1)),                  grade: scoreToGrade(baseScore + p1Delta) },
-    { label: "After phase 2",  score: Number((baseScore + p1Delta + p2Delta).toFixed(1)),        grade: scoreToGrade(baseScore + p1Delta + p2Delta) },
-    { label: "After phase 3",  score: Number((baseScore + p1Delta + p2Delta + 0.25).toFixed(1)), grade: scoreToGrade(baseScore + p1Delta + p2Delta + 0.25) },
-    { label: "After phase 4",  score: Number((baseScore + p1Delta + p2Delta + 0.40).toFixed(1)), grade: scoreToGrade(baseScore + p1Delta + p2Delta + 0.40) },
+    { label: "Today",          score: cap(baseScore),                                grade: scoreToGrade(baseScore) },
+    { label: "After phase 1",  score: cap(baseScore + p1Delta),                     grade: scoreToGrade(baseScore + p1Delta) },
+    { label: "After phase 2",  score: cap(baseScore + p1Delta + p2Delta),           grade: scoreToGrade(baseScore + p1Delta + p2Delta) },
+    { label: "After phase 3",  score: cap(baseScore + p1Delta + p2Delta + 0.25),    grade: scoreToGrade(baseScore + p1Delta + p2Delta + 0.25) },
+    { label: "After phase 4",  score: cap(baseScore + p1Delta + p2Delta + 0.40),    grade: scoreToGrade(baseScore + p1Delta + p2Delta + 0.40) },
   ];
 
   return { phases, trajectory };
