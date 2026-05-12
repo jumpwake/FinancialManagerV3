@@ -74,6 +74,9 @@ data/SamplePortfolio/*.json                       data/macro.json
 - **All shared types in `src/types.ts`.** The zod schemas in `src/intake/parsePortfolio.ts` and `parseMacro.ts` are validation only — they `import type` from `types.ts`, never re-export.
 - **`benchmarks.ts`** derives `REFERENCE_MODELS[].score` and `.grade` from each model's `dimension_scores` via `computePortfolioScore` + `scoreToGrade`. The hardcoded weights map in benchmarks.ts must stay in sync with the per-dimension `weight` fields in `dimensions.ts` — there's a test that asserts this.
 - **Pending vs. idle cash are separate concepts.** `is_pending_deployment: true` cash is excluded from the cash-drag penalty (it has an active plan). Scoring, flags, and gap items all depend on this distinction.
+- **Account identity is preserved per holding** via `Holding.account_id`. `normalize.ts` attaches it from `data/accounts.json`. Aggregates split duplicates into `duplicate_groups` (same-account waste, penalized) and `cross_account_groups` (cross-broker equivalents, informational only).
+- **Balanced and target-date holdings carry `underlying_composition`** that sums to 1.0. `aggregates.ts` uses this so that `equity_weight`, `international_weight`, and `fixed_income_weight` reflect the true exposure inside VWENX, target-date funds, etc.
+- **Asset Location is the 11th dimension** at weight 0.08; reference models score neutral 7. The benchmarks WEIGHTS map and per-dimension `weight` fields must stay in sync — `benchmarks.test.ts` asserts this.
 
 ## Important conventions
 
