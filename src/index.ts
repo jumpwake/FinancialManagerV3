@@ -7,6 +7,7 @@ import {
   normalizeVanguardAccounts,
   consolidatePortfolio,
 } from "./intake/normalize";
+import { parseAccounts, lookupAccountByFilename } from "./intake/parseAccounts";
 import { parsePortfolio } from "./intake/parsePortfolio";
 import { parseMacro } from "./intake/parseMacro";
 import { computeAggregates } from "./engine/aggregates";
@@ -18,7 +19,7 @@ import { loadUserContext, saveUserContext } from "./server/userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
 import { runPulseCheck } from "./ai/pulseCheck";
-import type { Finding, PulseVerdict } from "./types";
+import type { AccountConfig, Holding, Finding, PulseVerdict } from "./types";
 
 const SAMPLE_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
@@ -47,19 +48,37 @@ async function main() {
     );
   }
 
-  // Normalize each broker's exports into a flat Holding[]
-  const fidelity = normalizeFidelityAccounts(loadJSON(`${SAMPLE_DIR}/20260509_FidelityRetirement.json`) as any);
-  const empower  = normalizeEmpowerAccounts(loadJSON(`${SAMPLE_DIR}/20260509_EmpowerKelly.json`) as any);
-  const vb       = normalizeVanguardAccounts(loadJSON(`${SAMPLE_DIR}/20260509_VanguardBusiness.json`) as any);
-  const vkdb     = normalizeVanguardAccounts(loadJSON(`${SAMPLE_DIR}/20260509_VanguardKDB.json`) as any);
-  const vp       = normalizeVanguardAccounts(loadJSON(`${SAMPLE_DIR}/20260509_VanguardPersonal.json`) as any);
+  // Load accounts config (fall back to example if real file is absent)
+  const ACCOUNTS_FILE = fs.existsSync("data/accounts.json")
+    ? "data/accounts.json"
+    : "data/accounts.example.json";
+  const accounts: AccountConfig = parseAccounts(loadJSON(ACCOUNTS_FILE));
+  console.log(`  Accounts config: ${accounts.accounts.length} accounts from ${ACCOUNTS_FILE}`);
 
-  const allHoldings = [...fidelity, ...empower, ...vb, ...vkdb, ...vp];
-  console.log(`  Fidelity:           ${fidelity.length} holdings`);
-  console.log(`  Empower:            ${empower.length} holdings`);
-  console.log(`  Vanguard Business:  ${vb.length} holdings`);
-  console.log(`  Vanguard KDB:       ${vkdb.length} holdings`);
-  console.log(`  Vanguard Personal:  ${vp.length} holdings`);
+  // Normalize each broker's exports into a flat Holding[]
+  const SAMPLE_FILES = [
+    "20260509_FidelityRetirement.json",
+    "20260509_EmpowerKelly.json",
+    "20260509_VanguardBusiness.json",
+    "20260509_VanguardKDB.json",
+    "20260509_VanguardPersonal.json",
+  ];
+
+  const allHoldings: Holding[] = [];
+  for (const filename of SAMPLE_FILES) {
+    const account = lookupAccountByFilename(accounts, filename);
+    if (!account) {
+      throw new Error(`No account in accounts config claims source_file ${filename}`);
+    }
+    const raw = loadJSON(`${SAMPLE_DIR}/${filename}`);
+    let normalized: Holding[];
+    if (account.broker === "Fidelity") normalized = normalizeFidelityAccounts(raw as any, account.id);
+    else if (account.broker === "Empower") normalized = normalizeEmpowerAccounts(raw as any, account.id);
+    else if (account.broker === "Vanguard") normalized = normalizeVanguardAccounts(raw as any, account.id);
+    else throw new Error(`Unsupported broker ${account.broker} for ${filename}`);
+    console.log(`  ${account.label.padEnd(36)} ${normalized.length} holdings`);
+    allHoldings.push(...normalized);
+  }
   console.log(`  ─────────────────────────────`);
   console.log(`  Total (pre-dedupe): ${allHoldings.length} holdings`);
 
@@ -76,11 +95,11 @@ async function main() {
   const effectedPortfolio = applyPortfolioEffects(portfolio, userContext.situations);
 
   // Run engine
-  const aggregates = computeAggregates(effectedPortfolio);
-  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro);
+  const aggregates = computeAggregates(effectedPortfolio, accounts);
+  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro, accounts);
   const portfolio_score = computePortfolioScore(dimension_scores);
   const portfolio_grade = scoreToGrade(portfolio_score);
-  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro);
+  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro, accounts);
   const rawGapItems = generateGapItems(aggregates, dimension_scores, macro);
 
   // Apply Note suppressions (cosmetic — flags retain finding_key, annotated with suppressed_by)
@@ -180,6 +199,7 @@ async function main() {
     portfolio: effectedPortfolio,
     macro,
     aggregates,
+    accounts,
     portfolio_score,
     portfolio_grade,
     dimension_scores,

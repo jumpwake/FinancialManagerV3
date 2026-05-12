@@ -1,0 +1,48 @@
+{
+  "accounts": [
+    {
+      "id": "fidelity_retirement",
+      "label": "Fidelity Retirement (401k)",
+      "broker": "Fidelity",
+      "account_type": "pretax_ira",
+      "owner": "you",
+      "source_files": ["20260509_FidelityRetirement.json"]
+    },
+    {
+      "id": "empower_kelly",
+      "label": "Empower (Kelly's 401k)",
+      "broker": "Empower",
+      "account_type": "pretax_ira",
+      "owner": "Kelly",
+      "source_files": ["20260509_EmpowerKelly.json"]
+    },
+    {
+      "id": "vanguard_business",
+      "label": "Vanguard Business Brokerage",
+      "broker": "Vanguard",
+      "account_type": "business_taxable",
+      "owner": "business",
+      "source_files": ["20260509_VanguardBusiness.json"],
+      "constraints": {
+        "cash_reserve_minimum": 50000,
+        "excluded_from_deployment": true
+      }
+    },
+    {
+      "id": "vanguard_kdb",
+      "label": "Kelly's Vanguard Roth IRA",
+      "broker": "Vanguard",
+      "account_type": "roth_ira",
+      "owner": "Kelly",
+      "source_files": ["20260509_VanguardKDB.json"]
+    },
+    {
+      "id": "vanguard_personal",
+      "label": "Vanguard Taxable Brokerage",
+      "broker": "Vanguard",
+      "account_type": "taxable_brokerage",
+      "owner": "you",
+      "source_files": ["20260509_VanguardPersonal.json"]
+    }
+  ]
+}
