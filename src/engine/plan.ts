@@ -1,5 +1,6 @@
 import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint } from "../types";
 import { scoreToGrade, FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./dimensions";
+import { buildFindingKey } from "./findingKeys";
 
 function fiTargetFor(regime: string): { min: number; max: number } {
   return FI_TARGETS_BY_REGIME[regime] ?? DEFAULT_FI_TARGET;
@@ -46,6 +47,7 @@ export function generateFlags(
         severity: "red",
         title: `${h.ticker} — extreme valuation + declining earnings`,
         body: `P/E ${m.pe_ratio.toFixed(0)}×, EPS growth ${(m.eps_growth_yoy * 100).toFixed(1)}% YoY. Position is ${wPct}% of portfolio.`,
+        finding_key: buildFindingKey({ dimension: "valuation", type: "extreme_overvaluation", ticker: h.ticker }),
       });
     } else if (m.pe_ratio !== null && m.pe_ratio > 50) {
       flags.push({
@@ -53,6 +55,7 @@ export function generateFlags(
         severity: "yellow",
         title: `${h.ticker} — elevated valuation`,
         body: `P/E ${m.pe_ratio.toFixed(0)}× is above sector norms. Monitor for earnings deceleration.`,
+        finding_key: buildFindingKey({ dimension: "valuation", type: "elevated_pe", ticker: h.ticker }),
       });
     }
 
@@ -62,6 +65,7 @@ export function generateFlags(
         severity: "yellow",
         title: `${h.ticker} — high beta`,
         body: `Beta ${m.beta.toFixed(2)} amplifies market moves. ${capitalize(regimeAdjective(macro.market_regime))} macro warrants reducing high-beta exposure.`,
+        finding_key: buildFindingKey({ dimension: "macro_alignment", type: "high_beta", ticker: h.ticker }),
       });
     }
   }
@@ -72,6 +76,7 @@ export function generateFlags(
       severity: "yellow",
       title: `Idle cash at ${(agg.idle_cash_weight * 100).toFixed(1)}%`,
       body: `${(agg.idle_cash_weight * 100).toFixed(1)}% of portfolio earning money-market yield. Deploy or document as intentional strategic reserve.`,
+      finding_key: buildFindingKey({ dimension: "diversification", type: "cash_drag" }),
     });
   }
 
@@ -81,6 +86,7 @@ export function generateFlags(
       severity: "yellow",
       title: "Inverted yield curve — bond underweight",
       body: `Yield curve spread at ${macro.yield_curve_spread_10y_2y.toFixed(2)}%. Fixed income at ${(agg.fixed_income_weight * 100).toFixed(1)}% is below the ${fiTargetPctText(macro.market_regime)} ${regimeAdjective(macro.market_regime)} target.`,
+      finding_key: buildFindingKey({ dimension: "macro_alignment", type: "fi_underweight_inverted_curve" }),
     });
   }
 
@@ -90,6 +96,7 @@ export function generateFlags(
       severity: "yellow",
       title: `LEI declining for ${macro.lei_consecutive_declines} consecutive months`,
       body: "Six or more consecutive LEI declines historically precede recession. Defensive positioning is warranted.",
+      finding_key: buildFindingKey({ dimension: "macro_alignment", type: "lei_decline" }),
     });
   }
 
@@ -99,6 +106,7 @@ export function generateFlags(
       severity: "yellow",
       title: `Redundant funds — ${group.label}`,
       body: `${group.tickers.join(", ")} hold near-identical underlying exposure. Combined ${(group.combined_weight * 100).toFixed(1)}% — consolidate into one.`,
+      finding_key: buildFindingKey({ dimension: "cost", type: "duplicate_funds", label: group.label }),
     });
   }
 
@@ -118,6 +126,7 @@ export function generateGapItems(
       type: "red",
       body: `${(agg.idle_cash_weight * 100).toFixed(1)}% idle cash reducing returns. Target ≤ 3%.`,
       progress: Math.max(0, Math.round((1 - agg.idle_cash_weight / 0.30) * 100)),
+      finding_key: buildFindingKey({ dimension: "diversification", type: "cash_drag" }),
     });
   }
 
@@ -128,6 +137,7 @@ export function generateGapItems(
       type: "red",
       body: `${stockRiskDim.display_value}. Deteriorating fundamentals in high-weight positions.`,
       progress: Math.round(stockRiskDim.score * 10),
+      finding_key: buildFindingKey({ dimension: "single_stock_risk", type: "high_risk" }),
     });
   }
 
@@ -138,6 +148,7 @@ export function generateGapItems(
       type: "amber",
       body: `${(agg.fixed_income_weight * 100).toFixed(1)}% FI vs. ${macro.market_regime} target. Add FXNAX or VBTLX weight.`,
       progress: Math.round((agg.fixed_income_weight / 0.20) * 100),
+      finding_key: buildFindingKey({ dimension: "bond_balance", type: "fi_underweight" }),
     });
   }
 
@@ -148,6 +159,7 @@ export function generateGapItems(
       type: "amber",
       body: `${g.tickers.join(" + ")} hold nearly identical securities. Consolidate to reduce complexity.`,
       progress: 20,
+      finding_key: buildFindingKey({ dimension: "simplicity", type: "fund_overlap", label: g.label }),
     });
   }
 
@@ -158,6 +170,7 @@ export function generateGapItems(
       type: "amber",
       body: `${(agg.top3_weight * 100).toFixed(1)}% in top 3 holdings (${agg.top3_tickers.join(", ")}). Target ≤ 45%.`,
       progress: Math.min(100, Math.round(((1 - agg.top3_weight) / 0.65) * 100)),
+      finding_key: buildFindingKey({ dimension: "concentration", type: "top3_overweight" }),
     });
   }
 

@@ -1,7 +1,8 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import { generateFlags, generateGapItems, generatePlanPhases } from "./plan";
 import { computeAggregates } from "./aggregates";
 import { scoreAllDimensions } from "./dimensions";
+import { buildFindingKey } from "./findingKeys";
 import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { Portfolio } from "../types";
@@ -103,6 +104,35 @@ describe("generateFlags — portfolio-level", () => {
     const flags = generateFlags(portfolio, computeAggregates(portfolio), makeMacro());
     expect(flags.some(f => f.title.includes("Redundant"))).toBe(true);
   });
+
+  it("attaches a finding_key to every flag", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "VTI", market_value: 89_000, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false }),
+        makeHolding({ ticker: "CASH", market_value: 11_000, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null }),
+      ],
+    });
+    const aggregates = computeAggregates(portfolio);
+    const flags = generateFlags(portfolio, aggregates, makeMacro());
+
+    expect(flags.length).toBeGreaterThan(0);
+    for (const f of flags) {
+      expect(f.finding_key).toBeTruthy();
+      expect(f.finding_key).toMatch(/^[a-z][a-z0-9_]+(:[A-Za-z0-9_\-]+)+$/);
+    }
+  });
+
+  it("attaches finding_key matching the expected pattern for cash drag", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "VTI", market_value: 89_000, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false }),
+        makeHolding({ ticker: "CASH", market_value: 11_000, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null }),
+      ],
+    });
+    const flags = generateFlags(portfolio, computeAggregates(portfolio), makeMacro());
+    const cashFlag = flags.find(f => f.ticker === "CASH");
+    expect(cashFlag?.finding_key).toBe(buildFindingKey({ dimension: "diversification", type: "cash_drag" }));
+  });
 });
 
 describe("generateGapItems", () => {
@@ -170,6 +200,24 @@ describe("generateGapItems", () => {
     const fullDims = dimsFor(portfolio);
     const brokenDims = fullDims.filter(d => d.id !== "single_stock_risk");
     expect(() => generateGapItems(agg, brokenDims, makeMacro())).toThrow(/single_stock_risk/);
+  });
+
+  it("attaches a finding_key to every gap item", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "VTI", market_value: 89_000, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false }),
+        makeHolding({ ticker: "CASH", market_value: 11_000, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null }),
+      ],
+    });
+    const aggregates = computeAggregates(portfolio);
+    const macro = makeMacro();
+    const dimensions = scoreAllDimensions(portfolio, aggregates, macro);
+    const gaps = generateGapItems(aggregates, dimensions, macro);
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const g of gaps) {
+      expect(g.finding_key).toBeTruthy();
+      expect(g.finding_key).toMatch(/^[a-z][a-z0-9_]+(:[A-Za-z0-9_\-]+)+$/);
+    }
   });
 });
 
