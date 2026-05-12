@@ -1,5 +1,23 @@
 import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint } from "../types";
-import { scoreToGrade } from "./dimensions";
+import { scoreToGrade, FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./dimensions";
+
+function fiTargetFor(regime: string): { min: number; max: number } {
+  return FI_TARGETS_BY_REGIME[regime] ?? DEFAULT_FI_TARGET;
+}
+
+function fiTargetPctText(regime: string): string {
+  const t = fiTargetFor(regime);
+  return `${(t.min * 100).toFixed(0)}–${(t.max * 100).toFixed(0)}%`;
+}
+
+function regimeAdjective(regime: string): string {
+  if (regime === "Recession") return "recessionary";
+  return regime.toLowerCase().replace(/\s+/g, "-");
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+}
 
 export function generateFlags(
   portfolio: Portfolio,
@@ -34,7 +52,7 @@ export function generateFlags(
         ticker: h.ticker,
         severity: "yellow",
         title: `${h.ticker} — high beta`,
-        body: `Beta ${m.beta.toFixed(2)} amplifies market moves. Late-cycle macro warrants reducing high-beta exposure.`,
+        body: `Beta ${m.beta.toFixed(2)} amplifies market moves. ${capitalize(regimeAdjective(macro.market_regime))} macro warrants reducing high-beta exposure.`,
       });
     }
   }
@@ -53,7 +71,7 @@ export function generateFlags(
       ticker: "MACRO",
       severity: "yellow",
       title: "Inverted yield curve — bond underweight",
-      body: `Yield curve spread at ${macro.yield_curve_spread_10y_2y.toFixed(2)}%. Fixed income at ${(agg.fixed_income_weight * 100).toFixed(1)}% is below the 18–22% late-cycle target.`,
+      body: `Yield curve spread at ${macro.yield_curve_spread_10y_2y.toFixed(2)}%. Fixed income at ${(agg.fixed_income_weight * 100).toFixed(1)}% is below the ${fiTargetPctText(macro.market_regime)} ${regimeAdjective(macro.market_regime)} target.`,
     });
   }
 
@@ -193,7 +211,7 @@ export function generatePlanPhases(
   if (agg.fixed_income_weight < 0.16) {
     p2Actions.push({
       category: "rebalance",
-      description: `Increase fixed income from ${(agg.fixed_income_weight * 100).toFixed(1)}% to 18–22%. Late-cycle with inverted yield curve warrants adding FXNAX or VBTLX weight.`,
+      description: `Increase fixed income from ${(agg.fixed_income_weight * 100).toFixed(1)}% to ${fiTargetPctText(macro.market_regime)}. ${capitalize(regimeAdjective(macro.market_regime))}${macro.yield_curve_status === "inverted" ? " with inverted yield curve" : ""} warrants adding FXNAX or VBTLX weight.`,
       tags: ["impact"],
     });
     p2Delta += 0.3;

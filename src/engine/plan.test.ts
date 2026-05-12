@@ -220,3 +220,50 @@ describe("generatePlanPhases", () => {
     }
   });
 });
+
+describe("generateFlags — regime-sensitive text", () => {
+  test("inverted yield curve flag uses regime-specific FI target", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const macro = makeMacro({ market_regime: "Recession", yield_curve_status: "inverted", yield_curve_spread_10y_2y: -0.12 });
+    const flags = generateFlags(portfolio, computeAggregates(portfolio), macro);
+    const macroFlag = flags.find(f => f.ticker === "MACRO" && f.title.includes("yield curve"));
+    expect(macroFlag).toBeDefined();
+    expect(macroFlag!.body).toContain("25–40%");  // Recession target
+    expect(macroFlag!.body).toContain("recessionary");  // lowercase in mid-sentence
+    expect(macroFlag!.body).not.toContain("late-cycle");
+  });
+
+  test("high-beta flag body uses regime adjective not hardcoded late-cycle", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 25, beta: 1.8 }),
+        }),
+      ],
+    });
+    const macro = makeMacro({ market_regime: "Early Cycle" });
+    const flags = generateFlags(portfolio, computeAggregates(portfolio), macro);
+    const betaFlag = flags.find(f => f.ticker === "TSLA" && f.title.includes("beta"));
+    expect(betaFlag).toBeDefined();
+    expect(betaFlag!.body).toContain("Early-cycle");
+    expect(betaFlag!.body).not.toContain("Late-cycle");
+  });
+
+  test("phase 2 FI rebalance action uses regime-specific target range", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const macro = makeMacro({ market_regime: "Recession", yield_curve_status: "inverted" });
+    const { phases } = generatePlanPhases(computeAggregates(portfolio), macro, 7.0);
+    const p2FiAction = phases[1].actions.find(a => a.description.includes("Increase fixed income"));
+    expect(p2FiAction).toBeDefined();
+    expect(p2FiAction!.description).toContain("25–40%");  // Recession target
+    expect(p2FiAction!.description).toContain("Recessionary");  // capitalize() is applied in phase 2
+    expect(p2FiAction!.description).not.toContain("Late-cycle");
+    expect(p2FiAction!.description).toContain("with inverted yield curve");
+  });
+});

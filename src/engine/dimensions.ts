@@ -155,15 +155,18 @@ export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContex
   };
 }
 
+export const FI_TARGETS_BY_REGIME: Record<string, { min: number; max: number }> = {
+  "Late Cycle":  { min: 0.18, max: 0.30 },
+  "Mid Cycle":   { min: 0.15, max: 0.25 },
+  "Early Cycle": { min: 0.10, max: 0.20 },
+  "Recession":   { min: 0.25, max: 0.40 },
+};
+
+export const DEFAULT_FI_TARGET = { min: 0.15, max: 0.25 };
+
 export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
   const fi = agg.fixed_income_weight;
-  const targets: Record<string, { min: number; max: number }> = {
-    "Late Cycle":  { min: 0.18, max: 0.30 },
-    "Mid Cycle":   { min: 0.15, max: 0.25 },
-    "Early Cycle": { min: 0.10, max: 0.20 },
-    "Recession":   { min: 0.25, max: 0.40 },
-  };
-  const target = targets[macro.market_regime] ?? { min: 0.15, max: 0.25 };
+  const target = FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET;
 
   const score =
     fi >= target.min && fi <= target.max ? 9 :
