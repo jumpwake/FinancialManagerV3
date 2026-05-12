@@ -87,7 +87,7 @@ export async function generateNarratives(
   });
 
   const response = await client.messages.parse({
-    model: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+    model: process.env.CLAUDE_MODEL_NARRATIVES ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
     max_tokens: 2000,
     thinking: { type: "adaptive" },
     output_config: {
