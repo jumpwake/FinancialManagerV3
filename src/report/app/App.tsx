@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AnalysisOutput } from "./types";
+import { useCallback, useEffect, useState } from "react";
+import { AnalysisOutput, ChatScope, Situation } from "./types";
 import { COLORS } from "./theme";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
@@ -9,20 +9,42 @@ import RadarChart from "./sections/RadarChart";
 import AdditionalTakeaways from "./sections/AdditionalTakeaways";
 import Gaps from "./sections/Gaps";
 import Flags from "./sections/Flags";
+import { OpenSituations } from "./sections/OpenSituations";
+import { Sidebar } from "./sidebar/Sidebar";
 
 export default function App() {
   const [data, setData] = useState<AnalysisOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState<ChatScope>({ type: "global" });
+
+  const loadAnalysis = useCallback(async () => {
+    try {
+      const r = await fetch("/analysis.json");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const json = (await r.json()) as AnalysisOutput;
+      setData(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/analysis.json")
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((json: AnalysisOutput) => setData(json))
-      .catch(err => setError(err.message || String(err)));
-  }, []);
+    loadAnalysis();
+  }, [loadAnalysis]);
+
+  const handleResolve = useCallback(
+    async (sit: Situation) => {
+      const reason = window.prompt(`Why is "${sit.title}" resolved?`, "completed");
+      if (reason === null) return;
+      await fetch(`/api/situations/${sit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "closed", closure_reason: reason }),
+      });
+      await loadAnalysis();
+    },
+    [loadAnalysis],
+  );
 
   if (error) {
     return (
@@ -39,52 +61,67 @@ export default function App() {
     return <div style={{ padding: "2rem", color: COLORS.textMuted }}>Loading analysis...</div>;
   }
 
-  const typedData = data as AnalysisOutput;
+  const typedData = data;
+  const situations = typedData.situations ?? [];
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem", fontFamily: "system-ui, sans-serif" }}>
-      {/* Header */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
-          {typedData.portfolio.account_label}
-        </h1>
-        <p style={{ fontSize: 13, color: COLORS.textMuted }}>
-          Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
-          {typedData.portfolio.holdings.length} holdings · Grade{" "}
-          <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
-          ({typedData.portfolio_score.toFixed(1)}/10)
-        </p>
-        {typedData.narratives?.headline_summary && (
-          <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
-            {typedData.narratives.headline_summary}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", minHeight: "100vh" }}>
+      <main style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", fontFamily: "system-ui, sans-serif", width: "100%" }}>
+        {/* Header */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
+            {typedData.portfolio.account_label}
+          </h1>
+          <p style={{ fontSize: 13, color: COLORS.textMuted }}>
+            Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
+            {typedData.portfolio.holdings.length} holdings · Grade{" "}
+            <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
+            ({typedData.portfolio_score.toFixed(1)}/10)
           </p>
-        )}
-      </div>
+          {typedData.narratives?.headline_summary && (
+            <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
+              {typedData.narratives.headline_summary}
+            </p>
+          )}
+        </div>
 
-      <Section label="1 — Allocation breakdown">
-        <AllocationBreakdown data={typedData} />
-      </Section>
-      <Section label="2 — Benchmark comparison">
-        <BenchmarkComparison data={typedData} />
-      </Section>
-      <Section label="3 — Dimension scorecard">
-        <DimensionScorecard data={typedData} />
-      </Section>
-      <Section label="4 — Key findings">
-        <KeyFindings data={typedData} />
-      </Section>
-      <Section label="5 — Radar">
-        <RadarChart data={typedData} />
-      </Section>
-      <Section label="6 — Additional takeaways">
-        <AdditionalTakeaways data={typedData} />
-      </Section>
-      <Section label="7 — Gaps">
-        <Gaps data={typedData} />
-      </Section>
-      <Section label="8 — Flags">
-        <Flags data={typedData} />
-      </Section>
+        <OpenSituations
+          situations={situations}
+          onDiscuss={(sit) => setScope({ type: "situation", situation_id: sit.id })}
+          onResolve={handleResolve}
+        />
+
+        <Section label="1 — Allocation breakdown">
+          <AllocationBreakdown data={typedData} />
+        </Section>
+        <Section label="2 — Benchmark comparison">
+          <BenchmarkComparison data={typedData} />
+        </Section>
+        <Section label="3 — Dimension scorecard">
+          <DimensionScorecard data={typedData} />
+        </Section>
+        <Section label="4 — Key findings">
+          <KeyFindings data={typedData} />
+        </Section>
+        <Section label="5 — Radar">
+          <RadarChart data={typedData} />
+        </Section>
+        <Section label="6 — Additional takeaways">
+          <AdditionalTakeaways data={typedData} />
+        </Section>
+        <Section label="7 — Gaps">
+          <Gaps data={typedData} onDiscuss={(k) => setScope({ type: "gap", finding_key: k })} />
+        </Section>
+        <Section label="8 — Flags">
+          <Flags data={typedData} onDiscuss={(k) => setScope({ type: "flag", finding_key: k })} />
+        </Section>
+      </main>
+
+      <Sidebar
+        scope={scope}
+        onScopeChange={setScope}
+        initialHistory={[]}
+      />
     </div>
   );
 }
