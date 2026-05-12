@@ -132,6 +132,29 @@ export function scoreDiversification(agg: PortfolioAggregates): DimensionScore {
   };
 }
 
+export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
+  let score = 5;
+  for (const sh of agg.sector_holdings) {
+    if (macro.sector_overweight.includes(sh.sector_tag) && sh.combined_weight >= 0.01) {
+      score += 1;
+    }
+    if (macro.sector_underweight.includes(sh.sector_tag) && sh.combined_weight >= 0.03) {
+      score -= 1.5;
+    }
+  }
+  score = Math.max(1, Math.min(10, score));
+
+  return {
+    id: "macro_alignment",
+    label: "Macro alignment",
+    score,
+    rating: toRating(score),
+    display_value: `${macro.market_regime} regime`,
+    note: `Sector tilts vs. macro overweights: ${macro.sector_overweight.join(", ") || "(none)"}`,
+    weight: 0.10,
+  };
+}
+
 export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
   const fi = agg.fixed_income_weight;
   const targets: Record<string, { min: number; max: number }> = {

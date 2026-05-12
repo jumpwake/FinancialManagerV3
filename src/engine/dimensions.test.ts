@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
@@ -405,5 +405,64 @@ describe("scoreBondBalance", () => {
   test("unknown regime falls back to 15–25% target", () => {
     const agg = aggForBond(0.20);
     expect(scoreBondBalance(agg, makeMacro({ market_regime: "Unknown" })).score).toBe(9);
+  });
+});
+
+function aggForMacro(sectors: { sector_tag: string; tickers: string[]; combined_weight: number }[]): PortfolioAggregates {
+  return {
+    total_value: 1000,
+    blended_expense_ratio: 0.0002,
+    holding_count: 5,
+    duplicate_groups: [],
+    top3_weight: 0,
+    top3_tickers: [],
+    cash_weight: 0,
+    idle_cash_weight: 0,
+    pending_cash_weight: 0,
+    pending_cash_value: 0,
+    international_weight: 0,
+    equity_weight: 0,
+    fixed_income_weight: 0,
+    individual_stock_weight: 0,
+    balanced_weight: 0,
+    sector_holdings: sectors,
+  };
+}
+
+describe("scoreMacroAlignment", () => {
+  test("baseline 5 when no sector tilts and no overweight matches", () => {
+    const agg = aggForMacro([]);
+    const macro = makeMacro({ market_regime: "Mid Cycle", sector_overweight: [], sector_underweight: [] });
+    expect(scoreMacroAlignment(agg, macro).score).toBe(5);
+  });
+
+  test("+1 per aligned overweight sector held ≥ 1%", () => {
+    const agg = aggForMacro([{ sector_tag: "utilities", tickers: ["XLU"], combined_weight: 0.02 }]);
+    const macro = makeMacro({ market_regime: "Mid Cycle", sector_overweight: ["utilities"] });
+    expect(scoreMacroAlignment(agg, macro).score).toBe(6);
+  });
+
+  test("−1.5 per underweight sector held ≥ 3%", () => {
+    const agg = aggForMacro([{ sector_tag: "consumer_discretionary", tickers: ["XLY"], combined_weight: 0.05 }]);
+    const macro = makeMacro({ market_regime: "Mid Cycle", sector_underweight: ["consumer_discretionary"] });
+    expect(scoreMacroAlignment(agg, macro).score).toBeCloseTo(3.5, 6);
+  });
+
+  test("score is clamped to 1..10", () => {
+    const agg = aggForMacro([
+      { sector_tag: "x1", tickers: ["A"], combined_weight: 0.05 },
+      { sector_tag: "x2", tickers: ["B"], combined_weight: 0.05 },
+      { sector_tag: "x3", tickers: ["C"], combined_weight: 0.05 },
+      { sector_tag: "x4", tickers: ["D"], combined_weight: 0.05 },
+      { sector_tag: "x5", tickers: ["E"], combined_weight: 0.05 },
+    ]);
+    const macro = makeMacro({ market_regime: "Mid Cycle", sector_underweight: ["x1", "x2", "x3", "x4", "x5"] });
+    expect(scoreMacroAlignment(agg, macro).score).toBe(1);
+  });
+
+  test("display_value mentions the regime", () => {
+    const agg = aggForMacro([]);
+    const macro = makeMacro({ market_regime: "Late Cycle" });
+    expect(scoreMacroAlignment(agg, macro).display_value).toContain("Late Cycle");
   });
 });
