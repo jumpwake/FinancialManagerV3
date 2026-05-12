@@ -183,7 +183,7 @@ export interface Finding {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PortfolioEffect =
-  | { type: "mark_cash_pending"; amount_usd: number; deployment_label?: string }
+  | { type: "mark_cash_pending"; amount_usd?: number; deployment_label?: string }
   | { type: "mark_holding_pending"; ticker: string; amount_usd?: number };
 
 export interface MacroSnapshot {

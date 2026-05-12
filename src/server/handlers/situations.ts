@@ -1,6 +1,28 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { mutateUserContext, loadUserContext } from "../userContextStore";
+import { z } from "zod";
 import type { Situation } from "../../types";
+
+const PortfolioEffectInputSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("mark_cash_pending"),
+    amount_usd: z.number().positive().optional(),
+    deployment_label: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("mark_holding_pending"),
+    ticker: z.string().min(1),
+    amount_usd: z.number().positive().optional(),
+  }),
+]);
+
+const SituationPostBodySchema = z.object({
+  title: z.string().min(1),
+  intent: z.string().min(1),
+  target_date: z.string().nullish(),
+  related_findings: z.array(z.string()).optional(),
+  portfolio_effects: z.array(PortfolioEffectInputSchema).optional(),
+});
 
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -46,10 +68,12 @@ export async function handleSituationsRoute(
   }
 
   if (match.method === "POST" && !match.id) {
-    const body = (await readBody(req)) as Partial<Situation>;
-    if (!body.title || !body.intent) {
-      return sendJSON(res, 400, { error: "title and intent are required" });
+    const raw = await readBody(req);
+    const parsed = SituationPostBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return sendJSON(res, 400, { error: "invalid situation payload", issues: parsed.error.issues });
     }
+    const body = parsed.data;
     const sit: Situation = {
       id: makeId("sit"),
       title: body.title,
@@ -57,7 +81,7 @@ export async function handleSituationsRoute(
       status: "open",
       target_date: body.target_date ?? null,
       related_findings: body.related_findings ?? [],
-      portfolio_effects: body.portfolio_effects ?? [],
+      portfolio_effects: (body.portfolio_effects ?? []) as Situation["portfolio_effects"],
       verdict_history: [],
       created_at: nowIso(),
       updated_at: nowIso(),

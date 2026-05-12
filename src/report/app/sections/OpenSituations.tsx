@@ -79,7 +79,13 @@ export function OpenSituations({ situations, onDiscuss, onResolve }: Props) {
               {sit.related_findings.length > 0 && ` · related: ${sit.related_findings.join(", ")}`}
               {sit.portfolio_effects.length > 0 &&
                 ` · adjusts portfolio: ${sit.portfolio_effects
-                  .map((e) => (e.type === "mark_cash_pending" ? `$${e.amount_usd.toLocaleString()} cash pending` : `${e.ticker} pending`))
+                  .map((e) =>
+                    e.type === "mark_cash_pending"
+                      ? e.amount_usd !== undefined
+                        ? `$${e.amount_usd.toLocaleString()} cash pending`
+                        : "all idle cash pending"
+                      : `${e.ticker} pending`,
+                  )
                   .join(", ")}`}
             </div>
             <div style={{ marginTop: 8, display: "flex", gap: 6 }}>

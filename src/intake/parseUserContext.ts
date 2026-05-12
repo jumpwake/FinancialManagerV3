@@ -4,7 +4,7 @@ import type { UserContext } from "../types";
 const PortfolioEffectSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("mark_cash_pending"),
-    amount_usd: z.number().positive(),
+    amount_usd: z.number().positive().optional(),
     deployment_label: z.string().optional(),
   }),
   z.object({

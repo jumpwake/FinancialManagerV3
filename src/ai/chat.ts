@@ -46,10 +46,10 @@ export const CHAT_TOOLS = [
                 type: "object",
                 properties: {
                   type: { const: "mark_cash_pending" },
-                  amount_usd: { type: "number" },
+                  amount_usd: { type: "number", description: "Dollar amount of cash to mark as pending. OPTIONAL: omit only if the user genuinely did not specify an amount and the intent applies to all idle cash. Otherwise ASK the user for the amount before proposing." },
                   deployment_label: { type: "string" },
                 },
-                required: ["type", "amount_usd"],
+                required: ["type"],
               },
               {
                 type: "object",

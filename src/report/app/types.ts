@@ -150,7 +150,7 @@ export interface AINarratives {
 // Mirror of V2 types from src/types.ts — keep in sync.
 
 export type PortfolioEffect =
-  | { type: "mark_cash_pending"; amount_usd: number; deployment_label?: string }
+  | { type: "mark_cash_pending"; amount_usd?: number; deployment_label?: string }
   | { type: "mark_holding_pending"; ticker: string; amount_usd?: number };
 
 export interface MacroSnapshot {

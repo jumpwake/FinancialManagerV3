@@ -8,6 +8,18 @@ function applyMarkCashPending(
   holdings: Holding[],
   effect: Extract<PortfolioEffect, { type: "mark_cash_pending" }>,
 ): Holding[] {
+  // Undefined amount → mark ALL idle cash as pending (no remainder, no split).
+  if (effect.amount_usd === undefined) {
+    return holdings.map((h) => {
+      if (!h.is_cash || h.is_pending_deployment) return cloneHolding(h);
+      const updated = cloneHolding(h);
+      updated.is_pending_deployment = true;
+      updated.asset_class = "cash_pending";
+      if (effect.deployment_label) updated.deployment_label = effect.deployment_label;
+      return updated;
+    });
+  }
+
   const result: Holding[] = [];
   let remaining = effect.amount_usd;
 

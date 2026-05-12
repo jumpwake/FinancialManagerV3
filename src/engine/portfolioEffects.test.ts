@@ -72,6 +72,25 @@ describe("applyPortfolioEffects", () => {
     expect(idle?.market_value).toBe(80000);
   });
 
+  it("marks ALL idle cash as pending when amount_usd is omitted", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "VTI", market_value: 100000 }),
+        makeHolding({ ticker: "CASH1", market_value: 200000, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null }),
+        makeHolding({ ticker: "CASH2", market_value: 50000, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null }),
+      ],
+    });
+    const sit = makeSituation([{ type: "mark_cash_pending", deployment_label: "T3" }]);
+    const result = applyPortfolioEffects(portfolio, [sit]);
+    const cashHoldings = result.holdings.filter(h => h.is_cash);
+    expect(cashHoldings.length).toBe(2);
+    expect(cashHoldings.every(h => h.is_pending_deployment)).toBe(true);
+    expect(cashHoldings.every(h => h.deployment_label === "T3")).toBe(true);
+    // Idle cash should be 0; pending should be the full $250k
+    const totalPending = cashHoldings.reduce((s, h) => s + h.market_value, 0);
+    expect(totalPending).toBe(250000);
+  });
+
   it("marks a specific holding as pending by ticker", () => {
     const portfolio = makePortfolio({
       holdings: [
