@@ -49,8 +49,8 @@ export const PortfolioSchema = z.object({
   holdings: z.array(HoldingSchema).min(1),
 });
 
-export type Portfolio = z.infer<typeof PortfolioSchema>;
+import type { Portfolio } from "../types";
 
 export function parsePortfolio(input: unknown): Portfolio {
-  return PortfolioSchema.parse(input);
+  return PortfolioSchema.parse(input) as Portfolio;
 }

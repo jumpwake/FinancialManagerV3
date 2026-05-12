@@ -17,8 +17,8 @@ export const MacroContextSchema = z.object({
   sector_underweight: z.array(z.string()),
 });
 
-export type MacroContext = z.infer<typeof MacroContextSchema>;
+import type { MacroContext } from "../types";
 
 export function parseMacro(input: unknown): MacroContext {
-  return MacroContextSchema.parse(input);
+  return MacroContextSchema.parse(input) as MacroContext;
 }
