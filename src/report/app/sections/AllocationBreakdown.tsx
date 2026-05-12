@@ -51,6 +51,11 @@ function buildBuckets(holdings: AnalysisOutput["portfolio"]["holdings"]): Bucket
 function fmt$(v: number) {
   return "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
+
+function accountLabel(account_id: string, accounts: AnalysisOutput["accounts"]): string {
+  if (!accounts) return account_id;
+  return accounts.accounts.find(a => a.id === account_id)?.label ?? account_id;
+}
 function fmtPct(v: number) {
   return (v * 100).toFixed(1) + "%";
 }
@@ -155,6 +160,7 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
           <thead>
             <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
               <th style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Holding</th>
+              <th style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Account</th>
               <th style={{ textAlign: "right", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Value</th>
               <th style={{ textAlign: "right", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Wt.</th>
             </tr>
@@ -168,6 +174,9 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
                   {h.is_pending_deployment && (
                     <span style={{ marginLeft: 8, background: COLORS.pendingBg, color: COLORS.amber, fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>pending</span>
                   )}
+                </td>
+                <td style={{ padding: "8px 14px", fontSize: 12, color: COLORS.textMuted }}>
+                  {accountLabel(h.account_id, data.accounts)}
                 </td>
                 <td style={{ padding: "8px 14px", fontSize: 13, color: COLORS.text, textAlign: "right" }}>{fmt$(h.market_value)}</td>
                 <td style={{ padding: "8px 14px", fontSize: 13, color: COLORS.textMuted, textAlign: "right" }}>{fmtPct(h.market_value / total)}</td>
@@ -192,6 +201,38 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
           {fmt$(pendingHolding.market_value)} in {pendingHolding.ticker} ({fmtPct(pendingHolding.market_value / total)}) is dry powder awaiting{" "}
           {pendingHolding.deployment_label ?? "scheduled"} deployment
           {pendingHolding.deployment_date ? ` ~${pendingHolding.deployment_date}` : ""}.
+        </div>
+      )}
+
+      {/* Composition note */}
+      {data.portfolio.holdings.some(h => h.underlying_composition) && (
+        <div style={{
+          marginTop: 12,
+          fontSize: 12,
+          color: COLORS.textMuted,
+          lineHeight: 1.5,
+        }}>
+          Balanced and target-date funds are decomposed for scoring.{" "}
+          {data.portfolio.holdings.filter(h => h.underlying_composition).map(h => {
+            const c = h.underlying_composition!;
+            const equityDollars = h.market_value * (c.us_equity + c.international_equity);
+            const fiDollars = h.market_value * c.fixed_income;
+            return `${h.ticker} (${fmt$(h.market_value)}) contributes ~${fmt$(equityDollars)} equity / ~${fmt$(fiDollars)} FI.`;
+          }).join(" ")}
+        </div>
+      )}
+
+      {/* Cross-account groups note */}
+      {data.aggregates.cross_account_groups.length > 0 && (
+        <div style={{
+          marginTop: 8,
+          fontSize: 12,
+          color: COLORS.textMuted,
+          fontStyle: "italic",
+        }}>
+          Note: {data.aggregates.cross_account_groups.map(g =>
+            `${g.tickers_by_account.map(t => t.ticker).join(" / ")} (${g.label})`
+          ).join("; ")} held across multiple accounts — expected for cross-broker portfolios, not a flag.
         </div>
       )}
 
