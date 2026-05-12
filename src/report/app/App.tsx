@@ -115,7 +115,10 @@ export default function App() {
           <BenchmarkComparison data={typedData} />
         </Section>
         <Section label="3 — Dimension scorecard">
-          <DimensionScorecard data={typedData} />
+          <DimensionScorecard
+            data={typedData}
+            onDiscuss={(id) => setScope({ type: "dimension", dimension_id: id })}
+          />
         </Section>
         <Section label="4 — Key findings">
           <KeyFindings data={typedData} />
