@@ -144,9 +144,9 @@ export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext):
 
   const score =
     fi >= target.min && fi <= target.max ? 9 :
+    fi > target.max                      ? 7 :
     fi >= target.min * 0.8               ? 7 :
-    fi >= target.min * 0.5               ? 5 :
-    fi > target.max                      ? 7 : 3;
+    fi >= target.min * 0.5               ? 5 : 3;
 
   return {
     id: "bond_balance",
