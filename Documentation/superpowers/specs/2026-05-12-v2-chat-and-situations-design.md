@@ -41,6 +41,7 @@ A user can:
 | Pulse-check trigger | At `npm run analyze` time, embedded in analysis.json — not on report load |
 | Model config | Per-call env vars: `CLAUDE_MODEL_PULSE` defaults to `claude-opus-4-7`, `CLAUDE_MODEL_CHAT` and `CLAUDE_MODEL_NARRATIVES` default to `claude-sonnet-4-6`. All fall back to `CLAUDE_MODEL` if set. |
 | Tool use | LLM in chat can call `propose_situation`, `propose_note`, `propose_close_situation`, `propose_suppress_flag`. Tool calls render as confirm cards — user clicks Confirm to actually mutate. |
+| Score impact | **Fact-vs-judgment rule.** Situations may carry `portfolio_effects[]` that modify the parsed portfolio before scoring (changes facts → grade reflects). Notes use `suppress_flag` for judgment annotations (cosmetic only → grade unchanged). The cash-rollover case is a fact change; dupe-funds-across-brokerages is a judgment. |
 | Persistence location | `data/user-context.json`, **gitignored**. `data/user-context.example.json` committed as schema reference. |
 | Concurrency | Atomic read-modify-write with temp file + rename. No locking. Single-user assumption. |
 
@@ -56,14 +57,15 @@ A user can:
 
 1. Load `user-context.json` (NEW)
 2. Normalize + consolidate + parse portfolio (unchanged)
-3. Parse macro (unchanged)
-4. Aggregate + score dimensions (unchanged)
-5. Generate flags / gap items / plan — but each item now carries a stable `finding_key` (NEW)
-6. **Apply suppressions** — annotate any flag/gap whose `finding_key` matches a `Note(suppress_flag: true)` or appears in `Situation.explains_findings` (NEW)
-7. **Pulse-check each open Situation** — one Sonnet/Opus call per open situation, in parallel via `Promise.all`. Append result to `verdict_history` (NEW)
-8. Generate narratives (unchanged)
-9. Write `output/analysis.json` — now includes `situations[]`, `notes[]`, and `finding_key` on every flag/gap
-10. Persist updated `user-context.json` — only `verdict_history` append; the rest is read-only at analyze time (NEW)
+3. **Apply Situation `portfolio_effects` to the parsed portfolio** (NEW) — fact-change annotations modify portfolio inputs (e.g., mark $200k cash as `is_pending_deployment: true`) before anything is scored. The engine then sees the effected portfolio.
+4. Parse macro (unchanged)
+5. Aggregate + score dimensions (unchanged — but now operating on the effected portfolio)
+6. Generate flags / gap items / plan — but each item now carries a stable `finding_key` (NEW)
+7. **Apply Note suppressions** — annotate any flag/gap whose `finding_key` matches a `Note(suppress_flag: true)` (NEW). This is cosmetic only; score is already computed.
+8. **Pulse-check each open Situation** — one Sonnet/Opus call per open situation, in parallel via `Promise.all`. Append result to `verdict_history` (NEW)
+9. Generate narratives (unchanged)
+10. Write `output/analysis.json` — now includes `situations[]`, `notes[]`, and `finding_key` on every flag/gap
+11. Persist updated `user-context.json` — only `verdict_history` append; the rest is read-only at analyze time (NEW)
 
 ### 5.3 Report (`npm run report`)
 
@@ -77,7 +79,8 @@ A user can:
 src/
 ├── engine/
 │   ├── findingKeys.ts          NEW — deterministic stable IDs for flags/gaps
-│   ├── suppression.ts          NEW — apply notes/situations to flags (pure)
+│   ├── portfolioEffects.ts     NEW — apply Situation.portfolio_effects to parsed portfolio (pure, pre-scoring)
+│   ├── suppression.ts          NEW — apply Note.suppress_flag to flags (pure, post-scoring; cosmetic)
 │   └── <existing>
 ├── intake/
 │   ├── parseUserContext.ts     NEW — zod-validated load/write
@@ -124,13 +127,19 @@ DELETE /api/notes/:id
   intent:            string,                // full description of what's going on
   status:            "open" | "closed",
   target_date:       string | null,         // optional ISO date
-  explains_findings: string[],              // finding_keys this Situation suppresses
+  related_findings:  string[],              // finding_keys this Situation is *about* (informational link only)
+  portfolio_effects: PortfolioEffect[],     // fact-change modifications applied pre-scoring (may be empty)
   verdict_history:   PulseVerdict[],        // one entry per analyze run
   created_at:        string,                // ISO timestamp
   updated_at:        string,
   closed_at:         string | null,
   closure_reason:    string | null
 }
+
+// PortfolioEffect — discriminated union of supported fact changes
+type PortfolioEffect =
+  | { type: "mark_cash_pending"; amount_usd: number; deployment_label?: string }
+  | { type: "mark_holding_pending"; ticker: string; amount_usd?: number };
 ```
 
 ### 6.2 PulseVerdict (entry in verdict_history)
@@ -175,11 +184,26 @@ DELETE /api/notes/:id
 }
 ```
 
-### 6.5 finding_key convention
+### 6.5 Fact vs. judgment — when grade changes
+
+Annotations come in two flavors and must be handled differently:
+
+| Annotation kind | Example | Mechanism | Grade impact |
+|---|---|---|---|
+| **Fact change** | "$200k cash is part of a rollover deployment plan" | `Situation.portfolio_effects` modify the parsed portfolio before scoring | Grade reflects the change (e.g., cash-drag penalty disappears because cash is now `is_pending_deployment`) |
+| **Judgment** | "Dupe funds VTSAX/FSKAX — structural across brokerages, accepting overlap" | `Note(suppress_flag: true)` mutes the flag in the UI | Grade unchanged — penalty stands |
+| **Judgment** | "Overweight NVDA because I work there" | `Note(suppress_flag: true)` | Grade unchanged |
+| **Mixed** | "T1+T2 deployed already, T3 pending" | Situation carries `mark_cash_pending` for T3 portion; T1+T2 are already in portfolio.json post-deployment | Grade reflects only the pending T3 portion as planned cash |
+
+**Rule:** if the annotation tells the engine a *fact about the portfolio* it didn't know (this cash has a plan, this position is hedged), it's a fact change → use a Situation with `portfolio_effects`. If the annotation explains a *judgment about the analysis* (I accept this risk, this is intentional), it's a judgment → use a Note with `suppress_flag`.
+
+This prevents grade inflation: you can't make a real concentration disappear by saying "I'm fine with it." You can only mute the flag.
+
+### 6.6 finding_key convention
 
 Engine generates a deterministic key for every flag and gap item, format: `{dimension}:{type}`, e.g. `diversification:cash_drag`, `concentration:single_position_NVDA`, `cost:high_expense_ratio`.
 
-Notes and situations reference findings by `finding_key`. If a finding disappears between runs (because you fixed it), the reference gracefully detaches — the Note/Situation is still shown, marked "no longer applies."
+Notes and situations reference findings by `finding_key`. If a finding disappears between runs (because you fixed it or because a Situation's `portfolio_effects` removed it), the reference gracefully detaches — the Note/Situation is still shown, marked "no longer applies."
 
 ## 7. UI behavior
 
@@ -193,7 +217,7 @@ Notes and situations reference findings by `finding_key`. If a finding disappear
 
 - Title · target date · latest verdict pill (HOLD / DEPLOY / MONITOR / PARTIAL)
 - Rationale text from latest verdict
-- Footer: "History: N verdicts · last run YYYY-MM-DD · explains: <flag titles>"
+- Footer: "History: N verdicts · last run YYYY-MM-DD · related: <flag titles>" — plus, when `portfolio_effects` are present, "Adjusts portfolio: $200k cash marked pending"
 - Actions: `Discuss in chat` (scopes sidebar to this situation), `Mark resolved` (prompts for `closure_reason`)
 
 ### 7.3 Flag rows — two visual states
@@ -215,10 +239,14 @@ Notes and situations reference findings by `finding_key`. If a finding disappear
 │ 💡 Track this as an open Situation?              │
 │ Title: "Rollover IRA — T3 deployment"            │
 │ Target: 2026-06-30                               │
-│ Will suppress: cash drag flag                    │
+│ Effect: mark $200,000 cash as pending deployment │
+│ Grade impact: Diversification 6.8 → 7.9          │
+│                Overall B+ → A−                    │
 │ [Confirm]  [Edit]  [Dismiss]                     │
 └──────────────────────────────────────────────────┘
 ```
+
+The grade-impact preview is computed by running the engine twice (once with the effect, once without) when the LLM proposes a Situation with `portfolio_effects`. For pure-judgment proposals (Notes), the card just shows "Will mute: <flag>" with no grade preview.
 
 - Confirm → browser POSTs to `/api/situations` → state mutates → card flips to a confirmation receipt
 - Dismiss → card marked dismissed; LLM is told on next turn
@@ -230,7 +258,7 @@ Notes and situations reference findings by `finding_key`. If a finding disappear
 - **Model:** `CLAUDE_MODEL_PULSE` (default `claude-opus-4-7`)
 - **Call shape:** `client.messages.parse()` with Zod `PulseVerdictSchema` → returns structured `PulseVerdict`
 - **System prompt:** CFA-trained portfolio advisor reading current macro signals through a contrarian lens. Output verdict tied to current conditions, not generic recommendations. Reference indicators by value. Use Unicode minus, colleague-to-colleague tone (matches V1 narratives style).
-- **User content:** situation (title, intent, target_date, prior verdict_history), macro snapshot (regime, key indicators), portfolio allocation snapshot, report excerpt scoped to explained findings.
+- **User content:** situation (title, intent, target_date, portfolio_effects, prior verdict_history), macro snapshot (regime, key indicators), portfolio allocation snapshot (post-effects), report excerpt scoped to related findings.
 - **Output schema:** see §6.2.
 - **Failure handling:** if `ANTHROPIC_API_KEY` missing or call fails, the situation's `verdict_history` entry for this run is `{ run_at, error: "api_unavailable" }`. Analyze still completes.
 
@@ -246,7 +274,7 @@ Notes and situations reference findings by `finding_key`. If a finding disappear
   - `situation:X` — the situation (title, intent, full verdict_history), the findings it explains, current macro snapshot
 - **Conversation history:** last 20 turns from `chat_history`, filtered to current scope (or include cross-scope context when scope is `global`).
 - **Tools:**
-  - `propose_situation({ title, intent, target_date?, explains_findings? })`
+  - `propose_situation({ title, intent, target_date?, related_findings?, portfolio_effects? })`
   - `propose_note({ target, body, suppress_flag })`
   - `propose_close_situation({ situation_id, closure_reason })`
   - `propose_suppress_flag({ finding_key, reason })`
@@ -284,7 +312,8 @@ If the user explicitly opts in by removing the file from `.gitignore`, that's th
 ### 11.1 Unit-tested (vitest, TDD)
 
 - `src/engine/findingKeys.test.ts` — stable key generation per flag/gap
-- `src/engine/suppression.test.ts` — flag annotation given notes + situations
+- `src/engine/portfolioEffects.test.ts` — applying Situation.portfolio_effects to a parsed portfolio (pure)
+- `src/engine/suppression.test.ts` — flag annotation given Notes (cosmetic only; no score change)
 - `src/intake/parseUserContext.test.ts` — zod validation + round-trip
 - `src/ai/pulseCheck.prompt.test.ts` — `renderPulseInput(...)` → snapshot
 - `src/ai/chat.prompt.test.ts` — `renderChatInput(...)` → snapshot
@@ -304,6 +333,9 @@ If the user explicitly opts in by removing the file from `.gitignore`, that's th
 [ ] npx tsc --noEmit clean (both tsconfig projects)
 [ ] npm run analyze with no user-context.json → V1 parity behavior
 [ ] npm run analyze with a situation → analysis.json has verdict_history entry
+[ ] npm run analyze with a Situation carrying mark_cash_pending → score
+    reflects (cash drag flag absent or reduced) and grade goes up vs baseline
+[ ] Note(suppress_flag) does NOT change scores between runs — only mutes flag
 [ ] npm run analyze with no ANTHROPIC_API_KEY → skips pulse-check & narratives
     gracefully (no crash, verdict entry records error)
 [ ] npm run report → sidebar opens, types, streams response, scopes correctly
