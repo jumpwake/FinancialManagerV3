@@ -96,8 +96,7 @@ export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<Tac
       process.env.CLAUDE_MODEL_ADVISOR ??
       process.env.CLAUDE_MODEL ??
       "claude-opus-4-7",
-    max_tokens: 4000,
-    thinking: { type: "adaptive" },
+    max_tokens: 16000,
     output_config: {
       effort: "medium",
       // SDK 0.95's zodOutputFormat .d.ts still types its argument as zod v3
