@@ -1,3 +1,4 @@
+import type { UnderlyingComposition } from "../types";
 import { AssetClass, StockMetrics } from "../types";
 
 export interface TickerMetadata {
@@ -5,6 +6,7 @@ export interface TickerMetadata {
   expense_ratio: number | null;
   sector_tag?: string;
   stock_metrics?: StockMetrics;
+  underlying_composition?: UnderlyingComposition;
 }
 
 export const TICKER_METADATA: Record<string, TickerMetadata> = {
@@ -16,7 +18,16 @@ export const TICKER_METADATA: Record<string, TickerMetadata> = {
   "VTSAX":  { asset_class: "us_equity_total_market", expense_ratio: 0.0004 },
   "VFSUX":  { asset_class: "us_bond_short",          expense_ratio: 0.001 },
   "VBTLX":  { asset_class: "us_bond_aggregate",      expense_ratio: 0.0005 },
-  "VWENX":  { asset_class: "balanced",               expense_ratio: 0.0017 },
+  "VWENX":  {
+    asset_class: "balanced",
+    expense_ratio: 0.0017,
+    underlying_composition: {
+      us_equity: 0.60,
+      international_equity: 0.05,
+      fixed_income: 0.35,
+      cash: 0.0,
+    },
+  },
   "VUG":    { asset_class: "us_equity_large_cap_growth", expense_ratio: 0.0004 },
   // ETFs
   "QQQ":    { asset_class: "us_equity_large_cap_growth", expense_ratio: 0.002 },
