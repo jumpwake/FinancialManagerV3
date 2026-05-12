@@ -264,6 +264,68 @@ describe("consolidatePortfolio", () => {
   });
 });
 
+describe("stock_metrics attachment", () => {
+  test("Vanguard NVDA holding has stock_metrics populated from tickerMetadata", () => {
+    const raw = [
+      { account_number: "X", holdings: [{ symbol: "NVDA", quantity: "100", balance: "$10,000.00" }], settlement_fund: "$0" },
+    ];
+    const holdings = normalizeVanguardAccounts(raw);
+    const nvda = holdings.find(h => h.ticker === "NVDA")!;
+    expect(nvda.stock_metrics).toBeDefined();
+    expect(nvda.stock_metrics!.pe_ratio).toBeCloseTo(44.74, 2);
+    expect(nvda.stock_metrics!.beta).toBeCloseTo(2.244, 3);
+  });
+
+  test("Vanguard TSLA holding has stock_metrics populated (extreme valuation)", () => {
+    const raw = [
+      { account_number: "X", holdings: [{ symbol: "TSLA", quantity: "100", balance: "$10,000.00" }], settlement_fund: "$0" },
+    ];
+    const holdings = normalizeVanguardAccounts(raw);
+    const tsla = holdings.find(h => h.ticker === "TSLA")!;
+    expect(tsla.stock_metrics).toBeDefined();
+    expect(tsla.stock_metrics!.pe_ratio).toBeCloseTo(410.29, 2);
+    expect(tsla.stock_metrics!.eps_growth_yoy).toBeCloseTo(-0.4702, 4);
+  });
+
+  test("Vanguard BRK B (with space) gets BRK-B stock_metrics via canonicalTicker", () => {
+    const raw = [
+      { account_number: "X", holdings: [{ symbol: "BRK B", quantity: "10", balance: "$5,000.00" }], settlement_fund: "$0" },
+    ];
+    const holdings = normalizeVanguardAccounts(raw);
+    const brk = holdings.find(h => h.ticker === "BRK-B")!;
+    expect(brk.stock_metrics).toBeDefined();
+    expect(brk.stock_metrics!.pe_ratio).toBeCloseTo(26.12, 2);
+  });
+
+  test("Fidelity holdings without stock_metrics (e.g. FSKAX) leave the field undefined", () => {
+    const raw = [
+      {
+        account_id: "A", account_name: "Test", account_label: "", total_value: "$1000",
+        holdings: [{ symbol: "FSKAX", description: "Fidelity Total Market", quantity: "5", balance: "$1000.00" }],
+      },
+    ];
+    const holdings = normalizeFidelityAccounts(raw);
+    expect(holdings[0].stock_metrics).toBeUndefined();
+  });
+
+  test("end-to-end: TSLA in real Vanguard Personal file gets flagged by scoreSingleStockRisk", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { computeAggregates } = await import("../engine/aggregates");
+    const { scoreSingleStockRisk } = await import("../engine/dimensions");
+
+    const raw = JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio/20260509_VanguardPersonal.json"), "utf-8"));
+    const holdings = normalizeVanguardAccounts(raw);
+    // Build a portfolio that's mostly TSLA so the penalty shows clearly
+    const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
+    const agg = computeAggregates(portfolio);
+    const score = scoreSingleStockRisk(portfolio, agg);
+    // TSLA's P/E 410 + declining EPS + high beta + declining revenue should drag the score well below 10
+    expect(score.score).toBeLessThan(10);
+    expect(score.display_value).toContain("TSLA");
+  });
+});
+
 describe("end-to-end normalization", () => {
   test("all 5 sample files normalize, consolidate, validate, and aggregate cleanly", async () => {
     const fs = await import("node:fs");

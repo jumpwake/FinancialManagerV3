@@ -57,6 +57,7 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holdi
         is_cash: false,
         is_pending_deployment: false,
         expense_ratio: meta?.expense_ratio ?? null,
+        stock_metrics: meta?.stock_metrics,
       });
     }
   }
@@ -91,6 +92,7 @@ export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[]): Holding
         is_cash: false,
         is_pending_deployment: false,
         expense_ratio: meta?.expense_ratio ?? null,
+        stock_metrics: meta?.stock_metrics,
       });
     }
   }
@@ -157,6 +159,7 @@ export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holdi
         is_cash: false,
         is_pending_deployment: false,
         expense_ratio: meta?.expense_ratio ?? null,
+        stock_metrics: meta?.stock_metrics,
       });
     }
 

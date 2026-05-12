@@ -1,9 +1,10 @@
-import { AssetClass } from "../types";
+import { AssetClass, StockMetrics } from "../types";
 
 export interface TickerMetadata {
   asset_class: AssetClass;
   expense_ratio: number | null;
   sector_tag?: string;
+  stock_metrics?: StockMetrics;
 }
 
 export const TICKER_METADATA: Record<string, TickerMetadata> = {
@@ -24,9 +25,33 @@ export const TICKER_METADATA: Record<string, TickerMetadata> = {
   "XLP":    { asset_class: "us_equity_sector", expense_ratio: 0.0008, sector_tag: "consumer_staples" },
   "XLI":    { asset_class: "us_equity_sector", expense_ratio: 0.0008, sector_tag: "industrials" },
   // Individual stocks
-  "TSLA":   { asset_class: "individual_stock", expense_ratio: null },
-  "NVDA":   { asset_class: "individual_stock", expense_ratio: null },
-  "BRK-B":  { asset_class: "individual_stock", expense_ratio: null },
+  "TSLA":   {
+    asset_class: "individual_stock",
+    expense_ratio: null,
+    stock_metrics: {
+      pe_ratio: 410.29, ev_ebitda: 137.07, fcf_yield: 0.0037, roe: 0.0462,
+      eps_growth_yoy: -0.4702, revenue_growth_yoy: -0.0293, net_debt_ebitda: -3.03,
+      beta: 1.793, analyst_consensus: 3.19,
+    },
+  },
+  "NVDA":   {
+    asset_class: "individual_stock",
+    expense_ratio: null,
+    stock_metrics: {
+      pe_ratio: 44.74, ev_ebitda: 36.44, fcf_yield: 0.0181, roe: 0.7633,
+      eps_growth_yoy: 0.6667, revenue_growth_yoy: 0.6547, net_debt_ebitda: -0.35,
+      beta: 2.244, analyst_consensus: 3.75,
+    },
+  },
+  "BRK-B":  {
+    asset_class: "individual_stock",
+    expense_ratio: null,
+    stock_metrics: {
+      pe_ratio: 26.12, ev_ebitda: null, fcf_yield: null, roe: null,
+      eps_growth_yoy: null, revenue_growth_yoy: null, net_debt_ebitda: null,
+      beta: 0.622, analyst_consensus: 3.41,
+    },
+  },
   // Money market
   "SPAXX":  { asset_class: "cash", expense_ratio: null },
   "VMFXX":  { asset_class: "cash", expense_ratio: null },
