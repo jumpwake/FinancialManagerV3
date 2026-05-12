@@ -14,6 +14,18 @@ export type AssetClass =
   | "cash"
   | "cash_pending";
 
+export interface StockMetrics {
+  pe_ratio: number | null;
+  ev_ebitda: number | null;
+  fcf_yield: number | null;
+  roe: number | null;
+  eps_growth_yoy: number | null;
+  revenue_growth_yoy: number | null;
+  net_debt_ebitda: number | null;
+  beta: number | null;
+  analyst_consensus: number | null;
+}
+
 export interface Holding {
   ticker: string;
   label: string;
@@ -25,7 +37,7 @@ export interface Holding {
   deployment_date?: string;
   deployment_label?: string;
   expense_ratio: number | null;
-  // do NOT add stock_metrics yet — that's Task 13
+  stock_metrics?: StockMetrics;
 }
 
 export interface Portfolio {
