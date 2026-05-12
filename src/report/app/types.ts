@@ -90,11 +90,19 @@ export interface ReferenceModel {
   dimension_scores: Record<string, number>;
 }
 
+export interface FlagSuppressionRef {
+  source: "note" | "situation";
+  id: string;
+  body: string;
+}
+
 export interface Flag {
   ticker: string;
   severity: "red" | "yellow";
   title: string;
   body: string;
+  finding_key: string;
+  suppressed_by?: FlagSuppressionRef;
 }
 
 export interface GapItem {
@@ -102,6 +110,8 @@ export interface GapItem {
   type: "red" | "amber" | "blue";
   body: string;
   progress: number;
+  finding_key: string;
+  suppressed_by?: FlagSuppressionRef;
 }
 
 export interface PlanAction {
@@ -137,6 +147,75 @@ export interface AINarratives {
   phase1_macro_note: string;
 }
 
+// Mirror of V2 types from src/types.ts — keep in sync.
+
+export type PortfolioEffect =
+  | { type: "mark_cash_pending"; amount_usd: number; deployment_label?: string }
+  | { type: "mark_holding_pending"; ticker: string; amount_usd?: number };
+
+export interface MacroSnapshot {
+  regime: string;
+  vix: number;
+  yield_curve_10y_2y: number;
+  hy_credit_spread_oas_bps: number;
+  lei_consecutive_declines: number;
+}
+
+export interface PulseVerdict {
+  run_at: string;
+  macro_snapshot: MacroSnapshot;
+  verdict: "deploy" | "partial_deploy" | "hold" | "monitor";
+  confidence: "low" | "medium" | "high";
+  rationale: string;
+  suggested_action: string;
+  reconsider_when: string | null;
+  error?: string;
+}
+
+export interface Situation {
+  id: string;
+  title: string;
+  intent: string;
+  status: "open" | "closed";
+  target_date: string | null;
+  related_findings: string[];
+  portfolio_effects: PortfolioEffect[];
+  verdict_history: PulseVerdict[];
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  closure_reason: string | null;
+}
+
+export interface Note {
+  id: string;
+  target: { type: "flag" | "gap" | "dimension" | "global"; finding_key: string };
+  body: string;
+  suppress_flag: boolean;
+  created_at: string;
+}
+
+export interface ChatScope {
+  type: "global" | "flag" | "gap" | "situation";
+  finding_key?: string;
+  situation_id?: string;
+}
+
+export interface ChatToolCall {
+  tool: string;
+  payload: Record<string, unknown>;
+  status: "proposed" | "confirmed" | "rejected";
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  scope: ChatScope;
+  tool_call?: ChatToolCall;
+  created_at: string;
+}
+
 export interface AnalysisOutput {
   generated_at: string;
   portfolio: Portfolio;
@@ -152,4 +231,6 @@ export interface AnalysisOutput {
   score_trajectory: ScorePoint[];
   findings: Finding[];
   narratives: AINarratives | null;
+  situations?: Situation[];
+  notes?: Note[];
 }
