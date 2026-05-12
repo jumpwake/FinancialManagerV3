@@ -5,11 +5,19 @@ export type AssetClass =
   | "us_bond_aggregate" | "us_bond_short" | "us_bond_tips"
   | "balanced" | "target_date" | "individual_stock" | "cash" | "cash_pending";
 
+export interface UnderlyingComposition {
+  us_equity: number;
+  international_equity: number;
+  fixed_income: number;
+  cash: number;
+}
+
 export interface Holding {
   ticker: string;
   label: string;
   market_value: number;
   asset_class: AssetClass;
+  account_id: string;
   sector_tag?: string;
   is_cash: boolean;
   is_pending_deployment: boolean;
@@ -17,6 +25,40 @@ export interface Holding {
   deployment_label?: string;
   expense_ratio: number | null;
   stock_metrics?: Record<string, number | null>;
+  underlying_composition?: UnderlyingComposition;
+}
+
+export type AccountType =
+  | "roth_ira"
+  | "pretax_ira"
+  | "401k_traditional"
+  | "401k_roth"
+  | "taxable_brokerage"
+  | "business_taxable"
+  | "cash_balance_plan"
+  | "hsa";
+
+export type TaxTreatment = "tax_free_growth" | "tax_deferred" | "taxable_currently";
+
+export interface AccountConstraints {
+  conservative_only?: boolean;
+  cash_reserve_minimum?: number;
+  target_return?: number;
+  excluded_from_deployment?: boolean;
+}
+
+export interface AccountMetadata {
+  id: string;
+  label: string;
+  broker: "Fidelity" | "Empower" | "Vanguard" | "Schwab" | "Other";
+  account_type: AccountType;
+  owner: string;
+  source_files: string[];
+  constraints?: AccountConstraints;
+}
+
+export interface AccountConfig {
+  accounts: AccountMetadata[];
 }
 
 export interface Portfolio {
@@ -31,6 +73,13 @@ export interface DuplicateGroup {
   combined_weight: number;
 }
 
+export interface CrossAccountGroup {
+  asset_class: AssetClass;
+  label: string;
+  tickers_by_account: { account_id: string; ticker: string }[];
+  combined_weight: number;
+}
+
 export interface SectorHolding {
   sector_tag: string;
   tickers: string[];
@@ -42,10 +91,12 @@ export interface PortfolioAggregates {
   blended_expense_ratio: number;
   holding_count: number;
   duplicate_groups: DuplicateGroup[];
+  cross_account_groups: CrossAccountGroup[];
   top3_weight: number;
   top3_tickers: string[];
   cash_weight: number;
   idle_cash_weight: number;
+  constrained_cash_weight: number;
   pending_cash_weight: number;
   pending_cash_value: number;
   pending_deployment_label?: string;
@@ -232,6 +283,7 @@ export interface AnalysisOutput {
   score_trajectory: ScorePoint[];
   findings: Finding[];
   narratives: AINarratives | null;
+  accounts?: AccountConfig | null;
   situations?: Situation[];
   notes?: Note[];
 }
