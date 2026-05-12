@@ -221,9 +221,9 @@ describe("normalizeVanguardAccounts", () => {
 describe("consolidatePortfolio", () => {
   test("merges duplicate tickers by summing market_values", () => {
     const holdings: Holding[] = [
-      { ticker: "FSKAX", label: "F", market_value: 100, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
-      { ticker: "FSKAX", label: "F", market_value: 250, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
-      { ticker: "FTIHX", label: "X", market_value: 50, asset_class: "international_equity", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00006 },
+      { ticker: "FSKAX", label: "F", market_value: 100, asset_class: "us_equity_total_market", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+      { ticker: "FSKAX", label: "F", market_value: 250, asset_class: "us_equity_total_market", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+      { ticker: "FTIHX", label: "X", market_value: 50, asset_class: "international_equity", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00006 },
     ];
     const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Combined");
     const fskax = portfolio.holdings.find(h => h.ticker === "FSKAX")!;
@@ -233,8 +233,8 @@ describe("consolidatePortfolio", () => {
 
   test("aggregates all cash holdings into a single Cash entry", () => {
     const holdings: Holding[] = [
-      { ticker: "Cash", label: "Fidelity MM", market_value: 100, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null },
-      { ticker: "Cash", label: "Vanguard settlement", market_value: 200, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null },
+      { ticker: "Cash", label: "Fidelity MM", market_value: 100, asset_class: "cash", account_id: "acct_a", is_cash: true, is_pending_deployment: false, expense_ratio: null },
+      { ticker: "Cash", label: "Vanguard settlement", market_value: 200, asset_class: "cash", account_id: "acct_a", is_cash: true, is_pending_deployment: false, expense_ratio: null },
     ];
     const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
     expect(portfolio.holdings).toHaveLength(1);
@@ -245,7 +245,7 @@ describe("consolidatePortfolio", () => {
 
   test("preserves snapshot_date and account_label", () => {
     const portfolio = consolidatePortfolio(
-      [{ ticker: "FSKAX", label: "F", market_value: 100, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 }],
+      [{ ticker: "FSKAX", label: "F", market_value: 100, asset_class: "us_equity_total_market", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 }],
       "2026-05-09",
       "My Combined Portfolio"
     );
@@ -255,9 +255,9 @@ describe("consolidatePortfolio", () => {
 
   test("sorts holdings by market_value descending", () => {
     const holdings: Holding[] = [
-      { ticker: "B", label: "B", market_value: 100, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
-      { ticker: "A", label: "A", market_value: 500, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
-      { ticker: "C", label: "C", market_value: 200, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
+      { ticker: "B", label: "B", market_value: 100, asset_class: "us_equity_total_market", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
+      { ticker: "A", label: "A", market_value: 500, asset_class: "us_equity_total_market", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
+      { ticker: "C", label: "C", market_value: 200, asset_class: "us_equity_total_market", account_id: "acct_a", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
     ];
     const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
     expect(portfolio.holdings.map(h => h.ticker)).toEqual(["A", "C", "B"]);
