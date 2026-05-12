@@ -1,12 +1,18 @@
 import { ReferenceModel } from "../types";
+import { scoreToGrade } from "./dimensions";
 
-export const REFERENCE_MODELS: ReferenceModel[] = [
+interface ReferenceModelSeed {
+  id: string;
+  label: string;
+  description: string;
+  dimension_scores: Record<string, number>;
+}
+
+const SEEDS: ReferenceModelSeed[] = [
   {
     id: "boglehead_3fund",
     label: "Boglehead 3-fund",
     description: "Passive index",
-    grade: "A",
-    score: 9.1,
     dimension_scores: {
       cost_efficiency: 9, diversification: 9, cash_efficiency: 9,
       macro_alignment: 5, single_stock_risk: 10, simplicity: 10,
@@ -17,8 +23,6 @@ export const REFERENCE_MODELS: ReferenceModel[] = [
     id: "all_weather",
     label: "All Weather",
     description: "Risk parity (Dalio)",
-    grade: "A−",
-    score: 8.4,
     dimension_scores: {
       cost_efficiency: 8, diversification: 10, cash_efficiency: 9,
       macro_alignment: 7, single_stock_risk: 10, simplicity: 10,
@@ -29,8 +33,6 @@ export const REFERENCE_MODELS: ReferenceModel[] = [
     id: "classic_60_40",
     label: "Classic 60/40",
     description: "Balanced",
-    grade: "B+",
-    score: 7.8,
     dimension_scores: {
       cost_efficiency: 8, diversification: 7, cash_efficiency: 9,
       macro_alignment: 5, single_stock_risk: 10, simplicity: 8,
@@ -38,3 +40,34 @@ export const REFERENCE_MODELS: ReferenceModel[] = [
     },
   },
 ];
+
+// Engine weights per dimension (must match dimensions.ts).
+// Stable values; benchmarks.test.ts asserts consistency with computePortfolioScore.
+const WEIGHTS: Record<string, number> = {
+  cost_efficiency: 0.10,
+  diversification: 0.12,
+  cash_efficiency: 0.12,
+  macro_alignment: 0.10,
+  single_stock_risk: 0.12,
+  simplicity: 0.08,
+  bond_balance: 0.12,
+  concentration: 0.12,
+  international: 0.06,
+  quality_tilt: 0.06,
+};
+
+function deriveScore(dim_scores: Record<string, number>): number {
+  return Object.entries(dim_scores).reduce(
+    (sum, [id, score]) => sum + score * (WEIGHTS[id] ?? 0),
+    0,
+  );
+}
+
+export const REFERENCE_MODELS: ReferenceModel[] = SEEDS.map(seed => {
+  const score = Number(deriveScore(seed.dimension_scores).toFixed(2));
+  return {
+    ...seed,
+    score,
+    grade: scoreToGrade(score),
+  };
+});
