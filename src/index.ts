@@ -1,3 +1,4 @@
+import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -15,7 +16,7 @@ import { REFERENCE_MODELS } from "./engine/benchmarks";
 import { generateNarratives } from "./ai/narratives";
 import type { Finding } from "./types";
 
-const SAMPLE_DIR = "data/SamplePortfolio";
+const SAMPLE_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
 const OUTPUT_FILE = "output/analysis.json";
 

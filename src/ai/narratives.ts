@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
+import * as z from "zod/v4";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type {
   AINarratives,
@@ -24,17 +24,16 @@ const AINarrativesSchema = z.object({
     ),
   strengths: z
     .array(z.string())
-    .length(3)
-    .describe("3 strengths, each 1-2 sentences."),
+    .describe("Exactly 3 strengths, each 1-2 sentences."),
   gaps: z
     .array(z.string())
-    .length(3)
-    .describe("3 gaps. Specific and actionable. Reference actual values."),
+    .describe(
+      "Exactly 3 gaps. Specific and actionable. Reference actual values.",
+    ),
   additional_takeaways: z
     .array(z.string())
-    .length(3)
     .describe(
-      "3 observations about overlap, macro timing, or positioning nuance. Each 1-2 sentences.",
+      "Exactly 3 observations about overlap, macro timing, or positioning nuance. Each 1-2 sentences.",
     ),
   phase1_macro_note: z
     .string()
@@ -88,12 +87,16 @@ export async function generateNarratives(
   });
 
   const response = await client.messages.parse({
-    model: "claude-sonnet-4-6",
+    model: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
     max_tokens: 2000,
     thinking: { type: "adaptive" },
     output_config: {
       effort: "medium",
-      format: zodOutputFormat(AINarrativesSchema),
+      // SDK 0.95's zodOutputFormat .d.ts still types its argument as zod v3
+      // (ZodType), but its .mjs imports from "zod/v4" and only accepts v4
+      // schemas at runtime. We construct a v4 schema (correct for runtime);
+      // the cast bridges the stale types until the SDK ships v4-typed defs.
+      format: zodOutputFormat(AINarrativesSchema as never),
     },
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userContent }],
