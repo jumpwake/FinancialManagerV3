@@ -16,6 +16,7 @@ export default function App() {
   const [data, setData] = useState<AnalysisOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
+  const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -28,9 +29,23 @@ export default function App() {
     }
   }, []);
 
+  const loadSituations = useCallback(async () => {
+    try {
+      const r = await fetch("/api/situations");
+      if (!r.ok) return;
+      const list = (await r.json()) as Situation[];
+      setLiveSituations(list);
+    } catch {
+      // Silently fall back to analysis.json situations
+    }
+  }, []);
+
   useEffect(() => {
     loadAnalysis();
-  }, [loadAnalysis]);
+    loadSituations();
+    const id = setInterval(loadSituations, 5000);
+    return () => clearInterval(id);
+  }, [loadAnalysis, loadSituations]);
 
   const handleResolve = useCallback(
     async (sit: Situation) => {
@@ -41,9 +56,9 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "closed", closure_reason: reason }),
       });
-      await loadAnalysis();
+      await loadSituations();
     },
-    [loadAnalysis],
+    [loadSituations],
   );
 
   if (error) {
@@ -62,7 +77,9 @@ export default function App() {
   }
 
   const typedData = data;
-  const situations = typedData.situations ?? [];
+  // Prefer live situations from /api/situations (always current) over the
+  // snapshot baked into analysis.json (stale until next `npm run analyze`).
+  const situations = liveSituations.length > 0 ? liveSituations : (typedData.situations ?? []);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr auto", minHeight: "100vh" }}>
