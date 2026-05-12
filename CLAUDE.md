@@ -2,69 +2,115 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status: greenfield
+## Status: implementation complete (engine + intake TDD, CLI, narratives, React UI)
 
-The repo currently contains only `Documentation/DevelopmentDoc1.md` (v2.0, dated 2026-05-11). No `src/`, `package.json`, `data/`, or build config exists yet. **All implementation work flows from that spec** — read it before doing anything substantive. Section 15 of the spec defines the exact build order; follow it.
+The full stack is in place on the `tdd-engine-intake` branch (branched from `main`):
 
-## What this project is
+- **Engine + intake**: built test-first across 22 plan tasks + 3 normalization tasks. 174 vitest tests passing, `tsc --noEmit` clean.
+- **CLI** (`src/index.ts`): runs the pipeline end-to-end against the 5 brokerage sample files. Writes `output/analysis.json` and prints a structured console summary.
+- **Narratives** (`src/ai/narratives.ts`): single `claude-sonnet-4-6` call producing structured AI text via `messages.parse()` + Zod schema. Skipped gracefully if `ANTHROPIC_API_KEY` is unset.
+- **React report** (`src/report/app/`): Vite + chart.js. Renders all 8 sections per dev doc §12.
 
-A weekly portfolio health analyzer. User drops a JSON file of holdings into `data/portfolio.json`, runs `npm run analyze` to produce `output/analysis.json`, then `npm run report` to view a React (Vite) report rendered into 8 sections (allocation, benchmark comparison, dimension scorecard, key findings, radar, additional takeaways, gaps, flags).
+The full TDD plan is at `docs/superpowers/plans/2026-05-11-tdd-portfolio-analyzer.md`. The dev doc (`Documentation/DevelopmentDoc1.md`) is the original spec — it's older than the actual implementation in several places (model ID, SDK version, scoreDiversification formula bug).
 
-Stack: TypeScript / Node.js / React (Vite) / Anthropic SDK.
+## Quick start
 
-## Architecture (the big picture)
+```sh
+npm install
+npm run analyze         # runs pipeline against data/SamplePortfolio/*.json, writes output/analysis.json
+npm run report          # opens the React report at http://localhost:5173
 
-The pipeline is intentionally one-directional with a single AI call at the end:
-
-```
-portfolio.json + macro.json
-        │
-        ▼
-  computeAggregates()          ← pure math, no I/O   (src/engine/aggregates.ts)
-        │
-        ▼
-  scoreAllDimensions()         ← pure math, 10 dims  (src/engine/dimensions.ts)
-        │
-        ▼
-  generateFlags / GapItems /   ← rule-based, no AI   (src/engine/plan.ts)
-  generatePlanPhases
-        │
-        ▼
-  generateNarratives()         ← ONE Anthropic call  (src/ai/narratives.ts)
-        │
-        ▼
-  output/analysis.json
-        │
-        ▼
-  React report reads JSON      (src/report/app/)
+# To enable AI narratives, create .env with:
+#   ANTHROPIC_API_KEY=sk-ant-...
+# Then re-run npm run analyze. Narratives are optional — the rest of the pipeline runs without them.
 ```
 
-**Load-bearing invariants:**
+## Commands
 
-- **Portfolio-level analysis only.** There are no per-holding metric scores. The old `metrics.json` scoring system (fund_core20, equity_core10) from prior versions is gone. Don't reintroduce it.
-- **All scoring is pure math.** `engine/` modules must have no API calls, no `fs`, no side effects. They take inputs, return scored objects. This is what makes them testable.
-- **Exactly one Anthropic API call per run** — in `narratives.ts`. The AI generates text only (headlines, strengths, gaps, takeaways). It does not score, rank, or compute. If you're tempted to add a second call, reconsider.
-- **All types live in `src/types.ts`.** Import from there. Never redeclare interfaces inline. The spec lists the full type surface in Section 4.
-- **`benchmarks.ts` is static data.** The 3 reference models (Boglehead 3-fund, All Weather, Classic 60/40) are the ruler. They don't change based on user portfolio.
-
-## Commands (once scaffolded per spec §13)
-
-```
-npm run analyze   # ts-node src/index.ts — runs pipeline, writes output/analysis.json
-npm run report    # vite src/report/app --open — opens React report
-npm run build     # tsc && vite build src/report/app
+```sh
+npm test              # vitest run — engine + intake unit tests
+npm run test:watch    # vitest in watch mode
+npm run analyze       # tsx src/index.ts — runs full pipeline, writes output/analysis.json
+npm run report        # vite src/report/app --open — serves the React report
+npm run build         # tsc && vite build src/report/app
 ```
 
-The CLI requires `ANTHROPIC_API_KEY` in `.env` (used by `@anthropic-ai/sdk`).
+## Architecture
 
-No test runner is specified in the spec. If you add one, match the existing tooling era (ts-node + tsc, no bundler beyond Vite).
+```
+data/SamplePortfolio/*.json                       data/macro.json
+        │ (raw brokerage exports)                          │
+        ▼                                                  │
+  normalizeFidelityAccounts / Empower / Vanguard           │
+        │                                                  │
+        ▼                                                  │
+  consolidatePortfolio()  ← merge duplicates across brokers│
+        │                                                  ▼
+        ▼                                              parseMacro()
+  parsePortfolio()  ← zod-validated Portfolio              │
+        │                                                  │
+        ├──────────────────────┬──────────────────────┬────┘
+        ▼                      ▼                      ▼
+  computeAggregates()    scoreAllDimensions()   (macro context flows through)
+                                │
+                                ▼
+                generateFlags / generateGapItems / generatePlanPhases
+                                │
+                                ▼
+                  generateNarratives() ← single Anthropic call (optional)
+                                │
+                                ▼
+                       output/analysis.json
+                                │
+                                ▼
+                     React report (8 sections)
+```
 
-## Conventions from the spec worth honoring
+## Load-bearing invariants
 
-- **AI narratives style** (from `narratives.ts` SYSTEM_PROMPT): use actual values not vague language (e.g. "25.4% cash", not "high cash"); grades formatted as `B−` with a Unicode minus, not `B-`; no words "robust" or "optimize"; tone is direct, CFA-to-colleague.
-- **Pending vs. idle cash are separate concepts.** `is_pending_deployment: true` cash is excluded from the cash-drag penalty because it has an active plan. The scoring and the AI both rely on this distinction.
-- **Model used in `narratives.ts`** is currently spec'd as `claude-sonnet-4-20250514`. If updating, confirm the model ID against the latest Anthropic model list before changing.
+- **Portfolio-level analysis only.** No per-holding metric scoring — that approach was abandoned in V3. Don't reintroduce it.
+- **Engine is pure math.** `src/engine/*.ts` modules must have no I/O, no API calls, no `fs`. Everything is deterministic in/out.
+- **Exactly one Anthropic API call per run** — in `narratives.ts`. The AI generates text only. It does not score, rank, or compute. Adding a second call breaks the architecture; reconsider.
+- **All shared types in `src/types.ts`.** The zod schemas in `src/intake/parsePortfolio.ts` and `parseMacro.ts` are validation only — they `import type` from `types.ts`, never re-export.
+- **`benchmarks.ts`** derives `REFERENCE_MODELS[].score` and `.grade` from each model's `dimension_scores` via `computePortfolioScore` + `scoreToGrade`. The hardcoded weights map in benchmarks.ts must stay in sync with the per-dimension `weight` fields in `dimensions.ts` — there's a test that asserts this.
+- **Pending vs. idle cash are separate concepts.** `is_pending_deployment: true` cash is excluded from the cash-drag penalty (it has an active plan). Scoring, flags, and gap items all depend on this distinction.
 
-## What changed vs. FinancialManagerV2
+## Important conventions
 
-V2 is a separate sibling directory (`../FinancialManagerV2/`) with docs + TDD only, no src. V3 is a clean restart of the same idea — same domain, simpler pipeline (one AI call, no per-holding scoring, portfolio-level only).
+- **AI narratives style** (`narratives.ts` SYSTEM_PROMPT): use actual values not vague language ("25.4% cash" not "high cash"); grades use Unicode minus `−` (U+2212), not ASCII `-`; no words "robust" or "optimize"; CFA-to-colleague tone.
+- **Regime-aware text** in `plan.ts`: the FI target percentages (e.g. "18–30%") and adjectives (e.g. "late-cycle") in flag bodies and plan-phase action descriptions are derived from `macro.market_regime` via `FI_TARGETS_BY_REGIME` (exported from `dimensions.ts`). Don't hardcode "late-cycle" or "18–22%" anywhere.
+- **Ticker canonicalization**: `BRK B` (Vanguard's format) → `BRK-B` via `canonicalTicker()` in `tickerMetadata.ts`. The ticker metadata lookup uses canonical keys.
+- **Empower descriptive symbols**: funds like `"US Large Company Stocks Fund"` are keyed by their full label in `TICKER_METADATA` since they have no real ticker.
+
+## TDD discipline
+
+- Test files are co-located: `src/engine/aggregates.ts` ↔ `src/engine/aggregates.test.ts`
+- Fixture builders live at `tests/fixtures/samplePortfolio.ts` and `tests/fixtures/sampleMacro.ts` — use `makeHolding`, `makePortfolio`, `makeStockMetrics`, `makeMacro` rather than raw literals
+- Boundary tests are sparse — most score-ladder tests probe interior values. If you're adding a new ladder dimension, consider adding a boundary probe to prevent off-by-one regressions
+- Engine + intake follow TDD. The CLI orchestrator (`src/index.ts`), narratives (`src/ai/narratives.ts`), and React UI (`src/report/app/`) are built without unit tests — verify them manually
+
+## Stack & versions
+
+- TypeScript 5.4, `"strict": true`, `"module": "ESNext"`, `"moduleResolution": "Bundler"`
+- Vitest 1.x (tests), Vite 5.x (React app), tsx 4.x (CLI runner)
+- `@anthropic-ai/sdk` ^0.95.0 — bumped from the dev doc's stale `^0.24.0`. Uses `client.messages.parse()` with `output_config.format` and a Zod schema. Adaptive thinking (`type: "adaptive"`).
+- zod ^3.22 for runtime schema validation in intake/
+
+## Two tsconfigs
+
+There are two TypeScript projects:
+- **Root** (`tsconfig.json`): covers `src/` and `tests/` — the engine, intake, CLI, narratives, fixtures.
+- **React app** (`src/report/app/tsconfig.json`): covers only `src/report/app/`. The app **does not** import from `src/types.ts` directly; it has its own `src/report/app/types.ts` mirror. If you change a type in `src/types.ts` that the React app consumes, also update the mirror.
+
+Always run both:
+```sh
+npx tsc --noEmit
+npx tsc --noEmit -p src/report/app/tsconfig.json
+```
+
+## What's still TODO
+
+- The "Post-T3 projected weights" toggle in `AllocationBreakdown.tsx` is stubbed (TODO comment)
+- React UI hasn't been visually QA'd in a browser — built per spec, not iterated against rendered output
+- The dev doc spec is older than the implementation in several places; trust the code, not §6 / §13 / §15
+- No production build target tested — `npm run build` should work but hasn't been exercised
