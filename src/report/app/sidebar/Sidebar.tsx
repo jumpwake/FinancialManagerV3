@@ -81,7 +81,25 @@ export function Sidebar({ scope, onScopeChange, initialHistory = [] }: Props) {
             color: "#4a9eff",
           }}
         >
-          Discussing: <strong>{scope.finding_key ?? scope.situation_id}</strong> ·{" "}
+          Discussing:{" "}
+          <strong>
+            {(() => {
+              switch (scope.type) {
+                case "flag":
+                case "gap":
+                  return scope.finding_key;
+                case "situation":
+                  return scope.situation_id;
+                case "dimension":
+                  return `Dimension: ${scope.dimension_id}`;
+                case "tactical_move":
+                  return `Move: ${scope.move_id}`;
+                default:
+                  return "global";
+              }
+            })()}
+          </strong>{" "}
+          ·{" "}
           <a
             href="#"
             onClick={(e) => {
