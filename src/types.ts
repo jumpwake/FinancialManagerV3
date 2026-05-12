@@ -151,3 +151,19 @@ export interface ReferenceModel {
   score: number;
   dimension_scores: Record<string, number>;
 }
+
+export interface AINarratives {
+  headline_summary: string;
+  benchmark_context: string;
+  strengths: string[];
+  gaps: string[];
+  additional_takeaways: string[];
+  phase1_macro_note: string;
+}
+
+export interface Finding {
+  type: "strength" | "gap" | "note";
+  title: string;
+  body: string;
+  progress?: number;
+}

@@ -12,6 +12,8 @@ import { computeAggregates } from "./engine/aggregates";
 import { scoreAllDimensions, computePortfolioScore, scoreToGrade } from "./engine/dimensions";
 import { generateFlags, generateGapItems, generatePlanPhases } from "./engine/plan";
 import { REFERENCE_MODELS } from "./engine/benchmarks";
+import { generateNarratives } from "./ai/narratives";
+import type { Finding } from "./types";
 
 const SAMPLE_DIR = "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
@@ -67,7 +69,38 @@ async function main() {
   const { phases: plan_phases, trajectory: score_trajectory } =
     generatePlanPhases(aggregates, macro, portfolio_score);
 
-  // Assemble the analysis output (sans narratives — Anthropic call deferred)
+  // Generate AI narratives (single Anthropic API call)
+  let narratives = null;
+  let findings: Finding[] = [];
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log("");
+    console.log("Calling Anthropic API for narratives...");
+    try {
+      narratives = await generateNarratives({
+        portfolio,
+        macro,
+        aggregates,
+        portfolio_score,
+        portfolio_grade,
+        dimension_scores,
+        reference_models: REFERENCE_MODELS,
+        flags,
+      });
+      findings = [
+        ...narratives.strengths.map(s => ({ type: "strength" as const, title: "Strength", body: s })),
+        ...narratives.gaps.map(g => ({ type: "gap" as const, title: "Gap", body: g })),
+      ];
+      console.log("  Narratives generated.");
+    } catch (err) {
+      console.warn("  Narratives generation failed:", err instanceof Error ? err.message : err);
+      console.warn("  Continuing without AI narratives.");
+    }
+  } else {
+    console.log("");
+    console.log("ANTHROPIC_API_KEY not set — skipping AI narratives. Set it in .env to enable.");
+  }
+
+  // Assemble the analysis output
   const output = {
     generated_at: new Date().toISOString(),
     portfolio,
@@ -81,6 +114,8 @@ async function main() {
     gap_items,
     plan_phases,
     score_trajectory,
+    findings,
+    narratives,  // null if API key wasn't set
   };
 
   // Write JSON
@@ -146,6 +181,29 @@ async function main() {
   console.log("SCORE TRAJECTORY");
   for (const p of score_trajectory) {
     console.log(`  ${p.label.padEnd(18)} ${p.grade}   ${p.score.toFixed(1)} / 10`);
+  }
+  if (narratives) {
+    console.log("");
+    console.log("AI NARRATIVES");
+    console.log("");
+    console.log("  Headline:");
+    console.log(`    ${narratives.headline_summary}`);
+    console.log("");
+    console.log("  Benchmark context:");
+    console.log(`    ${narratives.benchmark_context}`);
+    console.log("");
+    console.log("  Strengths:");
+    for (const s of narratives.strengths) console.log(`    + ${s}`);
+    console.log("");
+    console.log("  Gaps:");
+    for (const g of narratives.gaps) console.log(`    - ${g}`);
+    console.log("");
+    console.log("  Additional takeaways:");
+    for (const t of narratives.additional_takeaways) console.log(`    > ${t}`);
+    console.log("");
+    console.log("  Phase 1 macro note:");
+    console.log(`    ${narratives.phase1_macro_note}`);
+    console.log("");
   }
   console.log("");
   console.log(`Full analysis written to ${OUTPUT_FILE}`);
