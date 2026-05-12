@@ -19,6 +19,15 @@ function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
 }
 
+function requireDim(dimensions: DimensionScore[], id: string): DimensionScore {
+  const d = dimensions.find(d => d.id === id);
+  if (!d) {
+    const available = dimensions.map(d => d.id).join(", ");
+    throw new Error(`generateGapItems: required dimension "${id}" not found in dimensions array. Available: ${available}`);
+  }
+  return d;
+}
+
 export function generateFlags(
   portfolio: Portfolio,
   agg: PortfolioAggregates,
@@ -102,7 +111,6 @@ export function generateGapItems(
   macro: MacroContext
 ): GapItem[] {
   const gaps: GapItem[] = [];
-  const dim = (id: string) => dimensions.find(d => d.id === id)!;
 
   if (agg.idle_cash_weight > 0.05) {
     gaps.push({
@@ -113,7 +121,7 @@ export function generateGapItems(
     });
   }
 
-  const stockRiskDim = dim("single_stock_risk");
+  const stockRiskDim = requireDim(dimensions, "single_stock_risk");
   if (stockRiskDim.score < 6) {
     gaps.push({
       title: "Single-stock risk",
@@ -123,7 +131,7 @@ export function generateGapItems(
     });
   }
 
-  const bondDim = dim("bond_balance");
+  const bondDim = requireDim(dimensions, "bond_balance");
   if (bondDim.score < 7) {
     gaps.push({
       title: "Fixed income underweight",
@@ -143,7 +151,7 @@ export function generateGapItems(
     });
   }
 
-  const concDim = dim("concentration");
+  const concDim = requireDim(dimensions, "concentration");
   if (concDim.score < 7) {
     gaps.push({
       title: "Top-3 concentration",

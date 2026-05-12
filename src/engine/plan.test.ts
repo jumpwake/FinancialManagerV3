@@ -162,6 +162,15 @@ describe("generateGapItems", () => {
     const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro());
     expect(gaps.some(g => g.title === "Single-stock risk" && g.type === "red")).toBe(true);
   });
+
+  test("throws descriptive error if required dimension is missing", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const agg = computeAggregates(portfolio);
+    // Build a dimension array missing single_stock_risk
+    const fullDims = dimsFor(portfolio);
+    const brokenDims = fullDims.filter(d => d.id !== "single_stock_risk");
+    expect(() => generateGapItems(agg, brokenDims, makeMacro())).toThrow(/single_stock_risk/);
+  });
 });
 
 describe("generatePlanPhases", () => {
