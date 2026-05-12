@@ -418,6 +418,26 @@ describe("scoreBondBalance", () => {
     const agg = aggForBond(0.20);
     expect(scoreBondBalance(agg, makeMacro({ market_regime: "Unknown" })).score).toBe(9);
   });
+
+  it("VWENX-heavy portfolio has its FI contribution counted toward Bond Balance", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({
+          ticker: "VWENX",
+          market_value: 1000,
+          asset_class: "balanced",
+          account_id: "vng",
+          underlying_composition: { us_equity: 0.60, international_equity: 0.05, fixed_income: 0.35, cash: 0.0 },
+        }),
+      ],
+    });
+    const macro = makeMacro({ market_regime: "Late Cycle" });
+    const agg = computeAggregates(p);
+    const result = scoreBondBalance(agg, macro);
+    // 35% FI vs. 18-30% Late Cycle target → above range, score 7
+    expect(result.display_value).toMatch(/35\.0% FI/);
+    expect(result.score).toBeGreaterThanOrEqual(7);
+  });
 });
 
 function aggForMacro(sectors: { sector_tag: string; tickers: string[]; combined_weight: number }[]): PortfolioAggregates {
