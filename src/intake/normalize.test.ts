@@ -1,5 +1,8 @@
 import { describe, test, expect } from "vitest";
-import { parseMoneyString, normalizeFidelityAccounts, normalizeEmpowerAccounts, normalizeVanguardAccounts } from "./normalize";
+import { parseMoneyString, normalizeFidelityAccounts, normalizeEmpowerAccounts, normalizeVanguardAccounts, consolidatePortfolio } from "./normalize";
+import { parsePortfolio } from "./parsePortfolio";
+import { computeAggregates } from "../engine/aggregates";
+import { Holding } from "../types";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -212,5 +215,86 @@ describe("normalizeVanguardAccounts", () => {
       { account_number: "X", holdings: [], settlement_fund: "$0.00" },
     ];
     expect(normalizeVanguardAccounts(raw)).toEqual([]);
+  });
+});
+
+describe("consolidatePortfolio", () => {
+  test("merges duplicate tickers by summing market_values", () => {
+    const holdings: Holding[] = [
+      { ticker: "FSKAX", label: "F", market_value: 100, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+      { ticker: "FSKAX", label: "F", market_value: 250, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 },
+      { ticker: "FTIHX", label: "X", market_value: 50, asset_class: "international_equity", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00006 },
+    ];
+    const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Combined");
+    const fskax = portfolio.holdings.find(h => h.ticker === "FSKAX")!;
+    expect(fskax.market_value).toBe(350);
+    expect(portfolio.holdings).toHaveLength(2);
+  });
+
+  test("aggregates all cash holdings into a single Cash entry", () => {
+    const holdings: Holding[] = [
+      { ticker: "Cash", label: "Fidelity MM", market_value: 100, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null },
+      { ticker: "Cash", label: "Vanguard settlement", market_value: 200, asset_class: "cash", is_cash: true, is_pending_deployment: false, expense_ratio: null },
+    ];
+    const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
+    expect(portfolio.holdings).toHaveLength(1);
+    expect(portfolio.holdings[0].ticker).toBe("Cash");
+    expect(portfolio.holdings[0].market_value).toBe(300);
+    expect(portfolio.holdings[0].is_cash).toBe(true);
+  });
+
+  test("preserves snapshot_date and account_label", () => {
+    const portfolio = consolidatePortfolio(
+      [{ ticker: "FSKAX", label: "F", market_value: 100, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.00015 }],
+      "2026-05-09",
+      "My Combined Portfolio"
+    );
+    expect(portfolio.snapshot_date).toBe("2026-05-09");
+    expect(portfolio.account_label).toBe("My Combined Portfolio");
+  });
+
+  test("sorts holdings by market_value descending", () => {
+    const holdings: Holding[] = [
+      { ticker: "B", label: "B", market_value: 100, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
+      { ticker: "A", label: "A", market_value: 500, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
+      { ticker: "C", label: "C", market_value: 200, asset_class: "us_equity_total_market", is_cash: false, is_pending_deployment: false, expense_ratio: 0.0001 },
+    ];
+    const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
+    expect(portfolio.holdings.map(h => h.ticker)).toEqual(["A", "C", "B"]);
+  });
+});
+
+describe("end-to-end normalization", () => {
+  test("all 5 sample files normalize, consolidate, validate, and aggregate cleanly", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { normalizeFidelityAccounts, normalizeEmpowerAccounts, normalizeVanguardAccounts } = await import("./normalize");
+
+    const load = (file: string) => JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio", file), "utf-8"));
+
+    const fidelityHoldings = normalizeFidelityAccounts(load("20260509_FidelityRetirement.json"));
+    const empowerHoldings  = normalizeEmpowerAccounts(load("20260509_EmpowerKelly.json"));
+    const vbHoldings       = normalizeVanguardAccounts(load("20260509_VanguardBusiness.json"));
+    const vkdbHoldings     = normalizeVanguardAccounts(load("20260509_VanguardKDB.json"));
+    const vpHoldings       = normalizeVanguardAccounts(load("20260509_VanguardPersonal.json"));
+
+    const all = [...fidelityHoldings, ...empowerHoldings, ...vbHoldings, ...vkdbHoldings, ...vpHoldings];
+    const portfolio = consolidatePortfolio(all, "2026-05-09", "All Accounts");
+
+    // Validates against zod schema
+    const validated = parsePortfolio(portfolio);
+    expect(validated.holdings.length).toBeGreaterThan(0);
+
+    // Aggregates pipeline works end-to-end
+    const agg = computeAggregates(validated);
+    expect(agg.total_value).toBeGreaterThan(2_000_000); // total portfolio is ~$2.5M from the samples
+    expect(agg.cash_weight).toBeGreaterThan(0);
+    expect(agg.equity_weight).toBeGreaterThan(0);
+
+    // FSKAX should be consolidated across both Fidelity 401k accounts
+    const fskax = validated.holdings.find(h => h.ticker === "FSKAX");
+    expect(fskax).toBeDefined();
+    // Kelly401k FSKAX = $262,552.86 + Kevin401k FSKAX = $323,737.47 = $586,290.33
+    expect(fskax!.market_value).toBeCloseTo(586290.33, 2);
   });
 });

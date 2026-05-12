@@ -1,4 +1,4 @@
-import { Holding } from "../types";
+import { Holding, Portfolio } from "../types";
 import { lookupTicker, canonicalTicker } from "./tickerMetadata";
 
 /** Parse a dollar-formatted string like "$1,234.56" or "-$1,000.00" into a number. Returns 0 for empty/null/undefined. */
@@ -107,6 +107,36 @@ interface VanguardRawAccount {
   account_number: string;
   holdings: VanguardRawHolding[];
   settlement_fund: string;
+}
+
+/**
+ * Merge duplicate tickers across all accounts/brokers into a single Portfolio.
+ * Holdings with the same ticker have their market_values summed.
+ * All other fields (label, asset_class, expense_ratio, sector_tag) are taken from the first occurrence.
+ * Output is sorted by market_value descending.
+ */
+export function consolidatePortfolio(
+  holdings: Holding[],
+  snapshot_date: string,
+  account_label: string
+): Portfolio {
+  const byTicker: Record<string, Holding> = {};
+  for (const h of holdings) {
+    if (byTicker[h.ticker]) {
+      byTicker[h.ticker] = {
+        ...byTicker[h.ticker],
+        market_value: byTicker[h.ticker].market_value + h.market_value,
+      };
+    } else {
+      byTicker[h.ticker] = { ...h };
+    }
+  }
+  const merged = Object.values(byTicker).sort((a, b) => b.market_value - a.market_value);
+  return {
+    snapshot_date,
+    account_label,
+    holdings: merged,
+  };
 }
 
 export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holding[] {
