@@ -232,9 +232,10 @@ export interface Note {
 }
 
 export interface ChatScope {
-  type: "global" | "flag" | "gap" | "situation";
+  type: "global" | "flag" | "gap" | "situation" | "dimension";
   finding_key?: string;
   situation_id?: string;
+  dimension_id?: string;
 }
 
 export interface ChatToolCall {
