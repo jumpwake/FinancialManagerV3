@@ -22,7 +22,7 @@ export function scoreCostEfficiency(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `~${erPct.toFixed(2)}% blended ER`,
     note: "Blended expense ratio across all fund holdings",
-    weight: 0.10,
+    weight: 0.09,
   };
 }
 
@@ -50,7 +50,7 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `${agg.holding_count} holdings (${effective} effective)`,
     note: "Effective positions after collapsing fund overlaps within and across accounts",
-    weight: 0.08,  // weight rebalanced in W2.14
+    weight: 0.07,
   };
 }
 
@@ -69,7 +69,7 @@ export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `Top 3: ${(t3 * 100).toFixed(1)}% (${agg.top3_tickers.join(", ")})`,
     note: "Top-3 holding weight as share of total portfolio",
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -112,7 +112,7 @@ export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: display,
     note: "Pending deployment cash is excluded from penalty — it has an active plan",
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -135,7 +135,7 @@ export function scoreDiversification(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `${filledBuckets} asset buckets`,
     note: "Distinct asset class buckets with ≥ 3% weight; penalized for overlapping funds",
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -158,7 +158,7 @@ export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContex
     rating: toRating(score),
     display_value: `${macro.market_regime} regime`,
     note: `Sector tilts vs. macro overweights: ${macro.sector_overweight.join(", ") || "(none)"}`,
-    weight: 0.10,
+    weight: 0.09,
   };
 }
 
@@ -188,7 +188,7 @@ export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext):
     rating: toRating(score),
     display_value: `${(fi * 100).toFixed(1)}% FI (target ${(target.min * 100).toFixed(0)}–${(target.max * 100).toFixed(0)}%)`,
     note: `Target range for ${macro.market_regime} regime`,
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -204,7 +204,7 @@ export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggrega
       rating: "green",
       display_value: "No individual stocks",
       note: "No single-stock exposure",
-      weight: 0.12,
+      weight: 0.11,
     };
   }
 
@@ -264,7 +264,8 @@ export function computePortfolioScore(dimensions: DimensionScore[]): number {
 export function scoreAllDimensions(
   portfolio: Portfolio,
   agg: PortfolioAggregates,
-  macro: MacroContext
+  macro: MacroContext,
+  accounts?: AccountConfig,
 ): DimensionScore[] {
   return [
     scoreCostEfficiency(agg),
@@ -277,6 +278,7 @@ export function scoreAllDimensions(
     scoreConcentration(agg),
     scoreInternational(agg),
     scoreQualityTilt(portfolio, agg),
+    scoreAssetLocation(portfolio, accounts),
   ];
 }
 

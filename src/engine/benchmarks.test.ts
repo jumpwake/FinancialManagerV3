@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import { REFERENCE_MODELS } from "./benchmarks";
 import { scoreAllDimensions, computePortfolioScore, scoreToGrade } from "./dimensions";
 import { computeAggregates } from "./aggregates";
@@ -7,16 +7,17 @@ import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { DimensionScore } from "../types";
 
 const WEIGHTS_FOR_TEST: Record<string, number> = {
-  cost_efficiency: 0.10,
-  diversification: 0.12,
-  cash_efficiency: 0.12,
-  macro_alignment: 0.10,
-  single_stock_risk: 0.12,
-  simplicity: 0.08,
-  bond_balance: 0.12,
-  concentration: 0.12,
+  cost_efficiency: 0.09,
+  diversification: 0.11,
+  cash_efficiency: 0.11,
+  macro_alignment: 0.09,
+  single_stock_risk: 0.11,
+  simplicity: 0.07,
+  bond_balance: 0.11,
+  concentration: 0.11,
   international: 0.06,
   quality_tilt: 0.06,
+  asset_location: 0.08,
 };
 
 describe("REFERENCE_MODELS", () => {
@@ -79,5 +80,29 @@ describe("REFERENCE_MODELS", () => {
     for (const model of REFERENCE_MODELS) {
       expect(model.grade).toBe(scoreToGrade(model.score));
     }
+  });
+});
+
+describe("benchmarks weights sync", () => {
+  it("each reference model's derived score matches computePortfolioScore on its dimension_scores", () => {
+    for (const m of REFERENCE_MODELS) {
+      const dims = Object.entries(m.dimension_scores).map(([id, score]) => ({
+        id, label: id, score, rating: "green" as const, display_value: "", note: "", weight: 0,
+      }));
+      const WEIGHTS: Record<string, number> = {
+        cost_efficiency: 0.09, diversification: 0.11, cash_efficiency: 0.11,
+        macro_alignment: 0.09, single_stock_risk: 0.11, simplicity: 0.07,
+        bond_balance: 0.11, concentration: 0.11, international: 0.06,
+        quality_tilt: 0.06, asset_location: 0.08,
+      };
+      for (const d of dims) d.weight = WEIGHTS[d.id] ?? 0;
+      const expected = computePortfolioScore(dims);
+      expect(Math.abs(m.score - expected)).toBeLessThan(0.05);
+    }
+  });
+
+  it("all weights sum to 1.0", () => {
+    const sum = 0.09 + 0.11 + 0.11 + 0.09 + 0.11 + 0.07 + 0.11 + 0.11 + 0.06 + 0.06 + 0.08;
+    expect(Math.abs(sum - 1.0)).toBeLessThan(0.001);
   });
 });

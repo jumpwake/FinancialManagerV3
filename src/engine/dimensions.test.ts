@@ -15,7 +15,7 @@ describe("scoreCostEfficiency", () => {
     expect(s.id).toBe("cost_efficiency");
     expect(s.score).toBe(10);
     expect(s.rating).toBe("green");
-    expect(s.weight).toBe(0.10);
+    expect(s.weight).toBe(0.09);
   });
 
   test("returns score 9 for 0.05% < ER ≤ 0.10%", () => {
@@ -666,10 +666,10 @@ describe("scoreAllDimensions", () => {
     const agg = computeAggregates(portfolio);
     const macro = makeMacro();
     const dims = scoreAllDimensions(portfolio, agg, macro);
-    expect(dims).toHaveLength(10);
+    expect(dims).toHaveLength(11);
     const ids = dims.map(d => d.id).sort();
     expect(ids).toEqual([
-      "bond_balance", "cash_efficiency", "concentration", "cost_efficiency",
+      "asset_location", "bond_balance", "cash_efficiency", "concentration", "cost_efficiency",
       "diversification", "international", "macro_alignment", "quality_tilt",
       "simplicity", "single_stock_risk",
     ]);
