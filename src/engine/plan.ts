@@ -1,4 +1,5 @@
-import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem } from "../types";
+import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint } from "../types";
+import { scoreToGrade } from "./dimensions";
 
 export function generateFlags(
   portfolio: Portfolio,
@@ -135,4 +136,150 @@ export function generateGapItems(
   }
 
   return gaps;
+}
+
+export function generatePlanPhases(
+  agg: PortfolioAggregates,
+  macro: MacroContext,
+  baseScore: number
+): { phases: PlanPhase[]; trajectory: ScorePoint[] } {
+  const phases: PlanPhase[] = [];
+  let runningScore = baseScore;
+
+  // Phase 1
+  const p1Actions: PlanAction[] = [];
+  let p1Delta = 0;
+
+  if (agg.pending_cash_weight > 0.05) {
+    p1Actions.push({
+      category: "trade",
+      description: `Deploy ${(agg.pending_cash_weight * 100).toFixed(1)}% pending cash ($${(agg.pending_cash_value / 1000).toFixed(0)}K) on ${agg.pending_deployment_date ?? "scheduled date"} per existing ${agg.pending_deployment_label ?? "tranche"} plan. This is the largest single score lever.`,
+      tags: ["impact"],
+    });
+    p1Delta += 0.4;
+  }
+
+  p1Actions.push({
+    category: "trade",
+    description: `Review and reduce any individual stock positions with P/E > 100 and negative EPS growth. Reinvest proceeds into Phase 2 targets.`,
+    tags: ["risk_reduction"],
+  });
+  p1Delta += 0.25;
+
+  if (agg.duplicate_groups.length > 0) {
+    const g = agg.duplicate_groups[0];
+    p1Actions.push({
+      category: "rebalance",
+      description: `Consolidate ${g.tickers.join(" + ")} — identical ${g.label} exposure. Keep lowest-cost fund, redeploy the rest.`,
+      tags: ["simplification"],
+    });
+    p1Delta += 0.15;
+  }
+
+  runningScore = Math.min(10, runningScore + p1Delta);
+  phases.push({
+    phase: 1,
+    title: "Immediate — deploy cash & reduce risk",
+    timing: "Now → 30 days",
+    projected_grade: scoreToGrade(runningScore),
+    actions: p1Actions,
+    insight: `Macro context: ${macro.market_regime} regime with yield curve at ${macro.yield_curve_spread_10y_2y.toFixed(2)}. LEI has declined ${macro.lei_consecutive_declines} consecutive months. Lean defensive on T3 deployment — don't chase growth.`,
+  });
+
+  // Phase 2
+  const p2Actions: PlanAction[] = [];
+  let p2Delta = 0;
+
+  if (agg.fixed_income_weight < 0.16) {
+    p2Actions.push({
+      category: "rebalance",
+      description: `Increase fixed income from ${(agg.fixed_income_weight * 100).toFixed(1)}% to 18–22%. Late-cycle with inverted yield curve warrants adding FXNAX or VBTLX weight.`,
+      tags: ["impact"],
+    });
+    p2Delta += 0.3;
+  }
+
+  if (macro.cpi_yoy_headline > 2.5) {
+    p2Actions.push({
+      category: "trade",
+      description: `Add TIPS or short-duration bond position (5–7%) to hedge CPI at ${macro.cpi_yoy_headline}%. VFSUX can absorb additional weight.`,
+      tags: ["inflation_hedge"],
+    });
+    p2Delta += 0.1;
+  }
+
+  p2Actions.push({
+    category: "rebalance",
+    description: `Trim QQQ and VUG if held — both are large-cap growth with near-identical holdings to a total-market fund. Redirect into XLI or increase BRK-B for quality exposure.`,
+    tags: ["simplification"],
+  });
+
+  runningScore = Math.min(10, runningScore + p2Delta);
+  phases.push({
+    phase: 2,
+    title: "Near-term — fix allocation gaps",
+    timing: "30–90 days",
+    projected_grade: scoreToGrade(runningScore),
+    actions: p2Actions,
+    insight: `Target post-rebalance: ~55% equity / 20% fixed income / 15% international / 5% balanced / 5% cash.`,
+  });
+
+  // Phase 3
+  runningScore = Math.min(10, runningScore + 0.25);
+  phases.push({
+    phase: 3,
+    title: "Platform — monitoring & automation",
+    timing: "60–120 days (parallel)",
+    projected_grade: scoreToGrade(runningScore),
+    actions: [
+      {
+        category: "platform",
+        description: "Set weekly report cadence (Sunday night). Automate macro.json refresh + portfolio.json pull from brokerage export.",
+        tags: ["automation"],
+      },
+      {
+        category: "platform",
+        description: `Add threshold alerts: VIX > 25, HY spread > 450bps, any dimension score dropping > 1 point WoW, cash > 10%.`,
+        tags: ["monitoring"],
+      },
+      {
+        category: "platform",
+        description: "Build score trajectory chart tracking progress over time. Persist weekly scores to a JSON history file.",
+        tags: ["feature"],
+      },
+    ],
+    insight: "The goal is making good portfolio hygiene effortless.",
+  });
+
+  // Phase 4
+  runningScore = Math.min(10, runningScore + 0.15);
+  phases.push({
+    phase: 4,
+    title: "Ongoing — quarterly rebalance cadence",
+    timing: "Recurring quarterly",
+    projected_grade: scoreToGrade(runningScore),
+    actions: [
+      {
+        category: "process",
+        description: "Quarterly: check sleeve weights vs. targets, trim positions ±5% off target, review macro.json for sector rotation signals.",
+        tags: ["process"],
+      },
+      {
+        category: "process",
+        description: "Annual: review reference model benchmarks for structural changes. Update macro regime targets if Fed policy shifts.",
+        tags: ["process"],
+      },
+    ],
+    insight: "Once automation is running, the main job is reviewing the Sunday report.",
+  });
+
+  const trajectory: ScorePoint[] = [
+    { label: "Today",          score: baseScore,                                                  grade: scoreToGrade(baseScore) },
+    { label: "After phase 1",  score: Number((baseScore + p1Delta).toFixed(1)),                  grade: scoreToGrade(baseScore + p1Delta) },
+    { label: "After phase 2",  score: Number((baseScore + p1Delta + p2Delta).toFixed(1)),        grade: scoreToGrade(baseScore + p1Delta + p2Delta) },
+    { label: "After phase 3",  score: Number((baseScore + p1Delta + p2Delta + 0.25).toFixed(1)), grade: scoreToGrade(baseScore + p1Delta + p2Delta + 0.25) },
+    { label: "After phase 4",  score: Number((baseScore + p1Delta + p2Delta + 0.40).toFixed(1)), grade: scoreToGrade(baseScore + p1Delta + p2Delta + 0.40) },
+  ];
+
+  return { phases, trajectory };
 }

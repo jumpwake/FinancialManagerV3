@@ -110,6 +110,27 @@ export interface GapItem {
   progress: number;
 }
 
+export interface PlanAction {
+  category: "trade" | "rebalance" | "data" | "platform" | "process";
+  description: string;
+  tags: string[];
+}
+
+export interface PlanPhase {
+  phase: 1 | 2 | 3 | 4;
+  title: string;
+  timing: string;
+  projected_grade: string;
+  actions: PlanAction[];
+  insight: string;
+}
+
+export interface ScorePoint {
+  label: string;
+  score: number;
+  grade: string;
+}
+
 export type Rating = "green" | "yellow" | "red";
 
 export interface DimensionScore {

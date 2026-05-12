@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { generateFlags, generateGapItems } from "./plan";
+import { generateFlags, generateGapItems, generatePlanPhases } from "./plan";
 import { computeAggregates } from "./aggregates";
 import { scoreAllDimensions } from "./dimensions";
 import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
@@ -147,5 +147,62 @@ describe("generateGapItems", () => {
     });
     const gaps = generateGapItems(computeAggregates(portfolio), dimsFor(portfolio), makeMacro({ market_regime: "Mid Cycle" }));
     expect(gaps.find(g => g.type === "red")).toBeUndefined();
+  });
+});
+
+describe("generatePlanPhases", () => {
+  test("returns exactly 4 phases", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const { phases } = generatePlanPhases(computeAggregates(portfolio), makeMacro(), 7.0);
+    expect(phases).toHaveLength(4);
+    expect(phases.map(p => p.phase)).toEqual([1, 2, 3, 4]);
+  });
+
+  test("phase 1 includes deploy-cash action when pending_cash_weight > 5%", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "SPAXX", market_value: 200, is_cash: true, is_pending_deployment: true,
+          deployment_date: "2026-05-29", deployment_label: "Tranche 3",
+          asset_class: "cash", expense_ratio: null,
+        }),
+      ],
+    });
+    const { phases } = generatePlanPhases(computeAggregates(portfolio), makeMacro(), 7.0);
+    const p1 = phases[0];
+    expect(p1.actions.some(a => a.description.includes("Tranche 3"))).toBe(true);
+  });
+
+  test("phase 1 omits deploy-cash action when pending_cash_weight ≤ 5%", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const { phases } = generatePlanPhases(computeAggregates(portfolio), makeMacro(), 7.0);
+    expect(phases[0].actions.some(a => a.description.includes("Tranche"))).toBe(false);
+  });
+
+  test("phase 2 includes FI rebalance when fixed_income_weight < 16%", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const { phases } = generatePlanPhases(computeAggregates(portfolio), makeMacro(), 7.0);
+    expect(phases[1].actions.some(a => a.description.includes("Increase fixed income"))).toBe(true);
+  });
+
+  test("score_trajectory has 5 points: today + after each phase", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const { trajectory } = generatePlanPhases(computeAggregates(portfolio), makeMacro(), 7.0);
+    expect(trajectory).toHaveLength(5);
+    expect(trajectory[0].label).toBe("Today");
+    expect(trajectory[0].score).toBe(7.0);
+    expect(trajectory[4].label).toBe("After phase 4");
+  });
+
+  test("each phase has a non-empty title, timing, projected_grade, and insight", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const { phases } = generatePlanPhases(computeAggregates(portfolio), makeMacro(), 7.0);
+    for (const p of phases) {
+      expect(p.title.length).toBeGreaterThan(0);
+      expect(p.timing.length).toBeGreaterThan(0);
+      expect(p.projected_grade.length).toBeGreaterThan(0);
+      expect(p.insight.length).toBeGreaterThan(0);
+    }
   });
 });
