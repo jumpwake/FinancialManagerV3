@@ -14,6 +14,14 @@ export type AssetClass =
   | "cash"
   | "cash_pending";
 
+export interface UnderlyingComposition {
+  us_equity: number;            // 0..1
+  international_equity: number; // 0..1
+  fixed_income: number;         // 0..1
+  cash: number;                 // 0..1
+  // Invariant (zod-validated in parsePortfolio.ts): all four sum to ~1.0 (±0.001)
+}
+
 export interface StockMetrics {
   pe_ratio: number | null;
   ev_ebitda: number | null;
@@ -31,6 +39,7 @@ export interface Holding {
   label: string;
   market_value: number;
   asset_class: AssetClass;
+  account_id: string;                         // NEW — required; refers to AccountMetadata.id
   sector_tag?: string;
   is_cash: boolean;
   is_pending_deployment: boolean;
@@ -38,12 +47,53 @@ export interface Holding {
   deployment_label?: string;
   expense_ratio: number | null;
   stock_metrics?: StockMetrics;
+  underlying_composition?: UnderlyingComposition; // NEW — set on balanced/target_date holdings
 }
 
 export interface Portfolio {
   snapshot_date: string;
   account_label: string;
   holdings: Holding[];
+}
+
+export type AccountType =
+  | "roth_ira"
+  | "pretax_ira"
+  | "401k_traditional"
+  | "401k_roth"
+  | "taxable_brokerage"
+  | "business_taxable"
+  | "cash_balance_plan"
+  | "hsa";
+
+export type TaxTreatment = "tax_free_growth" | "tax_deferred" | "taxable_currently";
+
+export interface AccountConstraints {
+  conservative_only?: boolean;
+  cash_reserve_minimum?: number;
+  target_return?: number;
+  excluded_from_deployment?: boolean;
+}
+
+export interface AccountMetadata {
+  id: string;
+  label: string;
+  broker: "Fidelity" | "Empower" | "Vanguard" | "Schwab" | "Other";
+  account_type: AccountType;
+  owner: string;
+  source_files: string[];
+  constraints?: AccountConstraints;
+}
+
+export interface AccountConfig {
+  accounts: AccountMetadata[];
+}
+
+/** Derive tax treatment from account_type — single source of truth for downstream engine/AI. */
+export function taxTreatmentFor(t: AccountType): TaxTreatment {
+  if (t === "roth_ira" || t === "401k_roth" || t === "hsa") return "tax_free_growth";
+  if (t === "pretax_ira" || t === "401k_traditional" || t === "cash_balance_plan") return "tax_deferred";
+  return "taxable_currently";
 }
 
 export interface MacroContext {
@@ -69,6 +119,13 @@ export interface DuplicateGroup {
   combined_weight: number;
 }
 
+export interface CrossAccountGroup {
+  asset_class: AssetClass;
+  label: string;
+  tickers_by_account: { account_id: string; ticker: string }[];
+  combined_weight: number;
+}
+
 export interface SectorHolding {
   sector_tag: string;
   tickers: string[];
@@ -80,11 +137,13 @@ export interface PortfolioAggregates {
   blended_expense_ratio: number;
   holding_count: number;
   duplicate_groups: DuplicateGroup[];
+  cross_account_groups: CrossAccountGroup[];  // NEW
   top3_weight: number;
   top3_tickers: string[];
   international_weight: number;
   cash_weight: number;
   idle_cash_weight: number;
+  constrained_cash_weight: number;            // NEW
   pending_cash_weight: number;
   pending_cash_value: number;
   equity_weight: number;
