@@ -1,50 +1,30 @@
-# V3 accounts config — one row per actual brokerage sub-account.
+# Account exceptions for the AI advisor.
 #
-# Columns: account_number, label, strategy, category[, source_file_override]
+# You only need to list accounts that have SPECIAL RULES (CBP, conservative
+# business reserves, etc.). Every other account in your broker exports gets
+# a sensible default based on the filename (Retirement → pre-tax IRA,
+# Roth → Roth IRA, Business → business taxable, otherwise taxable brokerage).
 #
-# account_number: the raw identifier the broker uses (Vanguard's account_number,
-#   Fidelity's account_id, Empower's account_name, etc.). The system scans
-#   data/SamplePortfolio/*.json to find which file contains it — you don't have
-#   to name the file unless the match is ambiguous.
+# Columns: account_number, label, strategy, category
 #
-# strategy: how the account is managed. Affects which engine flags fire and what
-#   the AI advisor is allowed to recommend.
-#   - Conservative   → conservative_only + excluded_from_deployment
-#                      (CBPs, IPS-locked income accounts — engine will never
-#                      suggest moving holdings OUT of this account)
-#   - Cash Reserve   → excluded_from_deployment
-#                      (Business operating reserves — kept liquid for ops)
-#   - Flexible       → no constraints (default; blank works too)
+# Strategy:
+#   Conservative  — locks the account: advisor can only propose internal
+#                   exchanges within the account, never external transfers
+#                   (use for Cash Balance Plans, IPS-locked income accounts)
+#   Cash Reserve  — kept liquid for ops; never flagged as cash drag
+#                   (use for business operating reserves)
+#   Flexible      — no constraints (default; you don't need a row for this)
 #
-# category: the account type (drives tax-aware scoring).
-#   - Cash Balance Plan (or CBP)         → cash_balance_plan
-#   - Retirement                         → pretax_ira (or cash_balance_plan if Strategy = Conservative)
-#   - Pre-Tax IRA / Traditional IRA / IRA → pretax_ira
-#   - Roth IRA / Roth                    → roth_ira
-#   - 401k                               → 401k_traditional
-#   - Roth 401k                          → 401k_roth
-#   - HSA                                → hsa
-#   - Business / Business Taxable        → business_taxable
-#   - Taxable / Brokerage / (default)    → taxable_brokerage
+# Category:
+#   Cash Balance Plan, Roth IRA, Pre-Tax IRA, 401k, Roth 401k,
+#   HSA, Business, Taxable
 #
-# Lines starting with # are comments. Blank lines are OK. Copy this file to
-# data/accounts.csv (gitignored) and edit for your real accounts.
+# Copy this file to data/accounts.csv (gitignored) and add your exceptions.
 
-# Fidelity — Z4055852X is the user's traditional 401(k) buckets
-Z40558528, Fidelity Pre-Tax 401k, Flexible, 401k
-Z40558526, Fidelity Roth 401k, Flexible, Roth 401k
-Z40558531, Fidelity HSA, Flexible, HSA
-Z40558530, Fidelity Taxable Brokerage, Flexible, Taxable
-
-# Empower — Kelly's employer 401(k)
-EmpowerKelly, Empower (Kelly's 401k), Flexible, 401k
-
-# Vanguard — split by sub-account number
-476667116104008, Vanguard Business Brokerage, Conservative, Business
-396958446105928, Kelly's Vanguard Roth IRA, Flexible, Roth IRA
-
-# Vanguard Personal — this file contains 4 sub-accounts
-738268507211132, Vanguard Personal Taxable, Flexible, Taxable
-437066605165244, Vanguard Personal #2, Flexible, Taxable
-565174605165349, Vanguard Personal #3, Flexible, Taxable
+# Example: the Vanguard Cash Balance Plan must stay conservative; advisor
+# should never recommend moving holdings out to another brokerage.
 167380648085310, Vanguard Cash Balance Plan, Conservative, Cash Balance Plan
+
+# Example: the Vanguard Business Brokerage is kept conservative on purpose
+# (operating reserves + short-term bonds).
+476667116104008, Vanguard Business Brokerage, Conservative, Business

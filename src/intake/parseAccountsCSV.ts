@@ -149,12 +149,30 @@ function buildAccountNumberIndex(sampleDir: string): Map<string, string> {
   return index;
 }
 
+/**
+ * Default classification for an account that wasn't named in the CSV.
+ * Inferred from the broker filename — used to fill in everything the user
+ * didn't bother to list as an exception.
+ */
+function defaultClassification(filename: string): {
+  account_type: AccountType;
+  label_hint: string;
+} {
+  const f = filename.toLowerCase();
+  if (/roth/.test(f)) return { account_type: "roth_ira", label_hint: "Roth IRA" };
+  if (/retirement|401k|401\(k\)/.test(f)) return { account_type: "pretax_ira", label_hint: "Retirement" };
+  if (/hsa/.test(f)) return { account_type: "hsa", label_hint: "HSA" };
+  if (/business/.test(f)) return { account_type: "business_taxable", label_hint: "Business" };
+  return { account_type: "taxable_brokerage", label_hint: "Brokerage" };
+}
+
 export function parseAccountsCSV(text: string, sampleDir: string): AccountConfig {
   const rows = parseRows(text);
   const numIndex = buildAccountNumberIndex(sampleDir);
 
   const accounts: AccountMetadata[] = [];
   const seenIds = new Set<string>();
+  const claimedAccountNumbers = new Set<string>();
 
   for (const row of rows) {
     const { account_type, constraints } = classify(row.category, row.strategy);
@@ -166,13 +184,13 @@ export function parseAccountsCSV(text: string, sampleDir: string): AccountConfig
     }
     let id = slugify(row.label);
     if (!id) id = slugify(row.account_number);
-    // Ensure uniqueness if labels collide
     let unique = id;
     let n = 2;
     while (seenIds.has(unique)) {
       unique = `${id}_${n++}`;
     }
     seenIds.add(unique);
+    claimedAccountNumbers.add(row.account_number);
 
     accounts.push({
       id: unique,
@@ -183,6 +201,31 @@ export function parseAccountsCSV(text: string, sampleDir: string): AccountConfig
       source_files: [source_file],
       account_numbers: [row.account_number],
       ...(Object.keys(constraints).length > 0 ? { constraints } : {}),
+    });
+  }
+
+  // Auto-fill: any sub-account in the broker files that the user didn't list
+  // gets a default entry based on filename heuristics. This is the "exceptions
+  // only" mode — user writes only the special accounts (CBP, Conservative
+  // Business) and the rest gets sane defaults.
+  for (const [accountNumber, filename] of numIndex) {
+    if (claimedAccountNumbers.has(accountNumber)) continue;
+    const def = defaultClassification(filename);
+    let id = slugify(`${def.label_hint}_${accountNumber.slice(-6)}`);
+    let unique = id;
+    let n = 2;
+    while (seenIds.has(unique)) {
+      unique = `${id}_${n++}`;
+    }
+    seenIds.add(unique);
+    accounts.push({
+      id: unique,
+      label: `${def.label_hint} (${accountNumber.slice(-6)})`,
+      broker: inferBroker(filename),
+      account_type: def.account_type,
+      owner: "you",
+      source_files: [filename],
+      account_numbers: [accountNumber],
     });
   }
 
