@@ -88,6 +88,7 @@ export default function AllocationBreakdown({
   const sorted = [...portfolio.holdings].sort((a, b) => b.market_value - a.market_value);
   const buckets = buildBuckets(portfolio.holdings);
   const pendingHolding = portfolio.holdings.find(h => h.is_pending_deployment);
+  const [holdingsOpen, setHoldingsOpen] = useState(false);
 
   const chartData = {
     labels: buckets.map(b => b.label),
@@ -167,7 +168,31 @@ export default function AllocationBreakdown({
         </div>
       </div>
 
-      {/* Holdings table */}
+      {/* Holdings table — collapsed by default; the donut + legend already
+          summarize allocation. Expand for per-holding detail. */}
+      <button
+        type="button"
+        onClick={() => setHoldingsOpen(o => !o)}
+        style={{
+          background: COLORS.card,
+          border: `1px solid ${COLORS.border}`,
+          color: COLORS.text,
+          padding: "8px 14px",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontSize: 13,
+          width: "100%",
+          textAlign: "left",
+          marginBottom: holdingsOpen ? 8 : 0,
+        }}
+      >
+        {holdingsOpen ? "▼" : "▶"}  Holding detail
+        <span style={{ color: COLORS.textMuted, marginLeft: 8 }}>
+          ({sorted.length} {sorted.length === 1 ? "holding" : "holdings"})
+        </span>
+      </button>
+
+      {holdingsOpen && (
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -198,6 +223,7 @@ export default function AllocationBreakdown({
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Pending deployment callout */}
       {pendingHolding && (
