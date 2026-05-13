@@ -7,7 +7,6 @@ import {
   normalizeVanguardAccounts,
   consolidatePortfolio,
 } from "./intake/normalize";
-import { parseAccounts, lookupAccountByFilename } from "./intake/parseAccounts";
 import { parseAccountsCSV } from "./intake/parseAccountsCSV";
 import { parsePortfolio } from "./intake/parsePortfolio";
 import { parseMacro } from "./intake/parseMacro";
@@ -50,24 +49,15 @@ async function main() {
     );
   }
 
-  // Load accounts config. Precedence: data/accounts.csv → data/accounts.json
-  // → data/accounts.example.csv → data/accounts.example.json. The CSV form is
-  // the recommended user-facing format (one line per sub-account).
-  let accounts: AccountConfig;
-  let accountsFile: string;
-  if (fs.existsSync("data/accounts.csv")) {
-    accountsFile = "data/accounts.csv";
-    accounts = parseAccountsCSV(fs.readFileSync(accountsFile, "utf-8"), SAMPLE_DIR);
-  } else if (fs.existsSync("data/accounts.json")) {
-    accountsFile = "data/accounts.json";
-    accounts = parseAccounts(loadJSON(accountsFile));
-  } else if (fs.existsSync("data/accounts.example.csv")) {
-    accountsFile = "data/accounts.example.csv";
-    accounts = parseAccountsCSV(fs.readFileSync(accountsFile, "utf-8"), SAMPLE_DIR);
-  } else {
-    accountsFile = "data/accounts.example.json";
-    accounts = parseAccounts(loadJSON(accountsFile));
-  }
+  // Load accounts config. The user maintains data/accounts.csv (gitignored).
+  // If it's missing, fall back to the committed example for first-run usability.
+  const accountsFile = fs.existsSync("data/accounts.csv")
+    ? "data/accounts.csv"
+    : "data/accounts.example.csv";
+  const accounts: AccountConfig = parseAccountsCSV(
+    fs.readFileSync(accountsFile, "utf-8"),
+    SAMPLE_DIR,
+  );
   console.log(`  Accounts config: ${accounts.accounts.length} accounts from ${accountsFile}`);
 
   // Build account-number → account_id and source_file → [account_id] indices
@@ -119,11 +109,15 @@ async function main() {
         allHoldings.push(...normalized);
       }
     } else {
-      // Whole-file routing (legacy / accounts.json mode)
-      const account = lookupAccountByFilename(accounts, filename);
-      if (!account) {
-        throw new Error(`No account in accounts config claims source_file ${filename}`);
+      // No sub-accounts matched by number — find the account whose source_files
+      // claim this whole file (typical for Empower exports where there's no
+      // distinct account_number).
+      const owners = accountIdsBySourceFile.get(filename) ?? [];
+      if (owners.length === 0) {
+        console.warn(`  ⚠ ${filename} has no entry in data/accounts.csv — skipping`);
+        continue;
       }
+      const account = owners[0];
       let normalized: Holding[];
       if (account.broker === "Fidelity") normalized = normalizeFidelityAccounts(rawRoot as any, account.id);
       else if (account.broker === "Empower") normalized = normalizeEmpowerAccounts(rawRoot as any, account.id);
