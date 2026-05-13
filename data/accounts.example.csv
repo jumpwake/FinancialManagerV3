@@ -23,8 +23,8 @@
 
 # Example: the Vanguard Cash Balance Plan must stay conservative; advisor
 # should never recommend moving holdings out to another brokerage.
-167380648085310, Vanguard Cash Balance Plan, Conservative, Cash Balance Plan
+13243214321, Vanguard Cash Balance Plan, Conservative, Cash Balance Plan
 
 # Example: the Vanguard Business Brokerage is kept conservative on purpose
 # (operating reserves + short-term bonds).
-476667116104008, Vanguard Business Brokerage, Conservative, Business
+431431432143, Vanguard Business Brokerage, Conservative, Business
