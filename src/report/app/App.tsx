@@ -51,13 +51,19 @@ export default function App() {
 
   const handleResolve = useCallback(
     async (sit: Situation) => {
-      const reason = window.prompt(`Why is "${sit.title}" resolved?`, "completed");
-      if (reason === null) return;
       await fetch(`/api/situations/${sit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "closed", closure_reason: reason }),
+        body: JSON.stringify({ status: "closed", closure_reason: "completed" }),
       });
+      await loadSituations();
+    },
+    [loadSituations],
+  );
+
+  const handleDelete = useCallback(
+    async (sit: Situation) => {
+      await fetch(`/api/situations/${sit.id}`, { method: "DELETE" });
       await loadSituations();
     },
     [loadSituations],
@@ -169,6 +175,7 @@ export default function App() {
           situations={situations}
           onDiscuss={(sit) => setScope({ type: "situation", situation_id: sit.id })}
           onResolve={handleResolve}
+          onDelete={handleDelete}
         />
 
         <Section label="1 — Allocation breakdown">
