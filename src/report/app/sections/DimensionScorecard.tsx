@@ -21,7 +21,12 @@ function Dot({ rating }: { rating: "green" | "yellow" | "red" }) {
   );
 }
 
-export default function DimensionScorecard({ data }: { data: AnalysisOutput }) {
+interface Props {
+  data: AnalysisOutput;
+  onDiscuss?: (dimension_id: string) => void;
+}
+
+export default function DimensionScorecard({ data, onDiscuss }: Props) {
   const dimensions: DimensionScore[] = data.dimension_scores;
   const refs = data.reference_models; // expect 3: boglehead, all_weather, classic_60_40
 
@@ -48,6 +53,7 @@ export default function DimensionScorecard({ data }: { data: AnalysisOutput }) {
                 {r.label}
               </th>
             ))}
+            {onDiscuss && <th style={{ padding: "10px 14px", width: 40 }} />}
           </tr>
         </thead>
         <tbody>
@@ -85,6 +91,28 @@ export default function DimensionScorecard({ data }: { data: AnalysisOutput }) {
                   </td>
                 );
               })}
+
+              {/* Discuss button */}
+              {onDiscuss && (
+                <td style={{ padding: "9px 14px", textAlign: "right" }}>
+                  <button
+                    type="button"
+                    onClick={() => onDiscuss(dim.id)}
+                    title={`Discuss ${dim.label}`}
+                    style={{
+                      background: "transparent",
+                      border: `1px solid ${COLORS.border}`,
+                      color: COLORS.textMuted,
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    💬
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

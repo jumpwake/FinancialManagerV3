@@ -4,6 +4,7 @@ interface Props {
   situations: Situation[];
   onDiscuss: (sit: Situation) => void;
   onResolve: (sit: Situation) => void;
+  onDelete: (sit: Situation) => void;
 }
 
 function verdictPillStyle(verdict: string): React.CSSProperties {
@@ -13,7 +14,7 @@ function verdictPillStyle(verdict: string): React.CSSProperties {
   return { background: "#2a2d34", color: "#9ca3af" };
 }
 
-export function OpenSituations({ situations, onDiscuss, onResolve }: Props) {
+export function OpenSituations({ situations, onDiscuss, onResolve, onDelete }: Props) {
   const open = situations.filter((s) => s.status === "open");
   if (open.length === 0) return null;
 
@@ -42,8 +43,8 @@ export function OpenSituations({ situations, onDiscuss, onResolve }: Props) {
               marginBottom: 6,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <strong>{sit.title}</strong>
                 {sit.target_date && (
                   <span style={{ color: "#888", fontSize: 11, marginLeft: 6 }}>
@@ -51,19 +52,37 @@ export function OpenSituations({ situations, onDiscuss, onResolve }: Props) {
                   </span>
                 )}
               </div>
-              {v && (
-                <span
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {v && (
+                  <span
+                    style={{
+                      padding: "2px 6px",
+                      borderRadius: 3,
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      ...verdictPillStyle(v.verdict),
+                    }}
+                  >
+                    {v.verdict.toUpperCase()}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDelete(sit)}
+                  title="Delete situation"
                   style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#888",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    lineHeight: 1,
                     padding: "2px 6px",
-                    borderRadius: 3,
-                    fontSize: 10,
-                    fontWeight: "bold",
-                    ...verdictPillStyle(v.verdict),
                   }}
                 >
-                  {v.verdict.toUpperCase()}
-                </span>
-              )}
+                  ×
+                </button>
+              </div>
             </div>
             {v?.rationale && (
               <div style={{ color: "#aaa", marginTop: 4, fontSize: 11 }}>{v.rationale}</div>

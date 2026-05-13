@@ -1,12 +1,12 @@
-import { describe, test, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions } from "./dimensions";
+import { describe, test, it, expect } from "vitest";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions, scoreAssetLocation } from "./dimensions";
 import { computeAggregates } from "./aggregates";
-import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
+import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { PortfolioAggregates, DimensionScore } from "../types";
 
 function aggWithER(er: number): PortfolioAggregates {
-  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [] };
+  return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], cross_account_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [] };
 }
 
 describe("scoreCostEfficiency", () => {
@@ -15,7 +15,7 @@ describe("scoreCostEfficiency", () => {
     expect(s.id).toBe("cost_efficiency");
     expect(s.score).toBe(10);
     expect(s.rating).toBe("green");
-    expect(s.weight).toBe(0.10);
+    expect(s.weight).toBe(0.09);
   });
 
   test("returns score 9 for 0.05% < ER ≤ 0.10%", () => {
@@ -69,11 +69,13 @@ function aggForSimplicity(overrides: Partial<PortfolioAggregates>): PortfolioAgg
     blended_expense_ratio: 0.0002,
     holding_count: 0,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: 0,
     top3_tickers: [],
     international_weight: 0,
     cash_weight: 0,
     idle_cash_weight: 0,
+    constrained_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
     equity_weight: 0,
@@ -119,7 +121,7 @@ describe("scoreSimplicity", () => {
       holding_count: 8,
       duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
     });
-    expect(scoreSimplicity(agg).display_value).toBe("8 holdings (7 effective)");
+    expect(scoreSimplicity(agg).display_value).toBe("7 effective positions (8 across accounts)");
   });
 });
 
@@ -129,11 +131,13 @@ function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): Portfoli
     blended_expense_ratio: 0.0002,
     holding_count: 10,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: top3,
     top3_tickers: tickers,
     international_weight: 0,
     cash_weight: 0,
     idle_cash_weight: 0,
+    constrained_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
     equity_weight: 0,
@@ -178,11 +182,13 @@ function aggForCash(idle: number, pending: number = 0): PortfolioAggregates {
     blended_expense_ratio: 0.0002,
     holding_count: 5,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: 0,
     top3_tickers: [],
     international_weight: 0,
     cash_weight: idle + pending,
     idle_cash_weight: idle,
+    constrained_cash_weight: 0,
     pending_cash_weight: pending,
     pending_cash_value: pending * 1000,
     equity_weight: 0,
@@ -226,10 +232,12 @@ function aggForIntl(intl: number): PortfolioAggregates {
     blended_expense_ratio: 0.0002,
     holding_count: 5,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: 0,
     top3_tickers: [],
     cash_weight: 0,
     idle_cash_weight: 0,
+    constrained_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
     international_weight: intl,
@@ -268,10 +276,12 @@ function aggForDiv(o: Partial<PortfolioAggregates>): PortfolioAggregates {
     blended_expense_ratio: 0.0002,
     holding_count: 5,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: 0,
     top3_tickers: [],
     cash_weight: 0,
     idle_cash_weight: 0,
+    constrained_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
     international_weight: 0,
@@ -351,10 +361,12 @@ function aggForBond(fi: number): PortfolioAggregates {
     blended_expense_ratio: 0.0002,
     holding_count: 5,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: 0,
     top3_tickers: [],
     cash_weight: 0,
     idle_cash_weight: 0,
+    constrained_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
     international_weight: 0,
@@ -406,6 +418,26 @@ describe("scoreBondBalance", () => {
     const agg = aggForBond(0.20);
     expect(scoreBondBalance(agg, makeMacro({ market_regime: "Unknown" })).score).toBe(9);
   });
+
+  it("VWENX-heavy portfolio has its FI contribution counted toward Bond Balance", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({
+          ticker: "VWENX",
+          market_value: 1000,
+          asset_class: "balanced",
+          account_id: "vng",
+          underlying_composition: { us_equity: 0.60, international_equity: 0.05, fixed_income: 0.35, cash: 0.0 },
+        }),
+      ],
+    });
+    const macro = makeMacro({ market_regime: "Late Cycle" });
+    const agg = computeAggregates(p);
+    const result = scoreBondBalance(agg, macro);
+    // 35% FI vs. 18-30% Late Cycle target → above range, score 7
+    expect(result.display_value).toMatch(/35\.0% FI/);
+    expect(result.score).toBeGreaterThanOrEqual(7);
+  });
 });
 
 function aggForMacro(sectors: { sector_tag: string; tickers: string[]; combined_weight: number }[]): PortfolioAggregates {
@@ -414,10 +446,12 @@ function aggForMacro(sectors: { sector_tag: string; tickers: string[]; combined_
     blended_expense_ratio: 0.0002,
     holding_count: 5,
     duplicate_groups: [],
+    cross_account_groups: [],
     top3_weight: 0,
     top3_tickers: [],
     cash_weight: 0,
     idle_cash_weight: 0,
+    constrained_cash_weight: 0,
     pending_cash_weight: 0,
     pending_cash_value: 0,
     international_weight: 0,
@@ -632,10 +666,10 @@ describe("scoreAllDimensions", () => {
     const agg = computeAggregates(portfolio);
     const macro = makeMacro();
     const dims = scoreAllDimensions(portfolio, agg, macro);
-    expect(dims).toHaveLength(10);
+    expect(dims).toHaveLength(11);
     const ids = dims.map(d => d.id).sort();
     expect(ids).toEqual([
-      "bond_balance", "cash_efficiency", "concentration", "cost_efficiency",
+      "asset_location", "bond_balance", "cash_efficiency", "concentration", "cost_efficiency",
       "diversification", "international", "macro_alignment", "quality_tilt",
       "simplicity", "single_stock_risk",
     ]);
@@ -647,5 +681,114 @@ describe("scoreAllDimensions", () => {
     const dims = scoreAllDimensions(portfolio, agg, makeMacro());
     const totalWeight = dims.reduce((sum, d) => sum + d.weight, 0);
     expect(totalWeight).toBeCloseTo(1.0, 2);
+  });
+});
+
+describe("scoreSimplicity ignores cross-account duplicates for effective count", () => {
+  it("FSKAX in Fidelity + VTSAX in Vanguard counts as 1 effective position, not 2", () => {
+    const agg = {
+      holding_count: 2,
+      duplicate_groups: [],
+      cross_account_groups: [
+        {
+          asset_class: "us_equity_total_market" as const,
+          label: "us equity total market",
+          tickers_by_account: [
+            { account_id: "fid", ticker: "FSKAX" },
+            { account_id: "vng", ticker: "VTSAX" },
+          ],
+          combined_weight: 0.5,
+        },
+      ],
+      // minimum stub fields for the function (it only reads the above three):
+      total_value: 1, blended_expense_ratio: 0, top3_weight: 0, top3_tickers: [],
+      international_weight: 0, cash_weight: 0, idle_cash_weight: 0,
+      constrained_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0,
+      equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0,
+      balanced_weight: 0, sector_holdings: [],
+    } as unknown as PortfolioAggregates;
+    const result = scoreSimplicity(agg);
+    // effective = holding_count - extraSameAccount - extraCrossAccount
+    //           = 2 - 0 - 1 = 1
+    expect(result.display_value).toMatch(/1 effective/);
+  });
+});
+
+describe("scoreDiversification does not penalize cross-account groups", () => {
+  it("Two FSKAX/VTSAX cross-account holdings don't subtract from the score", () => {
+    const agg = {
+      equity_weight: 0.6,
+      international_weight: 0.15,
+      fixed_income_weight: 0.20,
+      balanced_weight: 0.0,
+      individual_stock_weight: 0.05,
+      duplicate_groups: [],
+      cross_account_groups: [
+        {
+          asset_class: "us_equity_total_market" as const,
+          label: "us equity total market",
+          tickers_by_account: [
+            { account_id: "fid", ticker: "FSKAX" },
+            { account_id: "vng", ticker: "VTSAX" },
+          ],
+          combined_weight: 0.6,
+        },
+      ],
+    } as unknown as PortfolioAggregates;
+    const result = scoreDiversification(agg);
+    expect(result.score).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("scoreAssetLocation", () => {
+  it("returns neutral score when no account config is provided", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "FSKAX", market_value: 1000, asset_class: "us_equity_total_market", account_id: "fid" }),
+    ]});
+    const result = scoreAssetLocation(p, undefined);
+    expect(result.score).toBe(7);
+  });
+
+  it("penalizes individual stocks held in pre-tax (locks LTCG into ordinary income)", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "TSLA", market_value: 100, asset_class: "individual_stock", account_id: "fid_401k" }),
+      makeHolding({ ticker: "FSKAX", market_value: 900, asset_class: "us_equity_total_market", account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "fid_401k", account_type: "pretax_ira" }),
+        makeAccount({ id: "vng_roth", account_type: "roth_ira" }),
+      ],
+    };
+    const result = scoreAssetLocation(p, accounts);
+    expect(result.score).toBeLessThan(7);
+  });
+
+  it("rewards growth equity placed in Roth (highest-growth in tax-free account)", () => {
+    const pBad = makePortfolio({ holdings: [
+      makeHolding({ ticker: "QQQ", market_value: 1000, asset_class: "us_equity_large_cap_growth", account_id: "fid_401k" }),
+    ]});
+    const pGood = makePortfolio({ holdings: [
+      makeHolding({ ticker: "QQQ", market_value: 1000, asset_class: "us_equity_large_cap_growth", account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "fid_401k", account_type: "pretax_ira" }),
+        makeAccount({ id: "vng_roth", account_type: "roth_ira" }),
+      ],
+    };
+    const bad = scoreAssetLocation(pBad, accounts).score;
+    const good = scoreAssetLocation(pGood, accounts).score;
+    expect(good).toBeGreaterThan(bad);
+  });
+
+  it("score is clamped to [1, 10]", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "TSLA", market_value: 1000, asset_class: "individual_stock", account_id: "fid_401k" }),
+    ]});
+    const accounts = { accounts: [ makeAccount({ id: "fid_401k", account_type: "pretax_ira" }) ] };
+    const result = scoreAssetLocation(p, accounts);
+    expect(result.score).toBeGreaterThanOrEqual(1);
+    expect(result.score).toBeLessThanOrEqual(10);
   });
 });

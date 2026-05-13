@@ -8,9 +8,9 @@ function borderColorForType(type: Finding["type"]): string {
 }
 
 function iconLabel(finding: Finding): string {
-  if (finding.type === "strength") return `✓ Strength: ${finding.title}`;
-  if (finding.type === "gap") return `⚠ Gap: ${finding.title}`;
-  return `ⓘ Note: ${finding.title}`;
+  if (finding.type === "strength") return "✓ Strength";
+  if (finding.type === "gap") return "⚠ Gap";
+  return "ⓘ Note";
 }
 
 export default function KeyFindings({ data }: { data: AnalysisOutput }) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AnalysisOutput, ChatScope, Situation } from "./types";
+import { AnalysisOutput, ChatScope, Situation, TacticalMove } from "./types";
 import { COLORS } from "./theme";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
@@ -9,6 +9,7 @@ import RadarChart from "./sections/RadarChart";
 import AdditionalTakeaways from "./sections/AdditionalTakeaways";
 import Gaps from "./sections/Gaps";
 import Flags from "./sections/Flags";
+import NextMoves from "./sections/NextMoves";
 import { OpenSituations } from "./sections/OpenSituations";
 import { Sidebar } from "./sidebar/Sidebar";
 
@@ -17,6 +18,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
   const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
+  const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -49,17 +51,72 @@ export default function App() {
 
   const handleResolve = useCallback(
     async (sit: Situation) => {
-      const reason = window.prompt(`Why is "${sit.title}" resolved?`, "completed");
-      if (reason === null) return;
       await fetch(`/api/situations/${sit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "closed", closure_reason: reason }),
+        body: JSON.stringify({ status: "closed", closure_reason: "completed" }),
       });
       await loadSituations();
     },
     [loadSituations],
   );
+
+  const handleDelete = useCallback(
+    async (sit: Situation) => {
+      await fetch(`/api/situations/${sit.id}`, { method: "DELETE" });
+      await loadSituations();
+    },
+    [loadSituations],
+  );
+
+  const handleTrackMove = useCallback(async (move: TacticalMove) => {
+    // Guard against double-submission: if this move id is already in-flight, do nothing.
+    // Using a functional setState to read+update atomically without depending on a stale closure.
+    let alreadyInflight = false;
+    setInflightMoves(prev => {
+      if (prev.has(move.id)) {
+        alreadyInflight = true;
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(move.id);
+      return next;
+    });
+    if (alreadyInflight) return;
+
+    const target_date = new Date();
+    target_date.setDate(target_date.getDate() + 30);
+
+    const payload = {
+      title: move.action.slice(0, 80),
+      intent: move.rationale,
+      status: "open" as const,
+      target_date: target_date.toISOString().slice(0, 10),
+      related_findings: [] as string[],
+      portfolio_effects: move.category === "deploy_cash"
+        ? [{ type: "mark_cash_pending", amount_usd: move.dollars, deployment_label: move.target_account }]
+        : [] as never[],
+    };
+
+    try {
+      const r = await fetch("/api/situations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await loadSituations();
+      setScope({ type: "global" });
+    } catch (err) {
+      console.warn("Failed to create Situation:", err);
+    } finally {
+      setInflightMoves(prev => {
+        const next = new Set(prev);
+        next.delete(move.id);
+        return next;
+      });
+    }
+  }, [loadSituations]);
 
   if (error) {
     return (
@@ -100,22 +157,51 @@ export default function App() {
               {typedData.narratives.headline_summary}
             </p>
           )}
+          <a
+            href="#next-moves"
+            style={{
+              fontSize: 12,
+              color: COLORS.accentBlue,
+              textDecoration: "none",
+              marginTop: 10,
+              display: "inline-block",
+            }}
+          >
+            ↓ Jump to recommended moves
+          </a>
         </div>
 
         <OpenSituations
           situations={situations}
           onDiscuss={(sit) => setScope({ type: "situation", situation_id: sit.id })}
           onResolve={handleResolve}
+          onDelete={handleDelete}
         />
 
         <Section label="1 — Allocation breakdown">
-          <AllocationBreakdown data={typedData} />
+          <AllocationBreakdown
+            data={typedData}
+            inflightMoves={inflightMoves}
+            onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
+            onTrackMove={(deploymentMove) => handleTrackMove({
+              id: deploymentMove.id,
+              category: "deploy_cash",
+              action: `Buy $${deploymentMove.dollars.toLocaleString()} of ${deploymentMove.ticker} in ${deploymentMove.target_account}`,
+              target_account: deploymentMove.target_account,
+              dollars: deploymentMove.dollars,
+              rationale: deploymentMove.rationale,
+              scenarios_addressed: [],
+            })}
+          />
         </Section>
         <Section label="2 — Benchmark comparison">
           <BenchmarkComparison data={typedData} />
         </Section>
         <Section label="3 — Dimension scorecard">
-          <DimensionScorecard data={typedData} />
+          <DimensionScorecard
+            data={typedData}
+            onDiscuss={(id) => setScope({ type: "dimension", dimension_id: id })}
+          />
         </Section>
         <Section label="4 — Key findings">
           <KeyFindings data={typedData} />
@@ -132,6 +218,16 @@ export default function App() {
         <Section label="8 — Flags">
           <Flags data={typedData} onDiscuss={(k) => setScope({ type: "flag", finding_key: k })} />
         </Section>
+        <div id="next-moves">
+          <Section label="9 — Next moves">
+            <NextMoves
+              data={typedData}
+              inflightMoves={inflightMoves}
+              onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
+              onTrackMove={(move) => handleTrackMove(move)}
+            />
+          </Section>
+        </div>
       </main>
 
       <Sidebar

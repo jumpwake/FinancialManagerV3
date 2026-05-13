@@ -29,11 +29,22 @@ const StockMetricsSchema = z.object({
   analyst_consensus: z.number().nullable(),
 });
 
+const compositionSchema = z.object({
+  us_equity: z.number().min(0).max(1),
+  international_equity: z.number().min(0).max(1),
+  fixed_income: z.number().min(0).max(1),
+  cash: z.number().min(0).max(1),
+}).refine(
+  (c) => Math.abs(c.us_equity + c.international_equity + c.fixed_income + c.cash - 1) < 0.001,
+  { message: "underlying_composition must sum to 1.0" },
+);
+
 const HoldingSchema = z.object({
   ticker: z.string().min(1),
   label: z.string().min(1),
   market_value: z.number().nonnegative(),
   asset_class: AssetClassSchema,
+  account_id: z.string().min(1),
   sector_tag: z.string().optional(),
   is_cash: z.boolean(),
   is_pending_deployment: z.boolean(),
@@ -41,6 +52,7 @@ const HoldingSchema = z.object({
   deployment_label: z.string().optional(),
   expense_ratio: z.number().nullable(),
   stock_metrics: StockMetricsSchema.optional(),
+  underlying_composition: compositionSchema.optional(),
 });
 
 export const PortfolioSchema = z.object({

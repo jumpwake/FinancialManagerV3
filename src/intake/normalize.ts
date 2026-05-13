@@ -1,5 +1,6 @@
-import { Holding, Portfolio } from "../types";
+import { Holding, Portfolio, UnderlyingComposition } from "../types";
 import { lookupTicker, canonicalTicker } from "./tickerMetadata";
+import { glidePathComposition, extractTargetYear } from "./composition";
 
 /** Parse a dollar-formatted string like "$1,234.56" or "-$1,000.00" into a number. Returns 0 for empty/null/undefined. */
 export function parseMoneyString(s: string | null | undefined): number {
@@ -7,6 +8,27 @@ export function parseMoneyString(s: string | null | undefined): number {
   const cleaned = s.replace(/[$,]/g, "").trim();
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
+}
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+function attachCompositionIfApplicable(
+  ticker: string,
+  label: string,
+  asset_class: string,
+  meta: ReturnType<typeof lookupTicker>,
+  current_year: number,
+): UnderlyingComposition | undefined {
+  if (meta?.underlying_composition) return meta.underlying_composition;
+  if (asset_class === "target_date") {
+    const y = extractTargetYear(label) ?? extractTargetYear(ticker);
+    if (y !== null) return glidePathComposition(y, current_year);
+    return glidePathComposition(2040, current_year);
+  }
+  if (asset_class === "balanced") {
+    return { us_equity: 0.55, international_equity: 0.05, fixed_income: 0.35, cash: 0.05 };
+  }
+  return undefined;
 }
 
 interface FidelityRawHolding {
@@ -25,7 +47,7 @@ interface FidelityRawAccount {
 }
 
 /** Flatten one or more Fidelity raw accounts into a single Holding[] (does NOT dedupe across accounts — see consolidatePortfolio in Task 25). */
-export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holding[] {
+export function normalizeFidelityAccounts(accounts: FidelityRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {
     for (const raw of account.holdings) {
@@ -39,6 +61,7 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holdi
           label: raw.description || "Money Market",
           market_value,
           asset_class: "cash",
+          account_id,
           is_cash: true,
           is_pending_deployment: false,
           expense_ratio: null,
@@ -48,16 +71,25 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[]): Holdi
 
       const ticker = canonicalTicker(raw.symbol);
       const meta = lookupTicker(raw.symbol);
+      const asset_class = meta?.asset_class ?? "us_equity_total_market";
       out.push({
         ticker,
         label: raw.description || ticker,
         market_value,
-        asset_class: meta?.asset_class ?? "us_equity_total_market",
+        asset_class,
+        account_id,
         sector_tag: meta?.sector_tag,
         is_cash: false,
         is_pending_deployment: false,
         expense_ratio: meta?.expense_ratio ?? null,
         stock_metrics: meta?.stock_metrics,
+        underlying_composition: attachCompositionIfApplicable(
+          ticker,
+          raw.description || ticker,
+          asset_class,
+          meta,
+          CURRENT_YEAR,
+        ),
       });
     }
   }
@@ -75,7 +107,7 @@ interface EmpowerRawAccount {
   holdings: EmpowerRawHolding[];
 }
 
-export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[]): Holding[] {
+export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {
     for (const raw of account.holdings) {
@@ -83,16 +115,25 @@ export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[]): Holding
       if (market_value <= 0) continue;
 
       const meta = lookupTicker(raw.symbol);
+      const asset_class = meta?.asset_class ?? "us_equity_total_market";
       out.push({
         ticker: raw.symbol,
         label: raw.symbol,
         market_value,
-        asset_class: meta?.asset_class ?? "us_equity_total_market",
+        asset_class,
+        account_id,
         sector_tag: meta?.sector_tag,
         is_cash: false,
         is_pending_deployment: false,
         expense_ratio: meta?.expense_ratio ?? null,
         stock_metrics: meta?.stock_metrics,
+        underlying_composition: attachCompositionIfApplicable(
+          raw.symbol,
+          raw.symbol,
+          asset_class,
+          meta,
+          CURRENT_YEAR,
+        ),
       });
     }
   }
@@ -112,8 +153,9 @@ interface VanguardRawAccount {
 }
 
 /**
- * Merge duplicate tickers across all accounts/brokers into a single Portfolio.
- * Holdings with the same ticker have their market_values summed.
+ * Merge duplicate (account_id, ticker) pairs within a Portfolio.
+ * Holdings with the same account_id AND ticker have their market_values summed.
+ * Holdings with the same ticker but different account_ids are kept separate.
  * All other fields (label, asset_class, expense_ratio, sector_tag) are taken from the first occurrence.
  * Output is sorted by market_value descending.
  */
@@ -122,18 +164,19 @@ export function consolidatePortfolio(
   snapshot_date: string,
   account_label: string
 ): Portfolio {
-  const byTicker: Record<string, Holding> = {};
+  const byKey: Record<string, Holding> = {};
   for (const h of holdings) {
-    if (byTicker[h.ticker]) {
-      byTicker[h.ticker] = {
-        ...byTicker[h.ticker],
-        market_value: byTicker[h.ticker].market_value + h.market_value,
+    const key = `${h.account_id}::${h.ticker}`;
+    if (byKey[key]) {
+      byKey[key] = {
+        ...byKey[key],
+        market_value: byKey[key].market_value + h.market_value,
       };
     } else {
-      byTicker[h.ticker] = { ...h };
+      byKey[key] = { ...h };
     }
   }
-  const merged = Object.values(byTicker).sort((a, b) => b.market_value - a.market_value);
+  const merged = Object.values(byKey).sort((a, b) => b.market_value - a.market_value);
   return {
     snapshot_date,
     account_label,
@@ -141,7 +184,7 @@ export function consolidatePortfolio(
   };
 }
 
-export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holding[] {
+export function normalizeVanguardAccounts(accounts: VanguardRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {
     for (const raw of account.holdings) {
@@ -150,16 +193,25 @@ export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holdi
 
       const ticker = canonicalTicker(raw.symbol);
       const meta = lookupTicker(raw.symbol);
+      const asset_class = meta?.asset_class ?? "us_equity_total_market";
       out.push({
         ticker,
         label: ticker,
         market_value,
-        asset_class: meta?.asset_class ?? "us_equity_total_market",
+        asset_class,
+        account_id,
         sector_tag: meta?.sector_tag,
         is_cash: false,
         is_pending_deployment: false,
         expense_ratio: meta?.expense_ratio ?? null,
         stock_metrics: meta?.stock_metrics,
+        underlying_composition: attachCompositionIfApplicable(
+          ticker,
+          ticker,
+          asset_class,
+          meta,
+          CURRENT_YEAR,
+        ),
       });
     }
 
@@ -170,6 +222,7 @@ export function normalizeVanguardAccounts(accounts: VanguardRawAccount[]): Holdi
         label: `Vanguard settlement fund (${account.account_number})`,
         market_value: settlement,
         asset_class: "cash",
+        account_id,
         is_cash: true,
         is_pending_deployment: false,
         expense_ratio: null,

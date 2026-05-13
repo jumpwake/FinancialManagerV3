@@ -7,3 +7,4 @@ output/
 .vitest-cache/
 .superpowers/
 data/user-context.json
+data/accounts.csv

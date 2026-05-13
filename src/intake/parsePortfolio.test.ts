@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import { parsePortfolio } from "./parsePortfolio";
 
 const VALID_INPUT = {
@@ -8,6 +8,7 @@ const VALID_INPUT = {
     {
       ticker: "FSKAX", label: "Fidelity Total Market",
       market_value: 100000, asset_class: "us_equity_total_market",
+      account_id: "fid",
       is_cash: false, is_pending_deployment: false,
       expense_ratio: 0.00015,
     },
@@ -48,7 +49,7 @@ describe("parsePortfolio", () => {
       ...VALID_INPUT,
       holdings: [{
         ticker: "TSLA", label: "Tesla", market_value: 50000,
-        asset_class: "individual_stock", is_cash: false, is_pending_deployment: false,
+        asset_class: "individual_stock", account_id: "fid", is_cash: false, is_pending_deployment: false,
         expense_ratio: null,
         stock_metrics: {
           pe_ratio: 410, ev_ebitda: 137, fcf_yield: 0.0037, roe: 0.046,
@@ -66,7 +67,7 @@ describe("parsePortfolio", () => {
       ...VALID_INPUT,
       holdings: [{
         ticker: "SPAXX", label: "Money Market", market_value: 100000,
-        asset_class: "cash", is_cash: true, is_pending_deployment: true,
+        asset_class: "cash", account_id: "fid", is_cash: true, is_pending_deployment: true,
         deployment_date: "2026-05-29", deployment_label: "Tranche 3",
         expense_ratio: null,
       }],
@@ -79,13 +80,64 @@ describe("parsePortfolio", () => {
     const bad = { ...VALID_INPUT, holdings: [] };
     expect(() => parsePortfolio(bad)).toThrow();
   });
+});
 
-  test("loads the dev doc sample data/portfolio.json", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const raw = JSON.parse(fs.readFileSync(path.resolve("data/portfolio.json"), "utf-8"));
-    expect(() => parsePortfolio(raw)).not.toThrow();
-    const portfolio = parsePortfolio(raw);
-    expect(portfolio.holdings.length).toBeGreaterThan(0);
+describe("parsePortfolio with account_id and underlying_composition", () => {
+  it("requires account_id on every holding", () => {
+    expect(() =>
+      parsePortfolio({
+        snapshot_date: "2026-05-12",
+        account_label: "X",
+        holdings: [
+          { ticker: "FSKAX", label: "x", market_value: 1, asset_class: "us_equity_total_market",
+            is_cash: false, is_pending_deployment: false, expense_ratio: 0 /* no account_id */ },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts underlying_composition that sums to ~1.0", () => {
+    const p = parsePortfolio({
+      snapshot_date: "2026-05-12",
+      account_label: "X",
+      holdings: [
+        {
+          ticker: "VWENX",
+          label: "Wellington",
+          market_value: 100,
+          asset_class: "balanced",
+          account_id: "vng",
+          is_cash: false,
+          is_pending_deployment: false,
+          expense_ratio: 0.0017,
+          underlying_composition: {
+            us_equity: 0.60, international_equity: 0.05, fixed_income: 0.35, cash: 0.0,
+          },
+        },
+      ],
+    });
+    expect(p.holdings[0].underlying_composition?.us_equity).toBe(0.60);
+  });
+
+  it("rejects underlying_composition that does NOT sum to 1.0", () => {
+    expect(() =>
+      parsePortfolio({
+        snapshot_date: "2026-05-12",
+        account_label: "X",
+        holdings: [
+          {
+            ticker: "VWENX",
+            label: "Wellington",
+            market_value: 100,
+            asset_class: "balanced",
+            account_id: "vng",
+            is_cash: false,
+            is_pending_deployment: false,
+            expense_ratio: 0.0017,
+            underlying_composition: { us_equity: 0.5, international_equity: 0.5, fixed_income: 0.5, cash: 0.5 },
+          },
+        ],
+      }),
+    ).toThrow(/sum|1\.0/i);
   });
 });

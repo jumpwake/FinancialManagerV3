@@ -7,6 +7,7 @@ import {
   normalizeVanguardAccounts,
   consolidatePortfolio,
 } from "./intake/normalize";
+import { parseAccountsCSV, findLatestSnapshotFiles } from "./intake/parseAccountsCSV";
 import { parsePortfolio } from "./intake/parsePortfolio";
 import { parseMacro } from "./intake/parseMacro";
 import { computeAggregates } from "./engine/aggregates";
@@ -18,7 +19,8 @@ import { loadUserContext, saveUserContext } from "./server/userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
 import { runPulseCheck } from "./ai/pulseCheck";
-import type { Finding, PulseVerdict } from "./types";
+import { runTacticalAdvisor } from "./ai/tacticalAdvisor";
+import type { AccountConfig, Holding, Finding, PulseVerdict, TacticalAdvisorOutput } from "./types";
 
 const SAMPLE_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
@@ -47,24 +49,100 @@ async function main() {
     );
   }
 
-  // Normalize each broker's exports into a flat Holding[]
-  const fidelity = normalizeFidelityAccounts(loadJSON(`${SAMPLE_DIR}/20260509_FidelityRetirement.json`) as any);
-  const empower  = normalizeEmpowerAccounts(loadJSON(`${SAMPLE_DIR}/20260509_EmpowerKelly.json`) as any);
-  const vb       = normalizeVanguardAccounts(loadJSON(`${SAMPLE_DIR}/20260509_VanguardBusiness.json`) as any);
-  const vkdb     = normalizeVanguardAccounts(loadJSON(`${SAMPLE_DIR}/20260509_VanguardKDB.json`) as any);
-  const vp       = normalizeVanguardAccounts(loadJSON(`${SAMPLE_DIR}/20260509_VanguardPersonal.json`) as any);
+  // Load accounts config. The user maintains data/accounts.csv (gitignored).
+  // If it's missing, fall back to the committed example for first-run usability.
+  const accountsFile = fs.existsSync("data/accounts.csv")
+    ? "data/accounts.csv"
+    : "data/accounts.example.csv";
+  const accounts: AccountConfig = parseAccountsCSV(
+    fs.readFileSync(accountsFile, "utf-8"),
+    SAMPLE_DIR,
+  );
+  console.log(`  Accounts config: ${accounts.accounts.length} accounts from ${accountsFile}`);
 
-  const allHoldings = [...fidelity, ...empower, ...vb, ...vkdb, ...vp];
-  console.log(`  Fidelity:           ${fidelity.length} holdings`);
-  console.log(`  Empower:            ${empower.length} holdings`);
-  console.log(`  Vanguard Business:  ${vb.length} holdings`);
-  console.log(`  Vanguard KDB:       ${vkdb.length} holdings`);
-  console.log(`  Vanguard Personal:  ${vp.length} holdings`);
+  // Build account-number → account_id and source_file → [account_id] indices
+  // for per-sub-account routing.
+  const accountByNumber = new Map<string, typeof accounts.accounts[number]>();
+  const accountIdsBySourceFile = new Map<string, typeof accounts.accounts[number][]>();
+  for (const a of accounts.accounts) {
+    for (const num of a.account_numbers ?? []) {
+      accountByNumber.set(num, a);
+    }
+    for (const sf of a.source_files) {
+      const arr = accountIdsBySourceFile.get(sf) ?? [];
+      arr.push(a);
+      accountIdsBySourceFile.set(sf, arr);
+    }
+  }
+
+  // Iterate raw broker files for the LATEST snapshot only. The data directory
+  // may accumulate weekly drops; we pick the most recent YYYYMMDD prefix and
+  // ignore older snapshots and any non-broker files (liabilities.json,
+  // cache/, etc.).
+  const snapshot = findLatestSnapshotFiles(SAMPLE_DIR);
+  if (snapshot.files.length === 0) {
+    throw new Error(
+      `No broker snapshot files (YYYYMMDD_<broker>.json) found in ${SAMPLE_DIR}`,
+    );
+  }
+  console.log(`  Snapshot: ${snapshot.date} (${snapshot.files.length} files)`);
+  const SAMPLE_FILES = snapshot.files;
+  const allHoldings: Holding[] = [];
+  for (const filename of SAMPLE_FILES) {
+    const rawRoot = loadJSON(`${SAMPLE_DIR}/${filename}`);
+    const subAccounts = (Array.isArray(rawRoot) ? rawRoot : [rawRoot]) as Array<{
+      account_number?: string;
+      account_id?: string;
+      account_name?: string;
+    }>;
+
+    const haveSubAccountConfig = subAccounts.some(
+      (s) => accountByNumber.has(s.account_number ?? s.account_id ?? s.account_name ?? ""),
+    );
+
+    if (haveSubAccountConfig) {
+      // Per-sub-account routing (preferred)
+      for (const sub of subAccounts) {
+        const num = sub.account_number ?? sub.account_id ?? sub.account_name ?? "";
+        const acct = accountByNumber.get(num);
+        if (!acct) {
+          console.warn(`  ⚠ ${filename} sub-account ${num} has no config entry — skipping`);
+          continue;
+        }
+        let normalized: Holding[];
+        if (acct.broker === "Fidelity") normalized = normalizeFidelityAccounts([sub] as any, acct.id);
+        else if (acct.broker === "Empower") normalized = normalizeEmpowerAccounts([sub] as any, acct.id);
+        else if (acct.broker === "Vanguard") normalized = normalizeVanguardAccounts([sub] as any, acct.id);
+        else throw new Error(`Unsupported broker ${acct.broker} for ${filename}`);
+        console.log(`  ${acct.label.padEnd(36)} ${normalized.length} holdings  (${num})`);
+        allHoldings.push(...normalized);
+      }
+    } else {
+      // No sub-accounts matched by number — find the account whose source_files
+      // claim this whole file (typical for Empower exports where there's no
+      // distinct account_number).
+      const owners = accountIdsBySourceFile.get(filename) ?? [];
+      if (owners.length === 0) {
+        console.warn(`  ⚠ ${filename} has no entry in data/accounts.csv — skipping`);
+        continue;
+      }
+      const account = owners[0];
+      let normalized: Holding[];
+      if (account.broker === "Fidelity") normalized = normalizeFidelityAccounts(rawRoot as any, account.id);
+      else if (account.broker === "Empower") normalized = normalizeEmpowerAccounts(rawRoot as any, account.id);
+      else if (account.broker === "Vanguard") normalized = normalizeVanguardAccounts(rawRoot as any, account.id);
+      else throw new Error(`Unsupported broker ${account.broker} for ${filename}`);
+      console.log(`  ${account.label.padEnd(36)} ${normalized.length} holdings`);
+      allHoldings.push(...normalized);
+    }
+  }
   console.log(`  ─────────────────────────────`);
   console.log(`  Total (pre-dedupe): ${allHoldings.length} holdings`);
 
   // Consolidate duplicates across accounts/brokers
-  const consolidated = consolidatePortfolio(allHoldings, "2026-05-09", "All Accounts");
+  // Derive snapshot_date from the snapshot prefix (YYYYMMDD → YYYY-MM-DD).
+  const snapshotDate = `${snapshot.date.slice(0, 4)}-${snapshot.date.slice(4, 6)}-${snapshot.date.slice(6, 8)}`;
+  const consolidated = consolidatePortfolio(allHoldings, snapshotDate, "All Accounts");
   console.log(`  After consolidation: ${consolidated.holdings.length} unique holdings`);
 
   // Validate via zod
@@ -76,11 +154,11 @@ async function main() {
   const effectedPortfolio = applyPortfolioEffects(portfolio, userContext.situations);
 
   // Run engine
-  const aggregates = computeAggregates(effectedPortfolio);
-  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro);
+  const aggregates = computeAggregates(effectedPortfolio, accounts);
+  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro, accounts);
   const portfolio_score = computePortfolioScore(dimension_scores);
   const portfolio_grade = scoreToGrade(portfolio_score);
-  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro);
+  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro, accounts);
   const rawGapItems = generateGapItems(aggregates, dimension_scores, macro);
 
   // Apply Note suppressions (cosmetic — flags retain finding_key, annotated with suppressed_by)
@@ -174,12 +252,40 @@ async function main() {
     saveUserContext(USER_CONTEXT_FILE, userContext);
   }
 
+  // Generate tactical advisor recommendations (single Anthropic API call)
+  let tactical_advisor: TacticalAdvisorOutput | null = null;
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log("");
+    console.log("Calling Anthropic API for tactical advisor recommendations...");
+    try {
+      tactical_advisor = await runTacticalAdvisor({
+        portfolio: effectedPortfolio,
+        aggregates,
+        macro,
+        dimension_scores,
+        portfolio_score,
+        portfolio_grade,
+        flags,
+        gap_items,
+        accounts,
+        open_situations: userContext.situations,
+      });
+      console.log(`  Tactical plan: ${tactical_advisor.tactical_plan.next_7_days.length} moves in next 7d, ${tactical_advisor.tactical_plan.next_30_days.length} moves in next 30d`);
+      if (tactical_advisor.deployment_recommendation) {
+        console.log(`  Deployment: ${tactical_advisor.deployment_recommendation.moves.length} moves, projected grade ${tactical_advisor.deployment_recommendation.projected_grade}`);
+      }
+    } catch (err) {
+      console.warn("  Tactical advisor failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
   // Assemble the analysis output
   const output = {
     generated_at: new Date().toISOString(),
     portfolio: effectedPortfolio,
     macro,
     aggregates,
+    accounts,
     portfolio_score,
     portfolio_grade,
     dimension_scores,
@@ -190,6 +296,7 @@ async function main() {
     score_trajectory,
     findings,
     narratives,  // null if API key wasn't set
+    tactical_advisor,  // null if API key wasn't set or call failed
     situations: userContext.situations,
     notes: userContext.notes,
   };

@@ -1,4 +1,4 @@
-import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint } from "../types";
+import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint, AccountConfig, taxTreatmentFor } from "../types";
 import { scoreToGrade, FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./dimensions";
 import { buildFindingKey } from "./findingKeys";
 
@@ -32,7 +32,8 @@ function requireDim(dimensions: DimensionScore[], id: string): DimensionScore {
 export function generateFlags(
   portfolio: Portfolio,
   agg: PortfolioAggregates,
-  macro: MacroContext
+  macro: MacroContext,
+  accounts?: AccountConfig,
 ): Flag[] {
   const flags: Flag[] = [];
   const total = agg.total_value;
@@ -108,6 +109,43 @@ export function generateFlags(
       body: `${group.tickers.join(", ")} hold near-identical underlying exposure. Combined ${(group.combined_weight * 100).toFixed(1)}% — consolidate into one.`,
       finding_key: buildFindingKey({ dimension: "cost", type: "duplicate_funds", label: group.label }),
     });
+  }
+
+  // Asset-location flags — only fire when an external transfer is actually possible.
+  // Policy-locked accounts (CBP, accounts with excluded_from_deployment or conservative_only)
+  // cannot move holdings out to other brokerages, so suggesting it is misleading.
+  if (accounts) {
+    const typeById = new Map(accounts.accounts.map(a => [a.id, a]));
+    for (const h of portfolio.holdings) {
+      const acct = typeById.get(h.account_id);
+      if (!acct) continue;
+      const isPolicyLocked =
+        acct.account_type === "cash_balance_plan" ||
+        acct.constraints?.excluded_from_deployment === true ||
+        acct.constraints?.conservative_only === true;
+      if (isPolicyLocked) continue;
+      const tax = taxTreatmentFor(acct.account_type);
+      const wPct = ((h.market_value / agg.total_value) * 100).toFixed(1);
+
+      if (tax === "taxable_currently" && (h.asset_class === "balanced" || h.asset_class === "target_date")) {
+        flags.push({
+          ticker: h.ticker,
+          severity: "yellow",
+          title: `${h.ticker} in taxable — distribution drag`,
+          body: `${h.ticker} (${wPct}% of portfolio) is held in ${acct.label} (taxable). Balanced and target-date funds distribute capital gains annually, taxed as ordinary income. Consider moving to a tax-deferred account.`,
+          finding_key: buildFindingKey({ dimension: "asset_location", type: "taxable_balanced", ticker: h.ticker }),
+        });
+      }
+      if (tax === "tax_deferred" && h.asset_class === "individual_stock") {
+        flags.push({
+          ticker: h.ticker,
+          severity: "yellow",
+          title: `${h.ticker} in pre-tax — LTCG benefit lost`,
+          body: `${h.ticker} (${wPct}% of portfolio) is in ${acct.label} (pre-tax). Long-term capital gains tax rate is lost — gains taxed as ordinary income on withdrawal. Consider holding in a taxable account.`,
+          finding_key: buildFindingKey({ dimension: "asset_location", type: "tax_deferred_individual_stock", ticker: h.ticker }),
+        });
+      }
+    }
   }
 
   return flags;
@@ -273,7 +311,7 @@ export function generatePlanPhases(
     actions: [
       {
         category: "platform",
-        description: "Set weekly report cadence (Sunday night). Automate macro.json refresh + portfolio.json pull from brokerage export.",
+        description: "Set weekly report cadence (Sunday night). Automate macro.json refresh + drop the latest brokerage JSON snapshot into PORTFOLIO_DIR.",
         tags: ["automation"],
       },
       {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -5,7 +6,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { AnalysisOutput, AssetClass } from "../types";
+import { AnalysisOutput, AssetClass, DeploymentMove } from "../types";
 import { COLORS } from "../theme";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -51,6 +52,11 @@ function buildBuckets(holdings: AnalysisOutput["portfolio"]["holdings"]): Bucket
 function fmt$(v: number) {
   return "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
+
+function accountLabel(account_id: string, accounts: AnalysisOutput["accounts"]): string {
+  if (!accounts) return account_id;
+  return accounts.accounts.find(a => a.id === account_id)?.label ?? account_id;
+}
 function fmtPct(v: number) {
   return (v * 100).toFixed(1) + "%";
 }
@@ -64,12 +70,25 @@ const cardStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
-export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) {
+interface AllocationBreakdownProps {
+  data: AnalysisOutput;
+  inflightMoves?: Set<string>;
+  onDiscussMove?: (move_id: string) => void;
+  onTrackMove?: (move: DeploymentMove) => void;
+}
+
+export default function AllocationBreakdown({
+  data,
+  inflightMoves,
+  onDiscussMove,
+  onTrackMove,
+}: AllocationBreakdownProps) {
   const { aggregates: agg, portfolio } = data;
   const total = agg.total_value;
   const sorted = [...portfolio.holdings].sort((a, b) => b.market_value - a.market_value);
   const buckets = buildBuckets(portfolio.holdings);
   const pendingHolding = portfolio.holdings.find(h => h.is_pending_deployment);
+  const [holdingsOpen, setHoldingsOpen] = useState(false);
 
   const chartData = {
     labels: buckets.map(b => b.label),
@@ -149,25 +168,53 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
         </div>
       </div>
 
-      {/* Holdings table */}
+      {/* Holdings table — collapsed by default; the donut + legend already
+          summarize allocation. Expand for per-holding detail. */}
+      <button
+        type="button"
+        onClick={() => setHoldingsOpen(o => !o)}
+        style={{
+          background: COLORS.card,
+          border: `1px solid ${COLORS.border}`,
+          color: COLORS.text,
+          padding: "8px 14px",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontSize: 13,
+          width: "100%",
+          textAlign: "left",
+          marginBottom: holdingsOpen ? 8 : 0,
+        }}
+      >
+        {holdingsOpen ? "▼" : "▶"}  Holding detail
+        <span style={{ color: COLORS.textMuted, marginLeft: 8 }}>
+          ({sorted.length} {sorted.length === 1 ? "holding" : "holdings"})
+        </span>
+      </button>
+
+      {holdingsOpen && (
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
               <th style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Holding</th>
+              <th style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Account</th>
               <th style={{ textAlign: "right", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Value</th>
               <th style={{ textAlign: "right", padding: "10px 14px", fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>Wt.</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((h, i) => (
-              <tr key={h.ticker} style={{ borderBottom: i < sorted.length - 1 ? `1px solid ${COLORS.border}` : undefined }}>
+              <tr key={`${h.account_id}::${h.ticker}`} style={{ borderBottom: i < sorted.length - 1 ? `1px solid ${COLORS.border}` : undefined }}>
                 <td style={{ padding: "8px 14px", fontSize: 13, color: COLORS.text }}>
                   <span style={{ fontWeight: 500 }}>{h.ticker}</span>
                   <span style={{ color: COLORS.textMuted, marginLeft: 8, fontSize: 12 }}>{h.label}</span>
                   {h.is_pending_deployment && (
                     <span style={{ marginLeft: 8, background: COLORS.pendingBg, color: COLORS.amber, fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>pending</span>
                   )}
+                </td>
+                <td style={{ padding: "8px 14px", fontSize: 12, color: COLORS.textMuted }}>
+                  {accountLabel(h.account_id, data.accounts)}
                 </td>
                 <td style={{ padding: "8px 14px", fontSize: 13, color: COLORS.text, textAlign: "right" }}>{fmt$(h.market_value)}</td>
                 <td style={{ padding: "8px 14px", fontSize: 13, color: COLORS.textMuted, textAlign: "right" }}>{fmtPct(h.market_value / total)}</td>
@@ -176,6 +223,7 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Pending deployment callout */}
       {pendingHolding && (
@@ -195,8 +243,134 @@ export default function AllocationBreakdown({ data }: { data: AnalysisOutput }) 
         </div>
       )}
 
-      {/* TODO: "Post-T3 projected sector weights" toggle — nice-to-have, re-renders donut/table
-          with pending cash redistributed proportionally across non-cash holdings */}
+      {/* Composition note */}
+      {data.portfolio.holdings.some(h => h.underlying_composition) && (
+        <div style={{
+          marginTop: 12,
+          fontSize: 12,
+          color: COLORS.textMuted,
+          lineHeight: 1.5,
+        }}>
+          Balanced and target-date funds are decomposed for scoring.{" "}
+          {data.portfolio.holdings.filter(h => h.underlying_composition).map(h => {
+            const c = h.underlying_composition!;
+            const equityDollars = h.market_value * (c.us_equity + c.international_equity);
+            const fiDollars = h.market_value * c.fixed_income;
+            return `${h.ticker} (${fmt$(h.market_value)}) contributes ~${fmt$(equityDollars)} equity / ~${fmt$(fiDollars)} FI.`;
+          }).join(" ")}
+        </div>
+      )}
+
+      {/* Cross-account groups note */}
+      {data.aggregates.cross_account_groups.length > 0 && (
+        <div style={{
+          marginTop: 8,
+          fontSize: 12,
+          color: COLORS.textMuted,
+          fontStyle: "italic",
+        }}>
+          Note: {data.aggregates.cross_account_groups.map(g =>
+            `${g.tickers_by_account.map(t => t.ticker).join(" / ")} (${g.label})`
+          ).join("; ")} held across multiple accounts — expected for cross-broker portfolios, not a flag.
+        </div>
+      )}
+
+      {data.tactical_advisor?.deployment_recommendation && (
+        <PostT3Toggle
+          deployment={data.tactical_advisor.deployment_recommendation}
+          portfolio={data.portfolio}
+          accounts={data.accounts}
+          currentGrade={data.portfolio_grade}
+          inflightMoves={inflightMoves}
+          onDiscussMove={onDiscussMove}
+          onTrackMove={onTrackMove}
+        />
+      )}
+    </div>
+  );
+}
+
+function PostT3Toggle({
+  deployment,
+  portfolio,
+  accounts: _accounts,
+  currentGrade,
+  inflightMoves,
+  onDiscussMove,
+  onTrackMove,
+}: {
+  deployment: NonNullable<NonNullable<AnalysisOutput["tactical_advisor"]>["deployment_recommendation"]>;
+  portfolio: AnalysisOutput["portfolio"];
+  accounts: AnalysisOutput["accounts"];
+  currentGrade: string;
+  inflightMoves?: Set<string>;
+  onDiscussMove?: (move_id: string) => void;
+  onTrackMove?: (move: DeploymentMove) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pendingValue = portfolio.holdings
+    .filter(h => h.is_pending_deployment)
+    .reduce((s, h) => s + h.market_value, 0);
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: COLORS.card,
+          border: `1px solid ${COLORS.border}`,
+          color: COLORS.text,
+          padding: "8px 14px",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontSize: 13,
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
+        {open ? "▼" : "▶"}  Project post-deployment allocation
+        <span style={{ color: COLORS.textMuted, marginLeft: 8 }}>
+          ({fmt$(pendingValue)} pending → {currentGrade} → {deployment.projected_grade})
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 12, padding: 14, border: `1px solid ${COLORS.border}`, borderRadius: 6 }}>
+          <div style={{ fontSize: 13, color: COLORS.text, marginBottom: 12, lineHeight: 1.6 }}>
+            {deployment.summary}
+          </div>
+
+          {deployment.moves.map(move => {
+            const isInflight = inflightMoves?.has(move.id) ?? false;
+            return (
+              <div key={move.id} style={{ marginBottom: 10, padding: "10px 12px", background: COLORS.bg, borderLeft: `3px solid ${COLORS.amber}`, borderRadius: 4 }}>
+                <div style={{ fontSize: 13, color: COLORS.text, marginBottom: 4 }}>
+                  <strong>{fmt$(move.dollars)}</strong> → <strong>{move.ticker}</strong> in <em>{move.target_account}</em>
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.5 }}>{move.rationale}</div>
+                <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => onDiscussMove?.(move.id)}
+                    style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+                  >
+                    💬 Discuss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onTrackMove?.(move)}
+                    disabled={isInflight}
+                    style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: isInflight ? "not-allowed" : "pointer", fontSize: 11, opacity: isInflight ? 0.5 : 1 }}
+                  >
+                    {isInflight ? "Adding…" : "+ Situation"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

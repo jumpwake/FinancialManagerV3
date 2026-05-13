@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(npm install *)",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(git *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(node -e \"const lock = require\\('./package-lock.json'\\); console.log\\('lockfileVersion:', lock.lockfileVersion\\); const pkg = require\\('./package.json'\\); console.log\\('type:', pkg.type\\);\")",
+      "Bash(node -e \"const lock = require\\('./package-lock.json'\\); const deps = lock.packages; const vitestPkg = deps['node_modules/vitest']; const vitePkg = deps['node_modules/vite']; console.log\\('vitest installed:', vitestPkg && vitestPkg.version\\); console.log\\('vite installed:', vitePkg && vitePkg.version\\); const tsPkg = deps['node_modules/typescript']; console.log\\('typescript installed:', tsPkg && tsPkg.version\\); const tsxPkg = deps['node_modules/tsx']; console.log\\('tsx installed:', tsxPkg && tsxPkg.version\\);\")",
+      "Bash(node -e \"const lock = require\\('./package-lock.json'\\); const deps = lock.packages; const zodPkg = deps['node_modules/zod']; const anthropicPkg = deps['node_modules/@anthropic-ai/sdk']; const reactPkg = deps['node_modules/react']; console.log\\('zod:', zodPkg && zodPkg.version\\); console.log\\('@anthropic-ai/sdk:', anthropicPkg && anthropicPkg.version\\); console.log\\('react:', reactPkg && reactPkg.version\\);\")",
+      "Bash(node -e \"const lock = require\\('./package-lock.json'\\); const deps = lock.packages; const vitestPkg = deps['node_modules/vitest']; console.log\\('vitest peerDeps:', JSON.stringify\\(vitestPkg.peerDependencies, null, 2\\)\\); console.log\\('vitest peerDepsMeta:', JSON.stringify\\(vitestPkg.peerDependenciesMeta, null, 2\\)\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(npm show *)",
+      "Bash(npm test *)",
+      "Bash(node *)",
+      "Bash(npm run *)",
+      "Skill(claude-api)",
+      "Read(//c/Users/bowde/source/repos/**)",
+      "Bash(powershell -Command \"[System.Environment]::GetEnvironmentVariable\\('ANTHROPIC_API_KEY', 'User'\\)\")",
+      "Bash(ls *)",
+      "Bash(/c/Users/bowde/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh *)",
+      "Bash(curl -s http://localhost:5175/api/situations)",
+      "Bash(curl -s -X POST http://localhost:5175/api/situations -H 'Content-Type: application/json' -d '{\"title\":\"Smoke test\",\"intent\":\"verifying middleware\"}')",
+      "Bash(curl -s -X DELETE http://localhost:5175/api/situations/sit_2026-05-12_n9p6qq -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(awk -F'\\(' '{print $1}')",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(tee /tmp/analyze.log)",
+      "Bash(tee /tmp/analyze2.log)",
+      "PowerShell(Get-Content -Path \"C:\\\\Users\\\\bowde\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-bowde-source-repos-FinancialManagerV3\\\\6545aa29-5ad3-45e7-ba1d-819816dd0102\\\\tasks\\\\bg8k3ej7z.output\" -Raw | Select-String \"Tactical|analysis\\\\.json written|failed\" | ForEach-Object { $_.Line })",
+      "PowerShell($d = Get-Content \"C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3\\\\output\\\\analysis.json\" | ConvertFrom-Json; Write-Host \"tactical_advisor present: $\\(if \\($d.tactical_advisor\\) { 'YES' } else { 'NO' }\\)\"; if \\($d.tactical_advisor\\) { Write-Host \"  - deployment_recommendation: $\\(if \\($d.tactical_advisor.deployment_recommendation\\) { 'present' } else { 'null' }\\)\"; Write-Host \"  - tactical_plan next_7_days: $\\($d.tactical_advisor.tactical_plan.next_7_days.Count\\)\"; Write-Host \"  - tactical_plan next_30_days: $\\($d.tactical_advisor.tactical_plan.next_30_days.Count\\)\" })"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+# Account exceptions for the AI advisor.
+#
+# You only need to list accounts that have SPECIAL RULES (CBP, conservative
+# business reserves, etc.). Every other account in your broker exports gets
+# a sensible default based on the filename (Retirement → pre-tax IRA,
+# Roth → Roth IRA, Business → business taxable, otherwise taxable brokerage).
+#
+# Columns: account_number, label, strategy, category
+#
+# Strategy:
+#   Conservative  — locks the account: advisor can only propose internal
+#                   exchanges within the account, never external transfers
+#                   (use for Cash Balance Plans, IPS-locked income accounts)
+#   Cash Reserve  — kept liquid for ops; never flagged as cash drag
+#                   (use for business operating reserves)
+#   Flexible      — no constraints (default; you don't need a row for this)
+#
+# Category:
+#   Cash Balance Plan, Roth IRA, Pre-Tax IRA, 401k, Roth 401k,
+#   HSA, Business, Taxable
+#
+# Copy this file to data/accounts.csv (gitignored) and add your exceptions.
+
+# Example: the Vanguard Cash Balance Plan must stay conservative; advisor
+# should never recommend moving holdings out to another brokerage.
+13243214321, Vanguard Cash Balance Plan, Conservative, Cash Balance Plan
+
+# Example: the Vanguard Business Brokerage is kept conservative on purpose
+# (operating reserves + short-term bonds).
+431431432143, Vanguard Business Brokerage, Conservative, Business

@@ -9,7 +9,7 @@ The full stack is in place on the `tdd-engine-intake` branch (branched from `mai
 - **Engine + intake**: built test-first across 22 plan tasks + 3 normalization tasks. 174 vitest tests passing, `tsc --noEmit` clean.
 - **CLI** (`src/index.ts`): runs the pipeline end-to-end against the 5 brokerage sample files. Writes `output/analysis.json` and prints a structured console summary.
 - **Narratives** (`src/ai/narratives.ts`): single `claude-sonnet-4-6` call producing structured AI text via `messages.parse()` + Zod schema. Skipped gracefully if `ANTHROPIC_API_KEY` is unset.
-- **React report** (`src/report/app/`): Vite + chart.js. Renders all 8 sections per dev doc §12.
+- **React report** (`src/report/app/`): Vite + chart.js. Renders all 9 sections per dev doc §12.
 
 The full TDD plan is at `docs/superpowers/plans/2026-05-11-tdd-portfolio-analyzer.md`. The dev doc (`Documentation/DevelopmentDoc1.md`) is the original spec — it's older than the actual implementation in several places (model ID, SDK version, scoreDiversification formula bug).
 
@@ -63,17 +63,20 @@ data/SamplePortfolio/*.json                       data/macro.json
                        output/analysis.json
                                 │
                                 ▼
-                     React report (8 sections)
+                     React report (9 sections)
 ```
 
 ## Load-bearing invariants
 
 - **Portfolio-level analysis only.** No per-holding metric scoring — that approach was abandoned in V3. Don't reintroduce it.
 - **Engine is pure math.** `src/engine/*.ts` modules must have no I/O, no API calls, no `fs`. Everything is deterministic in/out.
-- **Exactly one Anthropic API call per run** — in `narratives.ts`. The AI generates text only. It does not score, rank, or compute. Adding a second call breaks the architecture; reconsider.
+- **Two structured Anthropic calls per run** (`narratives.ts` + `tacticalAdvisor.ts`), plus one `pulseCheck` call per open Situation, plus user-initiated `chat` streams. AI generates text and structured recommendations but does not score or compute math — all math is in the engine.
 - **All shared types in `src/types.ts`.** The zod schemas in `src/intake/parsePortfolio.ts` and `parseMacro.ts` are validation only — they `import type` from `types.ts`, never re-export.
 - **`benchmarks.ts`** derives `REFERENCE_MODELS[].score` and `.grade` from each model's `dimension_scores` via `computePortfolioScore` + `scoreToGrade`. The hardcoded weights map in benchmarks.ts must stay in sync with the per-dimension `weight` fields in `dimensions.ts` — there's a test that asserts this.
 - **Pending vs. idle cash are separate concepts.** `is_pending_deployment: true` cash is excluded from the cash-drag penalty (it has an active plan). Scoring, flags, and gap items all depend on this distinction.
+- **Account identity is preserved per holding** via `Holding.account_id`. `normalize.ts` attaches it from `data/accounts.json`. Aggregates split duplicates into `duplicate_groups` (same-account waste, penalized) and `cross_account_groups` (cross-broker equivalents, informational only).
+- **Balanced and target-date holdings carry `underlying_composition`** that sums to 1.0. `aggregates.ts` uses this so that `equity_weight`, `international_weight`, and `fixed_income_weight` reflect the true exposure inside VWENX, target-date funds, etc.
+- **Asset Location is the 11th dimension** at weight 0.08; reference models score neutral 7. The benchmarks WEIGHTS map and per-dimension `weight` fields must stay in sync — `benchmarks.test.ts` asserts this.
 
 ## Important conventions
 
@@ -110,7 +113,4 @@ npx tsc --noEmit -p src/report/app/tsconfig.json
 
 ## What's still TODO
 
-- The "Post-T3 projected weights" toggle in `AllocationBreakdown.tsx` is stubbed (TODO comment)
-- React UI hasn't been visually QA'd in a browser — built per spec, not iterated against rendered output
-- The dev doc spec is older than the implementation in several places; trust the code, not §6 / §13 / §15
-- No production build target tested — `npm run build` should work but hasn't been exercised
+- (V3 complete — all advisor + account model work landed. Future ideas live in the V3 spec's §8 Out-of-scope section.)

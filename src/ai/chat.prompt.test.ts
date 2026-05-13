@@ -56,3 +56,81 @@ describe("renderChatInput", () => {
     expect(out).toContain("earlier question");
   });
 });
+
+describe("renderChatInput dimension scope", () => {
+  it("includes the targeted DimensionScore and the broader portfolio context", () => {
+    const out = renderChatInput({
+      user_message: "How do I raise my Diversification grade?",
+      scope: { type: "dimension", dimension_id: "diversification" },
+      analysis: {
+        portfolio_grade: "B",
+        portfolio_score: 7.1,
+        dimension_scores: [
+          {
+            id: "diversification",
+            label: "Diversification",
+            score: 6,
+            rating: "yellow",
+            display_value: "4 asset buckets",
+            note: "Distinct asset class buckets with ≥ 3% weight",
+            weight: 0.12,
+          },
+          {
+            id: "cost_efficiency",
+            label: "Cost efficiency",
+            score: 9,
+            rating: "green",
+            display_value: "0.08% blended ER",
+            note: "",
+            weight: 0.10,
+          },
+        ],
+        flags: [],
+        gap_items: [],
+        macro: { market_regime: "Late Cycle" },
+        aggregates: { total_value: 1_000_000 },
+      },
+      situations: [],
+      notes: [],
+      history: [],
+    });
+    const parsed = JSON.parse(out);
+    expect(parsed.scope.type).toBe("dimension");
+    expect(parsed.scope.dimension_id).toBe("diversification");
+    expect(parsed.analysis_scope.dimension.id).toBe("diversification");
+    expect(parsed.analysis_scope.dimension.score).toBe(6);
+    expect(parsed.analysis_scope.portfolio_grade).toBe("B");
+    expect(Array.isArray(parsed.analysis_scope.all_dimensions)).toBe(true);
+    expect(parsed.analysis_scope.all_dimensions).toHaveLength(2);
+  });
+});
+
+describe("renderChatInput tactical_move scope", () => {
+  it("includes the targeted tactical move and the broader tactical plan", () => {
+    const out = renderChatInput({
+      user_message: "Why this move?",
+      scope: { type: "tactical_move", move_id: "mv_1" },
+      analysis: {
+        portfolio_grade: "B",
+        macro: { market_regime: "Late Cycle" },
+        tactical_advisor: {
+          tactical_plan: {
+            summary: "Lift to A−",
+            target_grade: "A−",
+            next_7_days: [
+              { id: "mv_1", category: "deploy_cash", action: "Buy $40K VBTLX", target_account: "Pre-Tax IRA", dollars: 40_000, rationale: "...", scenarios_addressed: ["yield_curve"] },
+            ],
+            next_30_days: [],
+            scenario_resilience_notes: [],
+          },
+          deployment_recommendation: null,
+        },
+      },
+      situations: [], notes: [], history: [],
+    });
+    const parsed = JSON.parse(out);
+    expect(parsed.analysis_scope.move.id).toBe("mv_1");
+    expect(parsed.analysis_scope.move.action).toMatch(/VBTLX/);
+    expect(parsed.analysis_scope.tactical_plan_summary).toBe("Lift to A−");
+  });
+});

@@ -1,4 +1,4 @@
-import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio } from "../types";
+import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -22,13 +22,20 @@ export function scoreCostEfficiency(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `~${erPct.toFixed(2)}% blended ER`,
     note: "Blended expense ratio across all fund holdings",
-    weight: 0.10,
+    weight: 0.09,
   };
 }
 
 export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
-  const extraPositions = agg.duplicate_groups.reduce((sum, g) => sum + (g.tickers.length - 1), 0);
-  const effective = agg.holding_count - extraPositions;
+  const extraFromSameAccountDups = agg.duplicate_groups.reduce(
+    (sum, g) => sum + (g.tickers.length - 1),
+    0,
+  );
+  const extraFromCrossAccount = agg.cross_account_groups.reduce(
+    (sum, g) => sum + (g.tickers_by_account.length - 1),
+    0,
+  );
+  const effective = agg.holding_count - extraFromSameAccountDups - extraFromCrossAccount;
 
   const score =
     effective <= 5  ? 10 :
@@ -41,9 +48,11 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
     label: "Simplicity",
     score,
     rating: toRating(score),
-    display_value: `${agg.holding_count} holdings (${effective} effective)`,
-    note: "Effective positions after removing redundant fund overlaps",
-    weight: 0.08,
+    display_value: effective !== agg.holding_count
+      ? `${effective} effective positions (${agg.holding_count} across accounts)`
+      : `${effective} holdings`,
+    note: "Cross-broker duplicates (FSKAX≡VTSAX, XLV in two accounts, etc.) count once",
+    weight: 0.07,
   };
 }
 
@@ -62,7 +71,7 @@ export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `Top 3: ${(t3 * 100).toFixed(1)}% (${agg.top3_tickers.join(", ")})`,
     note: "Top-3 holding weight as share of total portfolio",
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -105,7 +114,7 @@ export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: display,
     note: "Pending deployment cash is excluded from penalty — it has an active plan",
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -128,7 +137,7 @@ export function scoreDiversification(agg: PortfolioAggregates): DimensionScore {
     rating: toRating(score),
     display_value: `${filledBuckets} asset buckets`,
     note: "Distinct asset class buckets with ≥ 3% weight; penalized for overlapping funds",
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -151,7 +160,7 @@ export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContex
     rating: toRating(score),
     display_value: `${macro.market_regime} regime`,
     note: `Sector tilts vs. macro overweights: ${macro.sector_overweight.join(", ") || "(none)"}`,
-    weight: 0.10,
+    weight: 0.09,
   };
 }
 
@@ -181,7 +190,7 @@ export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext):
     rating: toRating(score),
     display_value: `${(fi * 100).toFixed(1)}% FI (target ${(target.min * 100).toFixed(0)}–${(target.max * 100).toFixed(0)}%)`,
     note: `Target range for ${macro.market_regime} regime`,
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
@@ -197,7 +206,7 @@ export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggrega
       rating: "green",
       display_value: "No individual stocks",
       note: "No single-stock exposure",
-      weight: 0.12,
+      weight: 0.11,
     };
   }
 
@@ -257,7 +266,8 @@ export function computePortfolioScore(dimensions: DimensionScore[]): number {
 export function scoreAllDimensions(
   portfolio: Portfolio,
   agg: PortfolioAggregates,
-  macro: MacroContext
+  macro: MacroContext,
+  accounts?: AccountConfig,
 ): DimensionScore[] {
   return [
     scoreCostEfficiency(agg),
@@ -270,6 +280,7 @@ export function scoreAllDimensions(
     scoreConcentration(agg),
     scoreInternational(agg),
     scoreQualityTilt(portfolio, agg),
+    scoreAssetLocation(portfolio, accounts),
   ];
 }
 
@@ -277,6 +288,11 @@ const QUALITY_TICKERS: Record<string, number> = {
   "BRK-B": 1.5, "VWENX": 1.5, "XLV": 1.0, "XLU": 1.0,
   "XLP": 1.0, "VFSUX": 0.5, "FXNAX": 0.5, "VBTLX": 0.5,
 };
+
+const GROWTH_CLASSES = new Set<string>([
+  "us_equity_large_cap_growth",
+  "us_equity_small_mid",
+]);
 
 export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
   const total = agg.total_value;
@@ -297,5 +313,70 @@ export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates)
     display_value: score >= 7 ? "Strong defensive tilt" : score >= 5 ? "Moderate" : "Weak",
     note: "Presence of quality/defensive/dividend-oriented holdings",
     weight: 0.06,
+  };
+}
+
+export function scoreAssetLocation(
+  portfolio: Portfolio,
+  accounts: AccountConfig | undefined,
+): DimensionScore {
+  if (!accounts || accounts.accounts.length === 0) {
+    return {
+      id: "asset_location",
+      label: "Asset location",
+      score: 7,
+      rating: toRating(7),
+      display_value: "Neutral (no account model)",
+      note: "Set up data/accounts.json with account_type per account to enable tax-aware scoring",
+      weight: 0.08,
+    };
+  }
+
+  const typeById = new Map<string, AccountType>();
+  for (const a of accounts.accounts) typeById.set(a.id, a.account_type);
+
+  const total = portfolio.holdings.reduce((s, h) => s + h.market_value, 0);
+  const w = (h: Holding) => (total > 0 ? h.market_value / total : 0);
+
+  let raw = 7;
+
+  for (const h of portfolio.holdings) {
+    const t = typeById.get(h.account_id);
+    if (!t) continue;
+    const tax = taxTreatmentFor(t);
+    const wt = w(h);
+
+    // Penalties
+    if (tax === "taxable_currently" && (h.asset_class === "balanced" || h.asset_class === "target_date")) {
+      raw -= wt * 30;
+    }
+    if (tax === "tax_deferred" && GROWTH_CLASSES.has(h.asset_class)) {
+      raw -= wt * 20;
+    }
+    if (tax === "tax_deferred" && h.asset_class === "individual_stock") {
+      raw -= wt * 20;
+    }
+    if (tax === "tax_free_growth" && h.asset_class === "us_equity_total_market") {
+      raw -= wt * 10;
+    }
+
+    // Bonuses
+    if (tax === "tax_free_growth" && (GROWTH_CLASSES.has(h.asset_class) || h.asset_class === "individual_stock")) {
+      raw += wt * 20;
+    }
+    if (tax === "tax_deferred" && (h.asset_class === "us_bond_aggregate" || h.asset_class === "us_bond_short" || h.asset_class === "us_bond_tips" || h.asset_class === "balanced")) {
+      raw += wt * 10;
+    }
+  }
+
+  const score = Math.max(1, Math.min(10, raw));
+  return {
+    id: "asset_location",
+    label: "Asset location",
+    score,
+    rating: toRating(score),
+    display_value: score >= 8 ? "Strong placement" : score >= 6 ? "Reasonable" : "Inefficient — move tax-heavy assets",
+    note: "Tax-efficiency of asset placement across Roth / Pre-Tax / Taxable accounts",
+    weight: 0.08,
   };
 }

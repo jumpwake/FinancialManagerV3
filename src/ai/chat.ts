@@ -5,26 +5,30 @@ import type {
   Situation,
   Note,
 } from "../types";
+import { ADVISOR_PERSONA } from "./advisorPersona";
 
-export const CHAT_SYSTEM_PROMPT = `You are the user's portfolio advisor with access to their full analysis, open situations, and notes. CFA tone — direct, no hedging, no words "robust" or "optimize". Grades use Unicode minus (−), not ASCII -.
+export const CHAT_SYSTEM_PROMPT = `${ADVISOR_PERSONA}
+
+You can also propose creating Situations and Notes via tool calls.
 
 CAPABILITIES:
 - Answer questions about findings, scores, allocations, macro context
-- Propose creating Situations when the user describes ongoing plans (rollovers, multi-step deployments, decisions they're tracking)
-- Propose creating Notes when the user gives context that explains a flag they're OK with
+- Propose creating Situations when the user describes ongoing plans
+- Propose creating Notes when the user explains a flag they're OK with
 - Propose closing Situations when the user mentions completion
+- When scope.type === "dimension": explain that dimension's score and recommend specific moves to raise it
+- When scope.type === "tactical_move": explain the recommended move in context, propose modifications if the user pushes back, and (when appropriate) propose creating a Situation via propose_situation
 
 CONSTRAINTS:
 - NEVER fabricate values. If the requested data isn't in the context, say so.
 - When the user's scope is a specific finding, prefer answers grounded in that finding.
-- Tool use is PROPOSAL ONLY — user confirms in the UI. Do not assume the tool ran; respond as if you're suggesting an action.
+- Tool use is PROPOSAL ONLY — user confirms in the UI.
 - Stream prose first, then emit at most one tool call per turn.
-- Use Unicode minus for negatives.
 
 FACT VS JUDGMENT RULE for tool proposals:
-- If the user is telling you a fact about their portfolio the engine doesn't know (e.g., "$X cash has a deployment plan"), propose a Situation with portfolio_effects.
-- If the user is explaining a judgment ("I accept this concentration"), propose a Note with suppress_flag.
-- Don't inflate the grade by suppressing real problems — use Notes for judgment, not portfolio_effects.`.trim();
+- If the user is telling you a fact the engine doesn't know, propose a Situation with portfolio_effects.
+- If the user is explaining a judgment, propose a Note with suppress_flag.
+- Don't inflate the grade by suppressing real problems.`.trim();
 
 export const CHAT_TOOLS = [
   {
@@ -151,6 +155,34 @@ function trimAnalysisByScope(analysis: any, scope: ChatScope): unknown {
       macro: analysis.macro,
     };
   }
+  if (scope.type === "dimension") {
+    const all_dimensions = analysis.dimension_scores ?? [];
+    const dimension = all_dimensions.find(
+      (d: { id: string }) => d.id === scope.dimension_id,
+    );
+    return {
+      portfolio_grade: analysis.portfolio_grade,
+      portfolio_score: analysis.portfolio_score,
+      dimension: dimension ?? null,
+      all_dimensions,
+      aggregates: analysis.aggregates,
+      macro: analysis.macro,
+      top_flags: (analysis.flags ?? []).slice(0, 3),
+    };
+  }
+  if (scope.type === "tactical_move") {
+    const ta = analysis.tactical_advisor;
+    if (!ta) return { portfolio_grade: analysis.portfolio_grade, move: null, macro: analysis.macro };
+    const all = [...(ta.tactical_plan?.next_7_days ?? []), ...(ta.tactical_plan?.next_30_days ?? [])];
+    const move = all.find((m: { id: string }) => m.id === scope.move_id) ?? null;
+    return {
+      portfolio_grade: analysis.portfolio_grade,
+      move,
+      tactical_plan_summary: ta.tactical_plan?.summary,
+      target_grade: ta.tactical_plan?.target_grade,
+      macro: analysis.macro,
+    };
+  }
   return null;
 }
 
@@ -158,6 +190,8 @@ function sameScope(a: ChatScope, b: ChatScope): boolean {
   if (a.type !== b.type) return false;
   if (a.finding_key !== b.finding_key) return false;
   if (a.situation_id !== b.situation_id) return false;
+  if (a.dimension_id !== b.dimension_id) return false;
+  if (a.move_id !== b.move_id) return false;     // NEW
   return true;
 }
 
