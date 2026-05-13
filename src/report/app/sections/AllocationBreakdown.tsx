@@ -72,12 +72,14 @@ const cardStyle: React.CSSProperties = {
 
 interface AllocationBreakdownProps {
   data: AnalysisOutput;
+  inflightMoves?: Set<string>;
   onDiscussMove?: (move_id: string) => void;
   onTrackMove?: (move: DeploymentMove) => void;
 }
 
 export default function AllocationBreakdown({
   data,
+  inflightMoves,
   onDiscussMove,
   onTrackMove,
 }: AllocationBreakdownProps) {
@@ -253,6 +255,7 @@ export default function AllocationBreakdown({
           portfolio={data.portfolio}
           accounts={data.accounts}
           currentGrade={data.portfolio_grade}
+          inflightMoves={inflightMoves}
           onDiscussMove={onDiscussMove}
           onTrackMove={onTrackMove}
         />
@@ -266,6 +269,7 @@ function PostT3Toggle({
   portfolio,
   accounts: _accounts,
   currentGrade,
+  inflightMoves,
   onDiscussMove,
   onTrackMove,
 }: {
@@ -273,6 +277,7 @@ function PostT3Toggle({
   portfolio: AnalysisOutput["portfolio"];
   accounts: AnalysisOutput["accounts"];
   currentGrade: string;
+  inflightMoves?: Set<string>;
   onDiscussMove?: (move_id: string) => void;
   onTrackMove?: (move: DeploymentMove) => void;
 }) {
@@ -310,30 +315,34 @@ function PostT3Toggle({
             {deployment.summary}
           </div>
 
-          {deployment.moves.map(move => (
-            <div key={move.id} style={{ marginBottom: 10, padding: "10px 12px", background: COLORS.bg, borderLeft: `3px solid ${COLORS.amber}`, borderRadius: 4 }}>
-              <div style={{ fontSize: 13, color: COLORS.text, marginBottom: 4 }}>
-                <strong>{fmt$(move.dollars)}</strong> → <strong>{move.ticker}</strong> in <em>{move.target_account}</em>
+          {deployment.moves.map(move => {
+            const isInflight = inflightMoves?.has(move.id) ?? false;
+            return (
+              <div key={move.id} style={{ marginBottom: 10, padding: "10px 12px", background: COLORS.bg, borderLeft: `3px solid ${COLORS.amber}`, borderRadius: 4 }}>
+                <div style={{ fontSize: 13, color: COLORS.text, marginBottom: 4 }}>
+                  <strong>{fmt$(move.dollars)}</strong> → <strong>{move.ticker}</strong> in <em>{move.target_account}</em>
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.5 }}>{move.rationale}</div>
+                <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => onDiscussMove?.(move.id)}
+                    style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+                  >
+                    💬 Discuss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onTrackMove?.(move)}
+                    disabled={isInflight}
+                    style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: isInflight ? "not-allowed" : "pointer", fontSize: 11, opacity: isInflight ? 0.5 : 1 }}
+                  >
+                    {isInflight ? "Adding…" : "+ Situation"}
+                  </button>
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.5 }}>{move.rationale}</div>
-              <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => onDiscussMove?.(move.id)}
-                  style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
-                >
-                  💬 Discuss
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTrackMove?.(move)}
-                  style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
-                >
-                  + Situation
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

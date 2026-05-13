@@ -12,11 +12,12 @@ const CATEGORY_COLOR: Record<TacticalMove["category"], string> = {
 
 interface Props {
   data: AnalysisOutput;
+  inflightMoves?: Set<string>;
   onDiscussMove?: (move_id: string) => void;
   onTrackMove?: (move: TacticalMove) => void;
 }
 
-export default function NextMoves({ data, onDiscussMove, onTrackMove }: Props) {
+export default function NextMoves({ data, inflightMoves, onDiscussMove, onTrackMove }: Props) {
   const ta = data.tactical_advisor;
   if (!ta) {
     return (
@@ -40,12 +41,14 @@ export default function NextMoves({ data, onDiscussMove, onTrackMove }: Props) {
       <MoveList
         title={`Next 7 days  (${tactical_plan.next_7_days.length} moves)`}
         moves={tactical_plan.next_7_days}
+        inflightMoves={inflightMoves}
         onDiscussMove={onDiscussMove}
         onTrackMove={onTrackMove}
       />
       <MoveList
         title={`Next 30 days  (${tactical_plan.next_30_days.length} moves)`}
         moves={tactical_plan.next_30_days}
+        inflightMoves={inflightMoves}
         onDiscussMove={onDiscussMove}
         onTrackMove={onTrackMove}
       />
@@ -64,9 +67,10 @@ export default function NextMoves({ data, onDiscussMove, onTrackMove }: Props) {
   );
 }
 
-function MoveList({ title, moves, onDiscussMove, onTrackMove }: {
+function MoveList({ title, moves, inflightMoves, onDiscussMove, onTrackMove }: {
   title: string;
   moves: TacticalMove[];
+  inflightMoves?: Set<string>;
   onDiscussMove?: (id: string) => void;
   onTrackMove?: (m: TacticalMove) => void;
 }) {
@@ -76,7 +80,9 @@ function MoveList({ title, moves, onDiscussMove, onTrackMove }: {
       <div style={{ fontSize: 12, fontWeight: 500, color: COLORS.textMuted, marginBottom: 8 }}>
         {title}
       </div>
-      {moves.map(m => (
+      {moves.map(m => {
+        const isInflight = inflightMoves?.has(m.id) ?? false;
+        return (
         <div key={m.id} style={{ marginBottom: 10, padding: "10px 12px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `4px solid ${CATEGORY_COLOR[m.category]}`, borderRadius: 4 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
             <span style={{
@@ -105,13 +111,14 @@ function MoveList({ title, moves, onDiscussMove, onTrackMove }: {
             <button
               type="button"
               onClick={() => onTrackMove?.(m)}
-              style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+              disabled={isInflight}
+              style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: isInflight ? "not-allowed" : "pointer", fontSize: 11, opacity: isInflight ? 0.5 : 1 }}
             >
-              + Situation
+              {isInflight ? "Adding…" : "+ Situation"}
             </button>
           </div>
         </div>
-      ))}
+      );})}
     </div>
   );
 }

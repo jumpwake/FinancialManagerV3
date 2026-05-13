@@ -18,6 +18,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
   const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
+  const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -63,8 +64,22 @@ export default function App() {
   );
 
   const handleTrackMove = useCallback(async (move: TacticalMove) => {
+    // Guard against double-submission: if this move id is already in-flight, do nothing.
+    // Using a functional setState to read+update atomically without depending on a stale closure.
+    let alreadyInflight = false;
+    setInflightMoves(prev => {
+      if (prev.has(move.id)) {
+        alreadyInflight = true;
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(move.id);
+      return next;
+    });
+    if (alreadyInflight) return;
+
     const target_date = new Date();
-    target_date.setDate(target_date.getDate() + 30);  // default to 30 days
+    target_date.setDate(target_date.getDate() + 30);
 
     const payload = {
       title: move.action.slice(0, 80),
@@ -88,6 +103,12 @@ export default function App() {
       setScope({ type: "global" });
     } catch (err) {
       console.warn("Failed to create Situation:", err);
+    } finally {
+      setInflightMoves(prev => {
+        const next = new Set(prev);
+        next.delete(move.id);
+        return next;
+      });
     }
   }, [loadSituations]);
 
@@ -153,6 +174,7 @@ export default function App() {
         <Section label="1 — Allocation breakdown">
           <AllocationBreakdown
             data={typedData}
+            inflightMoves={inflightMoves}
             onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
             onTrackMove={(deploymentMove) => handleTrackMove({
               id: deploymentMove.id,
@@ -193,6 +215,7 @@ export default function App() {
           <Section label="9 — Next moves">
             <NextMoves
               data={typedData}
+              inflightMoves={inflightMoves}
               onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
               onTrackMove={(move) => handleTrackMove(move)}
             />
