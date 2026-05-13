@@ -16,7 +16,7 @@ const EQUITY_CLASSES: string[] = [
 ];
 const BOND_CLASSES: string[] = ["us_bond_aggregate", "us_bond_short", "us_bond_tips"];
 
-const ASSET_CLASSES_FOR_GROUPING: string[] = [
+const FUNGIBLE_CLASSES: string[] = [
   "us_equity_total_market",
   "us_equity_large_cap",
   "us_equity_large_cap_growth",
@@ -26,6 +26,17 @@ const ASSET_CLASSES_FOR_GROUPING: string[] = [
   "us_bond_tips",
   "international_equity",
 ];
+
+/**
+ * Effective-position key for grouping duplicates:
+ * - Fungible passive classes (FSKAX/VTSAX/ITOT all hit us_equity_total_market): key by class.
+ * - Everything else (sector ETFs, individual stocks, balanced, target-date): key by ticker.
+ * Two holdings with the same key represent the same effective economic exposure.
+ */
+function effectiveKey(h: Holding): string {
+  if (FUNGIBLE_CLASSES.includes(h.asset_class)) return `class:${h.asset_class}`;
+  return `ticker:${h.ticker}`;
+}
 
 function getComposition(h: Holding): UnderlyingComposition | null {
   if (h.underlying_composition) return h.underlying_composition;
@@ -51,12 +62,18 @@ export function computeAggregates(
   const duplicate_groups: DuplicateGroup[] = [];
   const cross_account_groups: CrossAccountGroup[] = [];
 
-  for (const cls of ASSET_CLASSES_FOR_GROUPING) {
-    const inClass = holdings.filter(h => h.asset_class === cls && !h.is_cash);
-    if (inClass.length < 2) continue;
+  const byEffectiveKey: Record<string, Holding[]> = {};
+  for (const h of holdings.filter(h => !h.is_cash)) {
+    const key = effectiveKey(h);
+    if (!byEffectiveKey[key]) byEffectiveKey[key] = [];
+    byEffectiveKey[key].push(h);
+  }
+
+  for (const [key, group] of Object.entries(byEffectiveKey)) {
+    if (group.length < 2) continue;
 
     const byAccount: Record<string, Holding[]> = {};
-    for (const h of inClass) {
+    for (const h of group) {
       if (!byAccount[h.account_id]) byAccount[h.account_id] = [];
       byAccount[h.account_id].push(h);
     }
@@ -64,19 +81,18 @@ export function computeAggregates(
     const sameAccountDups = Object.values(byAccount).filter(arr => arr.length >= 2);
     for (const arr of sameAccountDups) {
       duplicate_groups.push({
-        label: cls.replace(/_/g, " "),
+        label: arr[0].asset_class.replace(/_/g, " "),
         tickers: arr.map(h => h.ticker),
         combined_weight: arr.reduce((sum, h) => sum + w(h), 0),
       });
     }
 
-    const accountIds = Object.keys(byAccount);
-    if (accountIds.length >= 2) {
+    if (Object.keys(byAccount).length >= 2) {
       cross_account_groups.push({
-        asset_class: cls as AssetClass,
-        label: cls.replace(/_/g, " "),
-        tickers_by_account: inClass.map(h => ({ account_id: h.account_id, ticker: h.ticker })),
-        combined_weight: inClass.reduce((sum, h) => sum + w(h), 0),
+        asset_class: group[0].asset_class,
+        label: key.startsWith("ticker:") ? group[0].ticker : group[0].asset_class.replace(/_/g, " "),
+        tickers_by_account: group.map(h => ({ account_id: h.account_id, ticker: h.ticker })),
+        combined_weight: group.reduce((sum, h) => sum + w(h), 0),
       });
     }
   }

@@ -316,6 +316,31 @@ describe("aggregates — cross-account groups", () => {
     expect(agg.duplicate_groups[0].tickers).toContain("FSKAX");
     expect(agg.duplicate_groups[0].tickers).toContain("ITOT");
   });
+
+  it("Same ticker (XLV) in two accounts is one cross_account_group, even for non-fungible classes", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "XLV", market_value: 1000, asset_class: "us_equity_sector", account_id: "vng_personal" }),
+        makeHolding({ ticker: "XLV", market_value: 800,  asset_class: "us_equity_sector", account_id: "vng_business" }),
+      ],
+    });
+    const agg = computeAggregates(p);
+    expect(agg.duplicate_groups).toHaveLength(0);
+    expect(agg.cross_account_groups).toHaveLength(1);
+    expect(agg.cross_account_groups[0].label).toBe("XLV");
+    expect(agg.cross_account_groups[0].tickers_by_account).toHaveLength(2);
+  });
+
+  it("Different sector ETFs (XLV vs XLU) across accounts are NOT grouped", () => {
+    const p = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "XLV", market_value: 1000, asset_class: "us_equity_sector", account_id: "a" }),
+        makeHolding({ ticker: "XLU", market_value: 1000, asset_class: "us_equity_sector", account_id: "b" }),
+      ],
+    });
+    const agg = computeAggregates(p);
+    expect(agg.cross_account_groups).toHaveLength(0);
+  });
 });
 
 describe("aggregates — composition decomposition", () => {

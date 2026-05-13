@@ -48,8 +48,10 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
     label: "Simplicity",
     score,
     rating: toRating(score),
-    display_value: `${agg.holding_count} holdings (${effective} effective)`,
-    note: "Effective positions after collapsing fund overlaps within and across accounts",
+    display_value: effective !== agg.holding_count
+      ? `${effective} effective positions (${agg.holding_count} across accounts)`
+      : `${effective} holdings`,
+    note: "Cross-broker duplicates (FSKAX≡VTSAX, XLV in two accounts, etc.) count once",
     weight: 0.07,
   };
 }

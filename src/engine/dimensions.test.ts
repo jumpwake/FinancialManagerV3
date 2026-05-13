@@ -121,7 +121,7 @@ describe("scoreSimplicity", () => {
       holding_count: 8,
       duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
     });
-    expect(scoreSimplicity(agg).display_value).toBe("8 holdings (7 effective)");
+    expect(scoreSimplicity(agg).display_value).toBe("7 effective positions (8 across accounts)");
   });
 });
 
