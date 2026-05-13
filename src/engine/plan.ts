@@ -111,12 +111,19 @@ export function generateFlags(
     });
   }
 
-  // Asset-location flags
+  // Asset-location flags — only fire when an external transfer is actually possible.
+  // Policy-locked accounts (CBP, accounts with excluded_from_deployment or conservative_only)
+  // cannot move holdings out to other brokerages, so suggesting it is misleading.
   if (accounts) {
     const typeById = new Map(accounts.accounts.map(a => [a.id, a]));
     for (const h of portfolio.holdings) {
       const acct = typeById.get(h.account_id);
       if (!acct) continue;
+      const isPolicyLocked =
+        acct.account_type === "cash_balance_plan" ||
+        acct.constraints?.excluded_from_deployment === true ||
+        acct.constraints?.conservative_only === true;
+      if (isPolicyLocked) continue;
       const tax = taxTreatmentFor(acct.account_type);
       const wPct = ((h.market_value / agg.total_value) * 100).toFixed(1);
 
