@@ -80,15 +80,6 @@ describe("parsePortfolio", () => {
     const bad = { ...VALID_INPUT, holdings: [] };
     expect(() => parsePortfolio(bad)).toThrow();
   });
-
-  test("loads the dev doc sample data/portfolio.json", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const raw = JSON.parse(fs.readFileSync(path.resolve("data/portfolio.json"), "utf-8"));
-    expect(() => parsePortfolio(raw)).not.toThrow();
-    const portfolio = parsePortfolio(raw);
-    expect(portfolio.holdings.length).toBeGreaterThan(0);
-  });
 });
 
 describe("parsePortfolio with account_id and underlying_composition", () => {

@@ -311,7 +311,7 @@ export function generatePlanPhases(
     actions: [
       {
         category: "platform",
-        description: "Set weekly report cadence (Sunday night). Automate macro.json refresh + portfolio.json pull from brokerage export.",
+        description: "Set weekly report cadence (Sunday night). Automate macro.json refresh + drop the latest brokerage JSON snapshot into PORTFOLIO_DIR.",
         tags: ["automation"],
       },
       {
