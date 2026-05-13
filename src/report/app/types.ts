@@ -54,6 +54,7 @@ export interface AccountMetadata {
   account_type: AccountType;
   owner: string;
   source_files: string[];
+  account_numbers?: string[];
   constraints?: AccountConstraints;
 }
 

@@ -28,6 +28,7 @@ const accountSchema = z.object({
   account_type: z.enum(ACCOUNT_TYPES),
   owner: z.string().min(1),
   source_files: z.array(z.string()),
+  account_numbers: z.array(z.string()).optional(),
   constraints: constraintsSchema.optional(),
 });
 

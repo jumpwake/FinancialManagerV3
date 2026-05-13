@@ -8,6 +8,7 @@ import {
   consolidatePortfolio,
 } from "./intake/normalize";
 import { parseAccounts, lookupAccountByFilename } from "./intake/parseAccounts";
+import { parseAccountsCSV } from "./intake/parseAccountsCSV";
 import { parsePortfolio } from "./intake/parsePortfolio";
 import { parseMacro } from "./intake/parseMacro";
 import { computeAggregates } from "./engine/aggregates";
@@ -49,36 +50,88 @@ async function main() {
     );
   }
 
-  // Load accounts config (fall back to example if real file is absent)
-  const ACCOUNTS_FILE = fs.existsSync("data/accounts.json")
-    ? "data/accounts.json"
-    : "data/accounts.example.json";
-  const accounts: AccountConfig = parseAccounts(loadJSON(ACCOUNTS_FILE));
-  console.log(`  Accounts config: ${accounts.accounts.length} accounts from ${ACCOUNTS_FILE}`);
+  // Load accounts config. Precedence: data/accounts.csv → data/accounts.json
+  // → data/accounts.example.csv → data/accounts.example.json. The CSV form is
+  // the recommended user-facing format (one line per sub-account).
+  let accounts: AccountConfig;
+  let accountsFile: string;
+  if (fs.existsSync("data/accounts.csv")) {
+    accountsFile = "data/accounts.csv";
+    accounts = parseAccountsCSV(fs.readFileSync(accountsFile, "utf-8"), SAMPLE_DIR);
+  } else if (fs.existsSync("data/accounts.json")) {
+    accountsFile = "data/accounts.json";
+    accounts = parseAccounts(loadJSON(accountsFile));
+  } else if (fs.existsSync("data/accounts.example.csv")) {
+    accountsFile = "data/accounts.example.csv";
+    accounts = parseAccountsCSV(fs.readFileSync(accountsFile, "utf-8"), SAMPLE_DIR);
+  } else {
+    accountsFile = "data/accounts.example.json";
+    accounts = parseAccounts(loadJSON(accountsFile));
+  }
+  console.log(`  Accounts config: ${accounts.accounts.length} accounts from ${accountsFile}`);
 
-  // Normalize each broker's exports into a flat Holding[]
-  const SAMPLE_FILES = [
-    "20260509_FidelityRetirement.json",
-    "20260509_EmpowerKelly.json",
-    "20260509_VanguardBusiness.json",
-    "20260509_VanguardKDB.json",
-    "20260509_VanguardPersonal.json",
-  ];
+  // Build account-number → account_id and source_file → [account_id] indices
+  // for per-sub-account routing.
+  const accountByNumber = new Map<string, typeof accounts.accounts[number]>();
+  const accountIdsBySourceFile = new Map<string, typeof accounts.accounts[number][]>();
+  for (const a of accounts.accounts) {
+    for (const num of a.account_numbers ?? []) {
+      accountByNumber.set(num, a);
+    }
+    for (const sf of a.source_files) {
+      const arr = accountIdsBySourceFile.get(sf) ?? [];
+      arr.push(a);
+      accountIdsBySourceFile.set(sf, arr);
+    }
+  }
 
+  // Iterate raw broker files; split sub-accounts by account_number when the
+  // user's config names them individually, otherwise fall back to whole-file.
+  const SAMPLE_FILES = fs.readdirSync(SAMPLE_DIR).filter((f) => f.endsWith(".json")).sort();
   const allHoldings: Holding[] = [];
   for (const filename of SAMPLE_FILES) {
-    const account = lookupAccountByFilename(accounts, filename);
-    if (!account) {
-      throw new Error(`No account in accounts config claims source_file ${filename}`);
+    const rawRoot = loadJSON(`${SAMPLE_DIR}/${filename}`);
+    const subAccounts = (Array.isArray(rawRoot) ? rawRoot : [rawRoot]) as Array<{
+      account_number?: string;
+      account_id?: string;
+      account_name?: string;
+    }>;
+
+    const haveSubAccountConfig = subAccounts.some(
+      (s) => accountByNumber.has(s.account_number ?? s.account_id ?? s.account_name ?? ""),
+    );
+
+    if (haveSubAccountConfig) {
+      // Per-sub-account routing (preferred)
+      for (const sub of subAccounts) {
+        const num = sub.account_number ?? sub.account_id ?? sub.account_name ?? "";
+        const acct = accountByNumber.get(num);
+        if (!acct) {
+          console.warn(`  ⚠ ${filename} sub-account ${num} has no config entry — skipping`);
+          continue;
+        }
+        let normalized: Holding[];
+        if (acct.broker === "Fidelity") normalized = normalizeFidelityAccounts([sub] as any, acct.id);
+        else if (acct.broker === "Empower") normalized = normalizeEmpowerAccounts([sub] as any, acct.id);
+        else if (acct.broker === "Vanguard") normalized = normalizeVanguardAccounts([sub] as any, acct.id);
+        else throw new Error(`Unsupported broker ${acct.broker} for ${filename}`);
+        console.log(`  ${acct.label.padEnd(36)} ${normalized.length} holdings  (${num})`);
+        allHoldings.push(...normalized);
+      }
+    } else {
+      // Whole-file routing (legacy / accounts.json mode)
+      const account = lookupAccountByFilename(accounts, filename);
+      if (!account) {
+        throw new Error(`No account in accounts config claims source_file ${filename}`);
+      }
+      let normalized: Holding[];
+      if (account.broker === "Fidelity") normalized = normalizeFidelityAccounts(rawRoot as any, account.id);
+      else if (account.broker === "Empower") normalized = normalizeEmpowerAccounts(rawRoot as any, account.id);
+      else if (account.broker === "Vanguard") normalized = normalizeVanguardAccounts(rawRoot as any, account.id);
+      else throw new Error(`Unsupported broker ${account.broker} for ${filename}`);
+      console.log(`  ${account.label.padEnd(36)} ${normalized.length} holdings`);
+      allHoldings.push(...normalized);
     }
-    const raw = loadJSON(`${SAMPLE_DIR}/${filename}`);
-    let normalized: Holding[];
-    if (account.broker === "Fidelity") normalized = normalizeFidelityAccounts(raw as any, account.id);
-    else if (account.broker === "Empower") normalized = normalizeEmpowerAccounts(raw as any, account.id);
-    else if (account.broker === "Vanguard") normalized = normalizeVanguardAccounts(raw as any, account.id);
-    else throw new Error(`Unsupported broker ${account.broker} for ${filename}`);
-    console.log(`  ${account.label.padEnd(36)} ${normalized.length} holdings`);
-    allHoldings.push(...normalized);
   }
   console.log(`  ─────────────────────────────`);
   console.log(`  Total (pre-dedupe): ${allHoldings.length} holdings`);

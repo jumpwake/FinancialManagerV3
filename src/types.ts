@@ -82,6 +82,13 @@ export interface AccountMetadata {
   account_type: AccountType;
   owner: string;
   source_files: string[];
+  /**
+   * Optional: when a single source_file contains multiple sub-accounts
+   * (e.g., Vanguard often returns several account_numbers in one export),
+   * this names the specific sub-account(s) inside that file. If absent,
+   * all sub-accounts in source_files are treated as part of this id.
+   */
+  account_numbers?: string[];
   constraints?: AccountConstraints;
 }
 
