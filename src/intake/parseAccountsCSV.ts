@@ -118,16 +118,39 @@ function slugify(s: string): string {
 }
 
 /**
- * Scan a directory of raw broker JSON files and build a map from
- * (account_number-like identifier) → filename.
+ * Find the most recent YYYYMMDD-prefixed snapshot in `sampleDir` and return
+ * only the JSON files from that snapshot. Lets the pipeline accept a data
+ * directory that accumulates weekly drops without re-processing history.
+ *
+ * Files that don't match `YYYYMMDD_<broker>.json` are ignored (so things
+ * like liabilities.json, qqq.csv, cache/ etc. don't trip us up).
+ */
+export function findLatestSnapshotFiles(sampleDir: string): { date: string; files: string[] } {
+  if (!fs.existsSync(sampleDir)) return { date: "", files: [] };
+  const all = fs.readdirSync(sampleDir).filter((f) => f.endsWith(".json"));
+  const pattern = /^(\d{8})_[A-Za-z][A-Za-z0-9]*\.json$/;
+  let latest = "";
+  for (const f of all) {
+    const m = f.match(pattern);
+    if (m && m[1] > latest) latest = m[1];
+  }
+  if (!latest) return { date: "", files: [] };
+  return {
+    date: latest,
+    files: all.filter((f) => f.startsWith(`${latest}_`)).sort(),
+  };
+}
+
+/**
+ * Scan the latest snapshot's broker JSON files and build a map from
+ * account-number-like identifier → filename.
  * - Vanguard: each top-level object has `account_number`
  * - Fidelity: each top-level object has `account_id`
  * - Empower: uses `account_name` (fallback)
  */
 function buildAccountNumberIndex(sampleDir: string): Map<string, string> {
   const index = new Map<string, string>();
-  if (!fs.existsSync(sampleDir)) return index;
-  const files = fs.readdirSync(sampleDir).filter((f) => f.endsWith(".json"));
+  const { files } = findLatestSnapshotFiles(sampleDir);
   for (const filename of files) {
     const full = path.join(sampleDir, filename);
     let raw: unknown;

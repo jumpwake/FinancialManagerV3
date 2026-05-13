@@ -7,7 +7,7 @@ import {
   normalizeVanguardAccounts,
   consolidatePortfolio,
 } from "./intake/normalize";
-import { parseAccountsCSV } from "./intake/parseAccountsCSV";
+import { parseAccountsCSV, findLatestSnapshotFiles } from "./intake/parseAccountsCSV";
 import { parsePortfolio } from "./intake/parsePortfolio";
 import { parseMacro } from "./intake/parseMacro";
 import { computeAggregates } from "./engine/aggregates";
@@ -75,9 +75,18 @@ async function main() {
     }
   }
 
-  // Iterate raw broker files; split sub-accounts by account_number when the
-  // user's config names them individually, otherwise fall back to whole-file.
-  const SAMPLE_FILES = fs.readdirSync(SAMPLE_DIR).filter((f) => f.endsWith(".json")).sort();
+  // Iterate raw broker files for the LATEST snapshot only. The data directory
+  // may accumulate weekly drops; we pick the most recent YYYYMMDD prefix and
+  // ignore older snapshots and any non-broker files (liabilities.json,
+  // cache/, etc.).
+  const snapshot = findLatestSnapshotFiles(SAMPLE_DIR);
+  if (snapshot.files.length === 0) {
+    throw new Error(
+      `No broker snapshot files (YYYYMMDD_<broker>.json) found in ${SAMPLE_DIR}`,
+    );
+  }
+  console.log(`  Snapshot: ${snapshot.date} (${snapshot.files.length} files)`);
+  const SAMPLE_FILES = snapshot.files;
   const allHoldings: Holding[] = [];
   for (const filename of SAMPLE_FILES) {
     const rawRoot = loadJSON(`${SAMPLE_DIR}/${filename}`);
@@ -131,7 +140,9 @@ async function main() {
   console.log(`  Total (pre-dedupe): ${allHoldings.length} holdings`);
 
   // Consolidate duplicates across accounts/brokers
-  const consolidated = consolidatePortfolio(allHoldings, "2026-05-09", "All Accounts");
+  // Derive snapshot_date from the snapshot prefix (YYYYMMDD → YYYY-MM-DD).
+  const snapshotDate = `${snapshot.date.slice(0, 4)}-${snapshot.date.slice(4, 6)}-${snapshot.date.slice(6, 8)}`;
+  const consolidated = consolidatePortfolio(allHoldings, snapshotDate, "All Accounts");
   console.log(`  After consolidation: ${consolidated.holdings.length} unique holdings`);
 
   // Validate via zod
