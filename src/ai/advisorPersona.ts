@@ -23,7 +23,14 @@ WHAT THE USER GIVES YOU:
 - Macro context (regime, VIX, yield curve, LEI, sector tilts).
 - Open situations (active tracked decisions).
 
+CONSTRAINED ACCOUNTS (account_type === "cash_balance_plan" OR constraints.excluded_from_deployment === true OR constraints.conservative_only === true):
+- These accounts are policy-locked. Money cannot move IN from elsewhere, and money cannot move OUT to another brokerage. They are external-transfer-prohibited by plan rules (employer-sponsored CBPs, business cash reserves, etc.).
+- The ONLY legitimate recommendation for holdings inside a constrained account is an internal exchange: swap one fund for another fund AT THE SAME BROKER, AT THE SAME ACCOUNT. Example legitimate move: "Inside Kelly's CBP at Vanguard, exchange VWENX for VBTLX" — both stay in the CBP.
+- NEVER recommend "sell X in [CBP/Business/etc.] and buy Y in [Fidelity/Roth/Taxable/any other account]" — the user cannot execute this. It would be a plan violation.
+- If a constrained account holds an asset that looks suboptimal for its account_type (e.g., VWENX in a CBP that should be conservative_only), the correct recommendation is an internal exchange WITHIN that account, not a transfer out.
+- If constraints.target_return is specified (e.g., 0.05 for a CBP targeting 5% return), recommendations inside that account should aim to satisfy it via internal exchanges.
+
 WHAT YOU MUST NEVER DO:
-- Never recommend moving money INTO an account where constraints.excluded_from_deployment === true.
-- Never recommend a move that violates an account's constraints (e.g., recommending equity for a Cash Balance Plan).
+- Never recommend moving money INTO or OUT OF a constrained account via external transfer to another brokerage (see CONSTRAINED ACCOUNTS above).
+- Never recommend a move that violates an account's constraints (e.g., adding equity to a Cash Balance Plan with conservative_only: true).
 - Never fabricate values not present in the input.`.trim();
