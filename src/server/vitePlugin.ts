@@ -1,4 +1,6 @@
-import "dotenv/config";
+import { loadEnv } from "../loadEnv";
+
+loadEnv();
 import type { Plugin } from "vite";
 import * as path from "node:path";
 import { handleSituationsRoute } from "./handlers/situations";
@@ -14,7 +16,9 @@ export interface UserContextPluginOptions {
 
 export function userContextPlugin(opts: UserContextPluginOptions = {}): Plugin {
   const contextPath =
-    opts.contextPath ?? path.resolve(process.cwd(), "data/user-context.json");
+    opts.contextPath ??
+    process.env.USER_CONTEXT_FILE ??
+    path.resolve(process.cwd(), "data/user-context.json");
 
   return {
     name: "user-context-middleware",
