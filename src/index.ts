@@ -53,16 +53,19 @@ async function main() {
     );
   }
 
-  // Load accounts config. The user maintains data/accounts.csv (gitignored).
-  // If it's missing, fall back to the committed example for first-run usability.
-  // When ACCOUNTS_FILE is explicitly set, honor it (typos should fail loudly).
-  // Only when unset do we fall back from data/accounts.csv → data/accounts.example.csv
+  // Load accounts config. When ACCOUNTS_FILE is explicitly set, honor it —
+  // a bad path should throw ENOENT loudly downstream (typos must fail, not
+  // silently fall through to the example file). Only when ACCOUNTS_FILE is
+  // unset do we fall back from data/accounts.csv → data/accounts.example.csv
   // for first-run usability.
-  const accountsFile = process.env.ACCOUNTS_FILE
-    ? ACCOUNTS_FILE
-    : fs.existsSync(ACCOUNTS_FILE)
-      ? ACCOUNTS_FILE
-      : "data/accounts.example.csv";
+  let accountsFile: string;
+  if (process.env.ACCOUNTS_FILE) {
+    accountsFile = ACCOUNTS_FILE;
+  } else if (fs.existsSync("data/accounts.csv")) {
+    accountsFile = "data/accounts.csv";
+  } else {
+    accountsFile = "data/accounts.example.csv";
+  }
   const accounts: AccountConfig = parseAccountsCSV(
     fs.readFileSync(accountsFile, "utf-8"),
     SAMPLE_DIR,
