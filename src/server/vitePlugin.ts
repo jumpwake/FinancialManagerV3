@@ -1,11 +1,11 @@
 import { loadEnv } from "../loadEnv";
-
-loadEnv();
 import type { Plugin } from "vite";
 import * as path from "node:path";
 import { handleSituationsRoute } from "./handlers/situations";
 import { handleNotesRoute } from "./handlers/notes";
 import { handleChatRoute } from "./handlers/chat";
+
+loadEnv();
 
 const SITUATIONS_RE = /^\/api\/situations(?:\/([^/]+))?$/;
 const NOTES_RE = /^\/api\/notes(?:\/([^/]+))?$/;
