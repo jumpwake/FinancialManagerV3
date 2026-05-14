@@ -37,7 +37,7 @@ function makeMsgId(): string {
 }
 
 function loadAnalysis(): unknown {
-  const p = path.resolve("output/analysis.json");
+  const p = path.resolve(process.env.OUTPUT_FILE ?? "output/analysis.json");
   if (!fs.existsSync(p)) return null;
   try {
     return JSON.parse(fs.readFileSync(p, "utf-8"));
