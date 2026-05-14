@@ -160,13 +160,25 @@ function buildAccountNumberIndex(sampleDir: string): Map<string, string> {
       continue;
     }
     const accts = Array.isArray(raw) ? raw : [raw];
+    // Derive a filename-based synthetic key for any sub-account that has no
+    // usable identifier (e.g. a Robinhood export where account_number is left
+    // blank). Strip YYYYMMDD_ prefix and .json suffix: "20260514_RobinhoodLuke.json" → "RobinhoodLuke".
+    const synthMatch = filename.match(/^\d{8}_(.+)\.json$/);
+    const synthBase = synthMatch ? synthMatch[1] : filename.replace(/\.json$/, "");
+    let synthCounter = 0;
     for (const a of accts as Array<{
       account_number?: string;
       account_id?: string;
       account_name?: string;
     }>) {
-      const num = a.account_number ?? a.account_id ?? a.account_name;
-      if (num) index.set(num, filename);
+      const num = (a.account_number || a.account_id || a.account_name || "").trim();
+      if (num) {
+        index.set(num, filename);
+      } else {
+        const key = synthCounter === 0 ? synthBase : `${synthBase}_${synthCounter + 1}`;
+        synthCounter++;
+        index.set(key, filename);
+      }
     }
   }
   return index;
@@ -201,9 +213,10 @@ export function parseAccountsCSV(text: string, sampleDir: string): AccountConfig
     const { account_type, constraints } = classify(row.category, row.strategy);
     const source_file = row.source_file_override ?? numIndex.get(row.account_number);
     if (!source_file) {
-      throw new Error(
-        `parseAccountsCSV: account_number "${row.account_number}" (${row.label}) not found in any broker file in ${sampleDir}. Provide source_file as 5th column.`,
+      console.warn(
+        `  ⚠ accounts.csv: account_number "${row.account_number}" (${row.label}) not found in any broker file in ${sampleDir} — skipping row`,
       );
+      continue;
     }
     let id = slugify(row.label);
     if (!id) id = slugify(row.account_number);
@@ -260,5 +273,6 @@ function inferBroker(filename: string): AccountMetadata["broker"] {
   if (/empower/i.test(filename)) return "Empower";
   if (/vanguard/i.test(filename)) return "Vanguard";
   if (/schwab/i.test(filename)) return "Schwab";
+  if (/robinhood/i.test(filename)) return "Robinhood";
   return "Other";
 }
