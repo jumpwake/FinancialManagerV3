@@ -184,6 +184,64 @@ export function consolidatePortfolio(
   };
 }
 
+/**
+ * Robinhood exports share Vanguard's shape: each top-level object has
+ * `account_number`, `holdings: [{symbol, quantity, balance}]`, and
+ * `settlement_fund`. Robinhood account numbers aren't surfaced in the app the
+ * way Vanguard's are, so account_number is often blank in hand-built exports —
+ * the upstream snapshot indexer falls back to a filename-derived synthetic key
+ * in that case.
+ */
+export function normalizeRobinhoodAccounts(accounts: VanguardRawAccount[], account_id: string): Holding[] {
+  const out: Holding[] = [];
+  for (const account of accounts) {
+    for (const raw of account.holdings) {
+      const market_value = parseMoneyString(raw.balance);
+      if (market_value <= 0) continue;
+
+      const ticker = canonicalTicker(raw.symbol);
+      const meta = lookupTicker(raw.symbol);
+      const asset_class = meta?.asset_class ?? "us_equity_total_market";
+      out.push({
+        ticker,
+        label: ticker,
+        market_value,
+        asset_class,
+        account_id,
+        sector_tag: meta?.sector_tag,
+        is_cash: false,
+        is_pending_deployment: false,
+        expense_ratio: meta?.expense_ratio ?? null,
+        stock_metrics: meta?.stock_metrics,
+        underlying_composition: attachCompositionIfApplicable(
+          ticker,
+          ticker,
+          asset_class,
+          meta,
+          CURRENT_YEAR,
+        ),
+      });
+    }
+
+    const settlement = parseMoneyString(account.settlement_fund);
+    if (settlement > 0) {
+      out.push({
+        ticker: "Cash",
+        label: account.account_number
+          ? `Robinhood settlement fund (${account.account_number})`
+          : "Robinhood settlement fund",
+        market_value: settlement,
+        asset_class: "cash",
+        account_id,
+        is_cash: true,
+        is_pending_deployment: false,
+        expense_ratio: null,
+      });
+    }
+  }
+  return out;
+}
+
 export function normalizeVanguardAccounts(accounts: VanguardRawAccount[], account_id: string): Holding[] {
   const out: Holding[] = [];
   for (const account of accounts) {

@@ -78,7 +78,7 @@ export interface AccountConstraints {
 export interface AccountMetadata {
   id: string;
   label: string;
-  broker: "Fidelity" | "Empower" | "Vanguard" | "Schwab" | "Other";
+  broker: "Fidelity" | "Empower" | "Vanguard" | "Schwab" | "Robinhood" | "Other";
   account_type: AccountType;
   owner: string;
   source_files: string[];

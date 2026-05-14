@@ -5,6 +5,7 @@ import {
   normalizeFidelityAccounts,
   normalizeEmpowerAccounts,
   normalizeVanguardAccounts,
+  normalizeRobinhoodAccounts,
   consolidatePortfolio,
 } from "./intake/normalize";
 import { parseAccountsCSV, findLatestSnapshotFiles } from "./intake/parseAccountsCSV";
@@ -113,6 +114,7 @@ async function main() {
         if (acct.broker === "Fidelity") normalized = normalizeFidelityAccounts([sub] as any, acct.id);
         else if (acct.broker === "Empower") normalized = normalizeEmpowerAccounts([sub] as any, acct.id);
         else if (acct.broker === "Vanguard") normalized = normalizeVanguardAccounts([sub] as any, acct.id);
+        else if (acct.broker === "Robinhood") normalized = normalizeRobinhoodAccounts([sub] as any, acct.id);
         else throw new Error(`Unsupported broker ${acct.broker} for ${filename}`);
         console.log(`  ${acct.label.padEnd(36)} ${normalized.length} holdings  (${num})`);
         allHoldings.push(...normalized);
@@ -131,6 +133,7 @@ async function main() {
       if (account.broker === "Fidelity") normalized = normalizeFidelityAccounts(rawRoot as any, account.id);
       else if (account.broker === "Empower") normalized = normalizeEmpowerAccounts(rawRoot as any, account.id);
       else if (account.broker === "Vanguard") normalized = normalizeVanguardAccounts(rawRoot as any, account.id);
+      else if (account.broker === "Robinhood") normalized = normalizeRobinhoodAccounts(rawRoot as any, account.id);
       else throw new Error(`Unsupported broker ${account.broker} for ${filename}`);
       console.log(`  ${account.label.padEnd(36)} ${normalized.length} holdings`);
       allHoldings.push(...normalized);
