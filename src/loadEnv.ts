@@ -25,7 +25,10 @@ export function loadEnv(opts: LoadEnvOptions = {}): LoadEnvResult {
   config({ path: path.join(cwd, ".env") });
 
   const idx = argv.indexOf("--user");
-  const user = idx > -1 ? argv[idx + 1] ?? null : null;
+  if (idx > -1 && !argv[idx + 1]) {
+    throw new Error("--user requires a name argument (e.g. --user luke)");
+  }
+  const user = idx > -1 ? argv[idx + 1] : null;
   if (user) {
     const envPath = path.join(cwd, `.env.${user}`);
     if (!fs.existsSync(envPath)) {

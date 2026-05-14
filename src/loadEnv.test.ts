@@ -54,4 +54,14 @@ describe("loadEnv", () => {
       }),
     ).toThrow(/--user ghost/);
   });
+
+  it("throws when --user is passed without a name", () => {
+    fs.writeFileSync(path.join(tmpDir, ".env"), "");
+    expect(() =>
+      loadEnv({
+        cwd: tmpDir,
+        argv: ["node", "script.js", "--user"],
+      }),
+    ).toThrow(/--user requires/);
+  });
 });
