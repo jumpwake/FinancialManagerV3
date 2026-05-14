@@ -1,4 +1,4 @@
-import "dotenv/config";
+import { loadEnv } from "./loadEnv";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -23,10 +23,13 @@ import { runPulseCheck } from "./ai/pulseCheck";
 import { runTacticalAdvisor } from "./ai/tacticalAdvisor";
 import type { AccountConfig, Holding, Finding, PulseVerdict, TacticalAdvisorOutput } from "./types";
 
+loadEnv();
+
 const SAMPLE_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 const MACRO_FILE = "data/macro.json";
-const OUTPUT_FILE = "output/analysis.json";
-const USER_CONTEXT_FILE = "data/user-context.json";
+const OUTPUT_FILE = process.env.OUTPUT_FILE ?? "output/analysis.json";
+const USER_CONTEXT_FILE = process.env.USER_CONTEXT_FILE ?? "data/user-context.json";
+const ACCOUNTS_FILE = process.env.ACCOUNTS_FILE ?? "data/accounts.csv";
 
 function loadJSON(filePath: string): unknown {
   return JSON.parse(fs.readFileSync(path.resolve(filePath), "utf-8"));
@@ -52,9 +55,14 @@ async function main() {
 
   // Load accounts config. The user maintains data/accounts.csv (gitignored).
   // If it's missing, fall back to the committed example for first-run usability.
-  const accountsFile = fs.existsSync("data/accounts.csv")
-    ? "data/accounts.csv"
-    : "data/accounts.example.csv";
+  // When ACCOUNTS_FILE is explicitly set, honor it (typos should fail loudly).
+  // Only when unset do we fall back from data/accounts.csv → data/accounts.example.csv
+  // for first-run usability.
+  const accountsFile = process.env.ACCOUNTS_FILE
+    ? ACCOUNTS_FILE
+    : fs.existsSync(ACCOUNTS_FILE)
+      ? ACCOUNTS_FILE
+      : "data/accounts.example.csv";
   const accounts: AccountConfig = parseAccountsCSV(
     fs.readFileSync(accountsFile, "utf-8"),
     SAMPLE_DIR,
