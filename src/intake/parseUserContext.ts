@@ -60,9 +60,11 @@ const NoteSchema = z.object({
 });
 
 const ChatScopeSchema = z.object({
-  type: z.enum(["global", "flag", "gap", "situation"]),
+  type: z.enum(["global", "flag", "gap", "situation", "dimension", "tactical_move"]),
   finding_key: z.string().optional(),
   situation_id: z.string().optional(),
+  dimension_id: z.string().optional(),
+  move_id: z.string().optional(),
 });
 
 const ChatToolCallSchema = z.object({

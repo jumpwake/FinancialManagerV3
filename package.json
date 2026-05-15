@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "analyze": "tsx src/index.ts",
+    "analyze:luke": "tsx src/index.ts --user luke",
     "report": "tsx scripts/report.ts",
+    "report:luke": "tsx scripts/report.ts --user luke",
     "build": "tsc && vite build src/report/app",
     "test": "vitest run",
     "test:watch": "vitest"

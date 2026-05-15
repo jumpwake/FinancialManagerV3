@@ -316,7 +316,7 @@ async function main() {
   };
 
   // Write JSON
-  fs.mkdirSync("output", { recursive: true });
+  fs.mkdirSync(path.dirname(path.resolve(OUTPUT_FILE)), { recursive: true });
   fs.writeFileSync(OUTPUT_FILE, JSON.stringify(output, null, 2));
 
   // Console summary

@@ -71,6 +71,34 @@ describe("parseUserContext", () => {
       parseUserContext({ version: 99, situations: [], notes: [], chat_history: [] }),
     ).toThrow();
   });
+
+  it("accepts chat messages scoped to a dimension or tactical_move", () => {
+    const ctx = parseUserContext({
+      version: 1,
+      situations: [],
+      notes: [],
+      chat_history: [
+        {
+          id: "msg_dim",
+          role: "user",
+          content: "Why is bond balance low?",
+          scope: { type: "dimension", dimension_id: "bond_balance" },
+          created_at: "2026-05-15T15:00:00Z",
+        },
+        {
+          id: "msg_move",
+          role: "assistant",
+          content: "Consider adding AGG.",
+          scope: { type: "tactical_move", move_id: "mv_1" },
+          created_at: "2026-05-15T15:00:05Z",
+        },
+      ],
+    });
+    expect(ctx.chat_history[0].scope.type).toBe("dimension");
+    expect(ctx.chat_history[0].scope.dimension_id).toBe("bond_balance");
+    expect(ctx.chat_history[1].scope.type).toBe("tactical_move");
+    expect(ctx.chat_history[1].scope.move_id).toBe("mv_1");
+  });
 });
 
 describe("emptyUserContext", () => {

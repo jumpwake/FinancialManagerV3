@@ -33,7 +33,19 @@
       "Bash(tee /tmp/analyze.log)",
       "Bash(tee /tmp/analyze2.log)",
       "PowerShell(Get-Content -Path \"C:\\\\Users\\\\bowde\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-bowde-source-repos-FinancialManagerV3\\\\6545aa29-5ad3-45e7-ba1d-819816dd0102\\\\tasks\\\\bg8k3ej7z.output\" -Raw | Select-String \"Tactical|analysis\\\\.json written|failed\" | ForEach-Object { $_.Line })",
-      "PowerShell($d = Get-Content \"C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3\\\\output\\\\analysis.json\" | ConvertFrom-Json; Write-Host \"tactical_advisor present: $\\(if \\($d.tactical_advisor\\) { 'YES' } else { 'NO' }\\)\"; if \\($d.tactical_advisor\\) { Write-Host \"  - deployment_recommendation: $\\(if \\($d.tactical_advisor.deployment_recommendation\\) { 'present' } else { 'null' }\\)\"; Write-Host \"  - tactical_plan next_7_days: $\\($d.tactical_advisor.tactical_plan.next_7_days.Count\\)\"; Write-Host \"  - tactical_plan next_30_days: $\\($d.tactical_advisor.tactical_plan.next_30_days.Count\\)\" })"
+      "PowerShell($d = Get-Content \"C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3\\\\output\\\\analysis.json\" | ConvertFrom-Json; Write-Host \"tactical_advisor present: $\\(if \\($d.tactical_advisor\\) { 'YES' } else { 'NO' }\\)\"; if \\($d.tactical_advisor\\) { Write-Host \"  - deployment_recommendation: $\\(if \\($d.tactical_advisor.deployment_recommendation\\) { 'present' } else { 'null' }\\)\"; Write-Host \"  - tactical_plan next_7_days: $\\($d.tactical_advisor.tactical_plan.next_7_days.Count\\)\"; Write-Host \"  - tactical_plan next_30_days: $\\($d.tactical_advisor.tactical_plan.next_30_days.Count\\)\" })",
+      "Skill(superpowers:systematic-debugging)",
+      "Skill(superpowers:brainstorming)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(echo \"PID=$!\")",
+      "Bash(timeout 15 npx vite /c/Users/bowde/source/repos/FinancialManagerV3/src/report/app)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(Get-Item output/analysis.json, data/user-context.json)",
+      "Bash(Select-Object Name, LastWriteTime)",
+      "Bash(npx --yes tsx scripts/_envprobe.ts --user luke)",
+      "PowerShell(npm run *)"
     ]
   }
 }
