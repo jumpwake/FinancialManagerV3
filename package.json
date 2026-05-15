@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "analyze": "tsx src/index.ts",
-    "report": "vite src/report/app --open",
+    "report": "tsx scripts/report.ts",
     "build": "tsc && vite build src/report/app",
     "test": "vitest run",
     "test:watch": "vitest"
