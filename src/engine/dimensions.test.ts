@@ -792,3 +792,24 @@ describe("scoreAssetLocation", () => {
     expect(result.score).toBeLessThanOrEqual(10);
   });
 });
+
+describe("computePortfolioScore renormalization", () => {
+  function dim(id: string, score: number, weight: number): DimensionScore {
+    return { id, label: id, score, rating: "green", display_value: "", note: "", weight };
+  }
+
+  it("is unchanged for a full set whose weights already sum to 1.0", () => {
+    const dims = [dim("a", 8, 0.5), dim("b", 6, 0.5)];
+    expect(computePortfolioScore(dims)).toBeCloseTo(7, 5);
+  });
+
+  it("normalizes by the sum of weights when a dimension is dropped", () => {
+    // (8*0.11 + 6*0.07) / (0.11 + 0.07) = 1.30 / 0.18 = 7.2222...
+    const dims = [dim("a", 8, 0.11), dim("b", 6, 0.07)];
+    expect(computePortfolioScore(dims)).toBeCloseTo(7.2222, 3);
+  });
+
+  it("returns 0 for an empty dimension list", () => {
+    expect(computePortfolioScore([])).toBe(0);
+  });
+});

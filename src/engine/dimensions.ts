@@ -252,7 +252,9 @@ export function scoreToGrade(score: number): string {
 }
 
 export function computePortfolioScore(dimensions: DimensionScore[]): number {
-  return dimensions.reduce((sum, d) => sum + d.score * d.weight, 0);
+  const weightSum = dimensions.reduce((sum, d) => sum + d.weight, 0);
+  if (weightSum === 0) return 0;
+  return dimensions.reduce((sum, d) => sum + d.score * d.weight, 0) / weightSum;
 }
 
 export function scoreAllDimensions(
