@@ -62,3 +62,58 @@ describe("deriveScoringProfile — FI target risk + regime shifts", () => {
     expect(sp.fiTarget).toEqual({ min: 0, max: 0.05 });
   });
 });
+
+describe("deriveScoringProfile — bond_balance drop rule", () => {
+  const macro = makeMacro();
+  const active = (p: UserProfile) => deriveScoringProfile(p, macro).activeDimensionIds.has("bond_balance");
+
+  it("drops bond_balance for an aggressive investor at any age", () => {
+    expect(active({ age: 55, risk_tolerance: "aggressive" })).toBe(false);
+  });
+  it("drops bond_balance for an under-35 moderately-aggressive investor", () => {
+    expect(active({ age: 34, risk_tolerance: "moderately_aggressive" })).toBe(false);
+  });
+  it("drops bond_balance for an under-35 moderate investor", () => {
+    expect(active({ age: 30, risk_tolerance: "moderate" })).toBe(false);
+  });
+  it("keeps bond_balance for a 35-year-old moderate investor (boundary)", () => {
+    expect(active({ age: 35, risk_tolerance: "moderate" })).toBe(true);
+  });
+  it("keeps bond_balance for an under-35 conservative investor", () => {
+    expect(active({ age: 28, risk_tolerance: "conservative" })).toBe(true);
+  });
+  it("records a dropped-dimension entry with a reason when bond_balance is dropped", () => {
+    const sp = deriveScoringProfile({ age: 40, risk_tolerance: "aggressive" }, macro);
+    expect(sp.activeDimensionIds.size).toBe(10);
+    expect(sp.droppedDimensions).toHaveLength(1);
+    expect(sp.droppedDimensions[0].id).toBe("bond_balance");
+    expect(sp.droppedDimensions[0].label).toBe("Bond balance");
+    expect(sp.droppedDimensions[0].reason.length).toBeGreaterThan(0);
+  });
+});
+
+describe("deriveScoringProfile — tuning knobs", () => {
+  const macro = makeMacro();
+
+  it("cashLeniency scales by risk tolerance", () => {
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "conservative" }, macro).cashLeniency).toBeCloseTo(1.5, 5);
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "moderate" }, macro).cashLeniency).toBeCloseTo(1.0, 5);
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "aggressive" }, macro).cashLeniency).toBeCloseTo(0.7, 5);
+  });
+  it("cashLeniency gets an extra 1.3x for age 60+", () => {
+    expect(deriveScoringProfile({ age: 65, risk_tolerance: "moderate" }, macro).cashLeniency).toBeCloseTo(1.3, 5);
+    expect(deriveScoringProfile({ age: 65, risk_tolerance: "conservative" }, macro).cashLeniency).toBeCloseTo(1.95, 5);
+  });
+  it("concentrationShift scales by risk tolerance", () => {
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "conservative" }, macro).concentrationShift).toBeCloseTo(-0.05, 5);
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "aggressive" }, macro).concentrationShift).toBeCloseTo(0.10, 5);
+  });
+  it("singleStockPenaltyScale scales by risk tolerance", () => {
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "conservative" }, macro).singleStockPenaltyScale).toBeCloseTo(1.4, 5);
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "aggressive" }, macro).singleStockPenaltyScale).toBeCloseTo(0.6, 5);
+  });
+  it("qualityTiltRelaxed is true only for aggressive", () => {
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "aggressive" }, macro).qualityTiltRelaxed).toBe(true);
+    expect(deriveScoringProfile({ age: 45, risk_tolerance: "moderately_aggressive" }, macro).qualityTiltRelaxed).toBe(false);
+  });
+});

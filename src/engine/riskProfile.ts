@@ -75,7 +75,7 @@ const RISK_FI_SHIFT: Record<RiskTolerance, number> = {
   moderately_conservative: 0.05,
   moderate: 0,
   moderately_aggressive: -0.06,
-  aggressive: 0, // unused — bond_balance is dropped for aggressive
+  aggressive: 0, // unused once bond_balance is dropped for aggressive profiles
 };
 
 const REGIME_FI_NUDGE: Record<string, number> = {
@@ -96,30 +96,76 @@ function computeFiTarget(profile: UserProfile, macro: MacroContext): { min: numb
   return { min: round2(Math.max(0, center - 0.05)), max: round2(center + 0.05) };
 }
 
+const RISK_CASH_MULT: Record<RiskTolerance, number> = {
+  conservative: 1.5,
+  moderately_conservative: 1.25,
+  moderate: 1.0,
+  moderately_aggressive: 0.85,
+  aggressive: 0.7,
+};
+
+const RISK_CONCENTRATION_SHIFT: Record<RiskTolerance, number> = {
+  conservative: -0.05,
+  moderately_conservative: -0.03,
+  moderate: 0,
+  moderately_aggressive: 0.05,
+  aggressive: 0.10,
+};
+
+const RISK_SINGLE_STOCK_SCALE: Record<RiskTolerance, number> = {
+  conservative: 1.4,
+  moderately_conservative: 1.2,
+  moderate: 1.0,
+  moderately_aggressive: 0.8,
+  aggressive: 0.6,
+};
+
+/** Returns the reason bond_balance is dropped, or null when it stays graded. */
+function bondDropReason(profile: UserProfile): string | null {
+  if (profile.risk_tolerance === "aggressive") {
+    return "Aggressive risk profile — fixed income is not part of the target allocation.";
+  }
+  if (
+    profile.age < 35 &&
+    (profile.risk_tolerance === "moderate" || profile.risk_tolerance === "moderately_aggressive")
+  ) {
+    return "Long horizon (under 35) with an above-conservative risk profile — bonds are de-emphasized.";
+  }
+  return null;
+}
+
 export function deriveScoringProfile(
   profile: UserProfile | null,
   macro: MacroContext,
 ): ScoringProfile {
   if (profile === null) {
     return {
+      ...NEUTRAL_SCORING_PROFILE,
       activeDimensionIds: new Set(ALL_DIMENSION_IDS),
       droppedDimensions: [],
       fiTarget: FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET,
-      cashLeniency: 1,
-      concentrationShift: 0,
-      singleStockPenaltyScale: 1,
-      qualityTiltRelaxed: false,
     };
   }
 
-  // Drop rule + tuning knobs are completed in Task 3 — neutral stubs for now.
+  const cashLeniency =
+    RISK_CASH_MULT[profile.risk_tolerance] * (profile.age >= 60 ? 1.3 : 1.0);
+
+  const dropReason = bondDropReason(profile);
+  const droppedDimensions: DroppedDimension[] = dropReason
+    ? [{ id: "bond_balance", label: "Bond balance", reason: dropReason }]
+    : [];
+  const droppedIds = new Set(droppedDimensions.map((d) => d.id));
+  const activeDimensionIds = new Set(
+    ALL_DIMENSION_IDS.filter((id) => !droppedIds.has(id)),
+  );
+
   return {
-    activeDimensionIds: new Set(ALL_DIMENSION_IDS),
-    droppedDimensions: [],
+    activeDimensionIds,
+    droppedDimensions,
     fiTarget: computeFiTarget(profile, macro),
-    cashLeniency: 1,
-    concentrationShift: 0,
-    singleStockPenaltyScale: 1,
-    qualityTiltRelaxed: false,
+    cashLeniency,
+    concentrationShift: RISK_CONCENTRATION_SHIFT[profile.risk_tolerance],
+    singleStockPenaltyScale: RISK_SINGLE_STOCK_SCALE[profile.risk_tolerance],
+    qualityTiltRelaxed: profile.risk_tolerance === "aggressive",
   };
 }
