@@ -384,4 +384,31 @@ describe("plan generators with a bond_balance-dropped ScoringProfile", () => {
     const gaps = generateGapItems(agg, dims, makeMacro(), droppedSp);
     expect(gaps.find((g) => g.finding_key.startsWith("bond_balance:"))).toBeUndefined();
   });
+
+  it("generateFlags omits the inverted-curve bond-underweight flag when bond_balance is dropped", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const agg = {
+      total_value: 1000, blended_expense_ratio: 0, holding_count: 1,
+      duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
+      international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
+      pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.98, fixed_income_weight: 0.02,
+      individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+    } as PortfolioAggregates;
+    const macro = makeMacro({ yield_curve_status: "inverted" });
+    const flags = generateFlags(portfolio, agg, macro, undefined, droppedSp);
+    expect(flags.some((f) => f.title === "Inverted yield curve — bond underweight")).toBe(false);
+  });
+
+  it("generatePlanPhases omits the Phase 2 fixed-income action when bond_balance is dropped", () => {
+    const agg = {
+      total_value: 1000, blended_expense_ratio: 0, holding_count: 1,
+      duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
+      international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
+      pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.98, fixed_income_weight: 0.02,
+      individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+    } as PortfolioAggregates;
+    const { phases } = generatePlanPhases(agg, makeMacro(), 7, droppedSp);
+    const allActions = phases.flatMap((p) => p.actions.map((a) => a.description));
+    expect(allActions.some((d) => d.includes("Increase fixed income"))).toBe(false);
+  });
 });

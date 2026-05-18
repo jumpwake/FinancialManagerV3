@@ -187,6 +187,9 @@ export function generateGapItems(
     });
   }
 
+  // bond_balance is intentionally optional — a ScoringProfile can drop it
+  // (aggressive / long-horizon profiles). Unlike single_stock_risk and
+  // concentration, its absence is valid, so look it up non-throwing.
   const bondDim = dimensions.find((d) => d.id === "bond_balance");
   if (bondActive(sp) && bondDim && bondDim.score < 7) {
     gaps.push({
