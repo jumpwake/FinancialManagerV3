@@ -5,7 +5,8 @@ import { scoreAllDimensions } from "./dimensions";
 import { buildFindingKey } from "./findingKeys";
 import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
-import { Portfolio } from "../types";
+import { Portfolio, PortfolioAggregates, DimensionScore } from "../types";
+import { NEUTRAL_SCORING_PROFILE } from "./riskProfile";
 
 function dimsFor(portfolio: Portfolio, macro = makeMacro()) {
   return scoreAllDimensions(portfolio, computeAggregates(portfolio), macro);
@@ -357,5 +358,30 @@ describe("plan.ts — asset-location flags", () => {
     const flags = generateFlags(p, agg, macro, accounts);
     // No CASH idle-cash flag because all the cash is constrained
     expect(flags.find(f => f.ticker === "CASH" && /idle cash/i.test(f.title))).toBeUndefined();
+  });
+});
+
+describe("plan generators with a bond_balance-dropped ScoringProfile", () => {
+  const droppedSp = {
+    ...NEUTRAL_SCORING_PROFILE,
+    activeDimensionIds: new Set(
+      [...NEUTRAL_SCORING_PROFILE.activeDimensionIds].filter((id) => id !== "bond_balance"),
+    ),
+  };
+
+  it("generateGapItems does not throw and emits no FI gap when bond_balance is dropped", () => {
+    const agg = {
+      total_value: 1000, blended_expense_ratio: 0, holding_count: 1,
+      duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
+      international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
+      pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.9, fixed_income_weight: 0.02,
+      individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+    } as PortfolioAggregates;
+    const dims: DimensionScore[] = [
+      { id: "single_stock_risk", label: "Single-stock risk", score: 10, rating: "green", display_value: "", note: "", weight: 0.11 },
+      { id: "concentration", label: "Concentration", score: 9, rating: "green", display_value: "", note: "", weight: 0.11 },
+    ];
+    const gaps = generateGapItems(agg, dims, makeMacro(), droppedSp);
+    expect(gaps.find((g) => g.finding_key.startsWith("bond_balance:"))).toBeUndefined();
   });
 });
