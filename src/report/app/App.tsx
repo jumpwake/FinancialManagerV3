@@ -14,6 +14,7 @@ import { OpenSituations } from "./sections/OpenSituations";
 import ProfileDrawer from "./sections/ProfileDrawer";
 import TopBar from "./TopBar";
 import { Sidebar } from "./sidebar/Sidebar";
+import { initialChatState, persistCollapsed } from "./sidebar/chatStore";
 
 export default function App() {
   const [data, setData] = useState<AnalysisOutput | null>(null);
@@ -23,6 +24,15 @@ export default function App() {
   const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
   const [profileOpen, setProfileOpen] = useState(false);
   const closeProfile = useCallback(() => setProfileOpen(false), []);
+  const [chatCollapsed, setChatCollapsed] = useState(() => initialChatState().collapsed);
+  const toggleChat = useCallback(() => setChatCollapsed((c) => !c), []);
+
+  useEffect(() => persistCollapsed(chatCollapsed), [chatCollapsed]);
+
+  // Auto-open chat when something elsewhere scopes it (💬 buttons, situations).
+  useEffect(() => {
+    if (scope.type !== "global") setChatCollapsed(false);
+  }, [scope.type, scope.finding_key, scope.situation_id]);
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -144,7 +154,7 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <TopBar onOpenProfile={() => setProfileOpen(true)} />
+      <TopBar onOpenProfile={() => setProfileOpen(true)} onToggleChat={toggleChat} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", flex: 1 }}>
       <main style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", fontFamily: "system-ui, sans-serif", width: "100%" }}>
         {/* Header */}
@@ -239,6 +249,8 @@ export default function App() {
       <Sidebar
         scope={scope}
         onScopeChange={setScope}
+        collapsed={chatCollapsed}
+        onCollapsedChange={setChatCollapsed}
         initialHistory={[]}
       />
       </div>
