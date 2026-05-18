@@ -1,5 +1,5 @@
 import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
-import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET, NEUTRAL_SCORING_PROFILE } from "./riskProfile";
+import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET, NEUTRAL_SCORING_PROFILE, deriveScoringProfile } from "./riskProfile";
 import type { ScoringProfile } from "./riskProfile";
 
 export function toRating(score: number): Rating {
@@ -280,20 +280,27 @@ export function scoreAllDimensions(
   agg: PortfolioAggregates,
   macro: MacroContext,
   accounts?: AccountConfig,
+  scoringProfile?: ScoringProfile,
 ): DimensionScore[] {
-  return [
+  // No profile threaded in → fall back to the regime-only, all-dimensions-active
+  // profile, which reproduces today's behavior exactly.
+  const sp = scoringProfile ?? deriveScoringProfile(null, macro);
+
+  const all: DimensionScore[] = [
     scoreCostEfficiency(agg),
     scoreDiversification(agg),
-    scoreCashEfficiency(agg),
+    scoreCashEfficiency(agg, sp),
     scoreMacroAlignment(agg, macro),
-    scoreSingleStockRisk(portfolio, agg),
+    scoreSingleStockRisk(portfolio, agg, sp),
     scoreSimplicity(agg),
-    scoreBondBalance(agg, macro),
-    scoreConcentration(agg),
+    scoreBondBalance(agg, macro, sp),
+    scoreConcentration(agg, sp),
     scoreInternational(agg),
-    scoreQualityTilt(portfolio, agg),
+    scoreQualityTilt(portfolio, agg, sp),
     scoreAssetLocation(portfolio, accounts),
   ];
+
+  return all.filter((d) => sp.activeDimensionIds.has(d.id));
 }
 
 const QUALITY_TICKERS: Record<string, number> = {

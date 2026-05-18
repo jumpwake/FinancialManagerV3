@@ -893,3 +893,21 @@ describe("scoreQualityTilt with qualityTiltRelaxed", () => {
     expect(scoreQualityTilt(portfolio, agg, relaxed).score).toBeGreaterThanOrEqual(5);
   });
 });
+
+describe("scoreAllDimensions with a ScoringProfile", () => {
+  it("returns all 11 dimensions when no profile is supplied", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro());
+    expect(dims).toHaveLength(11);
+  });
+
+  it("omits bond_balance when the profile drops it", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const sp = { ...NEUTRAL_SCORING_PROFILE, activeDimensionIds: new Set(
+      [...NEUTRAL_SCORING_PROFILE.activeDimensionIds].filter((id) => id !== "bond_balance"),
+    ) };
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro(), undefined, sp);
+    expect(dims).toHaveLength(10);
+    expect(dims.find((d) => d.id === "bond_balance")).toBeUndefined();
+  });
+});
