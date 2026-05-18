@@ -101,7 +101,7 @@ export const UserContextSchema = z.object({
   chat_history: z.array(ChatMessageSchema),
 });
 
-/** Migrate a pre-feature version-1 context to version 2 in memory. */
+/** Normalize a version-1 context to the version-2 shape. */
 function migrateToV2(input: unknown): unknown {
   if (
     input !== null &&
