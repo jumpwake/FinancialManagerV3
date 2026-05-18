@@ -200,7 +200,11 @@ export function scoreBondBalance(
   };
 }
 
-export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
+export function scoreSingleStockRisk(
+  portfolio: Portfolio,
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const total = agg.total_value;
   const stocks = portfolio.holdings.filter(h => h.asset_class === "individual_stock" && h.stock_metrics);
 
@@ -237,7 +241,7 @@ export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggrega
     }
   }
 
-  const score = Math.max(1, 10 - totalPenalty);
+  const score = Math.max(1, 10 - totalPenalty * sp.singleStockPenaltyScale);
 
   return {
     id: "single_stock_risk",
@@ -302,7 +306,11 @@ const GROWTH_CLASSES = new Set<string>([
   "us_equity_small_mid",
 ]);
 
-export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
+export function scoreQualityTilt(
+  portfolio: Portfolio,
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const total = agg.total_value;
   let raw = 0;
   for (const h of portfolio.holdings) {
@@ -311,7 +319,8 @@ export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates)
       raw += QUALITY_TICKERS[h.ticker] * wt;
     }
   }
-  const score = Math.min(10, Math.max(1, raw * 2.5));
+  const floor = sp.qualityTiltRelaxed ? 5 : 1;
+  const score = Math.min(10, Math.max(floor, raw * 2.5));
 
   return {
     id: "quality_tilt",

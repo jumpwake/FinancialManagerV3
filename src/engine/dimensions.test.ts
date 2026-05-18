@@ -863,3 +863,33 @@ describe("scoreConcentration with concentrationShift", () => {
     );
   });
 });
+
+describe("scoreSingleStockRisk with singleStockPenaltyScale", () => {
+  it("a scale below 1 softens the penalty (higher score)", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({
+          ticker: "RISK", market_value: 1000, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 120, beta: 1.8 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const lenient = { ...NEUTRAL_SCORING_PROFILE, singleStockPenaltyScale: 0.6 };
+    expect(scoreSingleStockRisk(portfolio, agg, lenient).score).toBeGreaterThan(
+      scoreSingleStockRisk(portfolio, agg).score,
+    );
+  });
+});
+
+describe("scoreQualityTilt with qualityTiltRelaxed", () => {
+  it("raises the score floor when relaxed so a weak tilt is not punished", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const agg = computeAggregates(portfolio);
+    const relaxed = { ...NEUTRAL_SCORING_PROFILE, qualityTiltRelaxed: true };
+    expect(scoreQualityTilt(portfolio, agg).score).toBeLessThan(5);
+    expect(scoreQualityTilt(portfolio, agg, relaxed).score).toBeGreaterThanOrEqual(5);
+  });
+});
