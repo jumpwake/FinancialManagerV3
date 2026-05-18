@@ -2,15 +2,63 @@ import { describe, it, expect } from "vitest";
 import { parseUserContext, emptyUserContext } from "./parseUserContext";
 
 describe("parseUserContext", () => {
-  it("accepts an empty context shape", () => {
+  it("migrates a version-1 context to version 2 with a null profile", () => {
     const ctx = parseUserContext({
       version: 1,
       situations: [],
       notes: [],
       chat_history: [],
     });
-    expect(ctx.version).toBe(1);
+    expect(ctx.version).toBe(2);
+    expect(ctx.profile).toBeNull();
     expect(ctx.situations).toEqual([]);
+  });
+
+  it("accepts a version-2 context with a populated profile", () => {
+    const ctx = parseUserContext({
+      version: 2,
+      profile: { age: 42, risk_tolerance: "moderately_aggressive" },
+      situations: [],
+      notes: [],
+      chat_history: [],
+    });
+    expect(ctx.version).toBe(2);
+    expect(ctx.profile).toEqual({ age: 42, risk_tolerance: "moderately_aggressive" });
+  });
+
+  it("accepts a version-2 context with a null profile", () => {
+    const ctx = parseUserContext({
+      version: 2,
+      profile: null,
+      situations: [],
+      notes: [],
+      chat_history: [],
+    });
+    expect(ctx.profile).toBeNull();
+  });
+
+  it("rejects a profile with an out-of-range age", () => {
+    expect(() =>
+      parseUserContext({
+        version: 2,
+        profile: { age: 12, risk_tolerance: "moderate" },
+        situations: [],
+        notes: [],
+        chat_history: [],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a profile with an unknown risk_tolerance", () => {
+    expect(() =>
+      parseUserContext({
+        version: 2,
+        profile: { age: 40, risk_tolerance: "extreme" },
+        situations: [],
+        notes: [],
+        chat_history: [],
+      }),
+    ).toThrow();
   });
 
   it("accepts a fully populated situation with portfolio_effects", () => {

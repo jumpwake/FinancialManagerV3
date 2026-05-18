@@ -320,8 +320,21 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export type RiskTolerance =
+  | "conservative"
+  | "moderately_conservative"
+  | "moderate"
+  | "moderately_aggressive"
+  | "aggressive";
+
+export interface UserProfile {
+  age: number;                  // integer 18–100 (validated in parseUserContext)
+  risk_tolerance: RiskTolerance;
+}
+
 export interface UserContext {
-  version: 1;
+  version: 2;
+  profile: UserProfile | null;  // null = not yet captured
   situations: Situation[];
   notes: Note[];
   chat_history: ChatMessage[];

@@ -82,17 +82,41 @@ const ChatMessageSchema = z.object({
   created_at: z.string(),
 });
 
+const UserProfileSchema = z.object({
+  age: z.number().int().min(18).max(100),
+  risk_tolerance: z.enum([
+    "conservative",
+    "moderately_conservative",
+    "moderate",
+    "moderately_aggressive",
+    "aggressive",
+  ]),
+});
+
 export const UserContextSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(2),
+  profile: UserProfileSchema.nullable(),
   situations: z.array(SituationSchema),
   notes: z.array(NoteSchema),
   chat_history: z.array(ChatMessageSchema),
 });
 
+/** Migrate a pre-feature version-1 context to version 2 in memory. */
+function migrateToV2(input: unknown): unknown {
+  if (
+    input !== null &&
+    typeof input === "object" &&
+    (input as { version?: unknown }).version === 1
+  ) {
+    return { ...(input as object), version: 2, profile: null };
+  }
+  return input;
+}
+
 export function parseUserContext(input: unknown): UserContext {
-  return UserContextSchema.parse(input) as UserContext;
+  return UserContextSchema.parse(migrateToV2(input)) as UserContext;
 }
 
 export function emptyUserContext(): UserContext {
-  return { version: 1, situations: [], notes: [], chat_history: [] };
+  return { version: 2, profile: null, situations: [], notes: [], chat_history: [] };
 }
