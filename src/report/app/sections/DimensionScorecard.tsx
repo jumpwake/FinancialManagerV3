@@ -115,6 +115,24 @@ export default function DimensionScorecard({ data, onDiscuss }: Props) {
               )}
             </tr>
           ))}
+          {(data.dropped_dimensions ?? []).map((dd) => (
+            <tr key={dd.id} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+              <td style={{ padding: "9px 14px" }}>
+                <div style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: 500 }}>
+                  {dd.label}
+                </div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
+                  {dd.reason}
+                </div>
+              </td>
+              <td
+                colSpan={1 + refs.length + (onDiscuss ? 1 : 0)}
+                style={{ padding: "9px 14px", fontSize: 12, color: COLORS.textMuted, fontStyle: "italic" }}
+              >
+                Not graded for your risk profile
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

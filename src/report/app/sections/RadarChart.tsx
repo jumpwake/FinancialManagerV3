@@ -51,12 +51,17 @@ export default function RadarChart({ data }: { data: AnalysisOutput }) {
   const dims = data.dimension_scores;
   const refs = data.reference_models;
 
+  // Only plot axes whose dimension is actually graded — a dropped dimension
+  // (e.g. bond_balance for an aggressive profile) must not show a dead 0 spoke.
+  const activeIds = new Set(dims.map((d) => d.id));
+  const radarDims = RADAR_DIMS.filter((id) => activeIds.has(id));
+
   function portfolioValues(): number[] {
-    return RADAR_DIMS.map(id => dims.find(d => d.id === id)?.score ?? 0);
+    return radarDims.map(id => dims.find(d => d.id === id)?.score ?? 0);
   }
 
   function refValues(m: AnalysisOutput["reference_models"][0]): number[] {
-    return RADAR_DIMS.map(id => m.dimension_scores[id] ?? 0);
+    return radarDims.map(id => m.dimension_scores[id] ?? 0);
   }
 
   const blueColor = COLORS.accentBlue;
@@ -78,7 +83,7 @@ export default function RadarChart({ data }: { data: AnalysisOutput }) {
   });
 
   const chartData = {
-    labels: RADAR_DIMS.map(id => RADAR_LABELS[id]),
+    labels: radarDims.map(id => RADAR_LABELS[id]),
     datasets: [
       {
         label: data.portfolio.account_label,
