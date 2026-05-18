@@ -835,10 +835,13 @@ describe("scoreCashEfficiency with cashLeniency", () => {
       scoreCashEfficiency(agg).score,
     );
   });
-  it("a strict profile rates the same buffer no higher than neutral", () => {
-    const agg = aggForCash(0.07);
+  it("a strict profile rates a cash buffer lower than the neutral profile", () => {
+    // idle 0.06: neutral thresholds → score 7; strict (cashLeniency 0.7)
+    // shrinks thresholds (0.05*0.7=0.035, 0.08*0.7=0.056, 0.12*0.7=0.084)
+    // so 0.06 falls into a lower band → strictly lower score.
+    const agg = aggForCash(0.06);
     const strict = { ...NEUTRAL_SCORING_PROFILE, cashLeniency: 0.7 };
-    expect(scoreCashEfficiency(agg, strict).score).toBeLessThanOrEqual(
+    expect(scoreCashEfficiency(agg, strict).score).toBeLessThan(
       scoreCashEfficiency(agg).score,
     );
   });
