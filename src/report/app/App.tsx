@@ -12,6 +12,7 @@ import Flags from "./sections/Flags";
 import NextMoves from "./sections/NextMoves";
 import { OpenSituations } from "./sections/OpenSituations";
 import ProfileDrawer from "./sections/ProfileDrawer";
+import TopBar from "./TopBar";
 import { Sidebar } from "./sidebar/Sidebar";
 
 export default function App() {
@@ -142,57 +143,38 @@ export default function App() {
   const situations = liveSituations.length > 0 ? liveSituations : (typedData.situations ?? []);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <TopBar onOpenProfile={() => setProfileOpen(true)} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", flex: 1 }}>
       <main style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", fontFamily: "system-ui, sans-serif", width: "100%" }}>
         {/* Header */}
-        <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
-              {typedData.portfolio.account_label}
-            </h1>
-            <p style={{ fontSize: 13, color: COLORS.textMuted }}>
-              Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
-              {typedData.portfolio.holdings.length} holdings · Grade{" "}
-              <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
-              ({typedData.portfolio_score.toFixed(1)}/10)
+        <div style={{ marginBottom: "2rem" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
+            {typedData.portfolio.account_label}
+          </h1>
+          <p style={{ fontSize: 13, color: COLORS.textMuted }}>
+            Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
+            {typedData.portfolio.holdings.length} holdings · Grade{" "}
+            <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
+            ({typedData.portfolio_score.toFixed(1)}/10)
+          </p>
+          {typedData.narratives?.headline_summary && (
+            <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
+              {typedData.narratives.headline_summary}
             </p>
-            {typedData.narratives?.headline_summary && (
-              <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
-                {typedData.narratives.headline_summary}
-              </p>
-            )}
-            <a
-              href="#next-moves"
-              style={{
-                fontSize: 12,
-                color: COLORS.accentBlue,
-                textDecoration: "none",
-                marginTop: 10,
-                display: "inline-block",
-              }}
-            >
-              ↓ Jump to recommended moves
-            </a>
-          </div>
-          <button
-            type="button"
-            onClick={() => setProfileOpen(true)}
-            aria-label="User Profile"
-            title="User Profile"
+          )}
+          <a
+            href="#next-moves"
             style={{
-              flexShrink: 0,
-              background: "transparent",
-              border: `1px solid ${COLORS.border}`,
-              color: COLORS.textMuted,
-              padding: "6px 9px",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 16,
-              lineHeight: 1,
+              fontSize: 12,
+              color: COLORS.accentBlue,
+              textDecoration: "none",
+              marginTop: 10,
+              display: "inline-block",
             }}
           >
-            👤
-          </button>
+            ↓ Jump to recommended moves
+          </a>
         </div>
 
         <OpenSituations
@@ -259,6 +241,7 @@ export default function App() {
         onScopeChange={setScope}
         initialHistory={[]}
       />
+      </div>
 
       <ProfileDrawer open={profileOpen} onClose={closeProfile} />
     </div>
