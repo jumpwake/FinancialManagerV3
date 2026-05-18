@@ -46,7 +46,7 @@ const SEEDS: ReferenceModelSeed[] = [
 
 // Engine weights per dimension (must match dimensions.ts).
 // Stable values; benchmarks.test.ts asserts consistency with computePortfolioScore.
-const WEIGHTS: Record<string, number> = {
+export const WEIGHTS: Record<string, number> = {
   cost_efficiency: 0.09,
   diversification: 0.11,
   cash_efficiency: 0.11,

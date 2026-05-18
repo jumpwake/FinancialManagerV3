@@ -1,8 +1,11 @@
 import { describe, test, it, expect } from "vitest";
-import { buildReferenceModels } from "./benchmarks";
-import { scoreToGrade, computePortfolioScore } from "./dimensions";
+import { buildReferenceModels, WEIGHTS as BENCHMARK_WEIGHTS } from "./benchmarks";
+import { scoreToGrade, computePortfolioScore, scoreAllDimensions } from "./dimensions";
+import { computeAggregates } from "./aggregates";
 import { ALL_DIMENSION_IDS } from "./riskProfile";
 import { DimensionScore } from "../types";
+import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
+import { makeMacro } from "../../tests/fixtures/sampleMacro";
 
 const ALL = new Set<string>(ALL_DIMENSION_IDS);
 
@@ -72,5 +75,31 @@ describe("buildReferenceModels — reduced dimension set", () => {
       }));
       expect(m.score).toBeCloseTo(computePortfolioScore(dims), 2);
     }
+  });
+});
+
+describe("benchmarks WEIGHTS stay in sync with engine dimension weights", () => {
+  it("every engine dimension's weight equals the benchmarks WEIGHTS entry", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro());
+    expect(dims).toHaveLength(11);
+    for (const d of dims) {
+      expect(BENCHMARK_WEIGHTS[d.id]).toBe(d.weight);
+    }
+  });
+
+  it("benchmarks WEIGHTS has exactly the engine's 11 dimension ids and no stale keys", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro());
+    expect(Object.keys(BENCHMARK_WEIGHTS).sort()).toEqual(dims.map((d) => d.id).sort());
+  });
+
+  it("benchmarks WEIGHTS sum to 1.0", () => {
+    const sum = Object.values(BENCHMARK_WEIGHTS).reduce((a, b) => a + b, 0);
+    expect(Math.abs(sum - 1.0)).toBeLessThan(1e-9);
   });
 });

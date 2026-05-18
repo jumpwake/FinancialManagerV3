@@ -143,6 +143,8 @@ function trimAnalysisByScope(analysis: any, scope: ChatScope): unknown {
   if (scope.type === "flag" || scope.type === "gap") {
     const flag = (analysis.flags ?? []).find((f: any) => f.finding_key === scope.finding_key);
     const gap = (analysis.gap_items ?? []).find((g: any) => g.finding_key === scope.finding_key);
+    // profile is intentionally omitted for narrow finding-scoped chats — only
+    // the global and dimension scopes carry it.
     return {
       portfolio_grade: analysis.portfolio_grade,
       finding: flag ?? gap ?? null,
