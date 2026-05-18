@@ -4,11 +4,13 @@ import * as path from "node:path";
 import { handleSituationsRoute } from "./handlers/situations";
 import { handleNotesRoute } from "./handlers/notes";
 import { handleChatRoute } from "./handlers/chat";
+import { handleProfileRoute } from "./handlers/profile";
 
 loadEnv();
 
 const SITUATIONS_RE = /^\/api\/situations(?:\/([^/]+))?$/;
 const NOTES_RE = /^\/api\/notes(?:\/([^/]+))?$/;
+const PROFILE_RE = /^\/api\/profile$/;
 
 export interface UserContextPluginOptions {
   contextPath?: string;
@@ -50,6 +52,19 @@ export function userContextPlugin(opts: UserContextPluginOptions = {}): Plugin {
             );
           } catch (err) {
             console.error("/api/situations error", err);
+            if (!res.headersSent) {
+              res.statusCode = 500;
+              res.end();
+            }
+          }
+          return;
+        }
+
+        if (PROFILE_RE.test(url)) {
+          try {
+            await handleProfileRoute(req, res, req.method ?? "GET", contextPath);
+          } catch (err) {
+            console.error("/api/profile error", err);
             if (!res.headersSent) {
               res.statusCode = 500;
               res.end();
