@@ -826,3 +826,37 @@ describe("scoreBondBalance with a ScoringProfile", () => {
     expect(result.display_value).toContain("30–40%");
   });
 });
+
+describe("scoreCashEfficiency with cashLeniency", () => {
+  it("a lenient profile rates a cash buffer higher than the neutral profile", () => {
+    const agg = aggForCash(0.07); // neutral: 7
+    const lenient = { ...NEUTRAL_SCORING_PROFILE, cashLeniency: 1.5 };
+    expect(scoreCashEfficiency(agg, lenient).score).toBeGreaterThan(
+      scoreCashEfficiency(agg).score,
+    );
+  });
+  it("a strict profile rates the same buffer no higher than neutral", () => {
+    const agg = aggForCash(0.07);
+    const strict = { ...NEUTRAL_SCORING_PROFILE, cashLeniency: 0.7 };
+    expect(scoreCashEfficiency(agg, strict).score).toBeLessThanOrEqual(
+      scoreCashEfficiency(agg).score,
+    );
+  });
+});
+
+describe("scoreConcentration with concentrationShift", () => {
+  it("a positive shift rates the same top-3 weight higher", () => {
+    const agg = aggForConc(0.50); // neutral: 6
+    const relaxed = { ...NEUTRAL_SCORING_PROFILE, concentrationShift: 0.10 };
+    expect(scoreConcentration(agg, relaxed).score).toBeGreaterThan(
+      scoreConcentration(agg).score,
+    );
+  });
+  it("a negative shift rates the same top-3 weight lower", () => {
+    const agg = aggForConc(0.35); // neutral: 10
+    const strict = { ...NEUTRAL_SCORING_PROFILE, concentrationShift: -0.05 };
+    expect(scoreConcentration(agg, strict).score).toBeLessThan(
+      scoreConcentration(agg).score,
+    );
+  });
+});

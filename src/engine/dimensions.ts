@@ -1,5 +1,5 @@
 import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
-import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./riskProfile";
+import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET, NEUTRAL_SCORING_PROFILE } from "./riskProfile";
 import type { ScoringProfile } from "./riskProfile";
 
 export function toRating(score: number): Rating {
@@ -58,13 +58,17 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
   };
 }
 
-export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
+export function scoreConcentration(
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const t3 = agg.top3_weight;
+  const shift = sp.concentrationShift;
   const score =
-    t3 <= 0.35 ? 10 :
-    t3 <= 0.45 ? 8 :
-    t3 <= 0.55 ? 6 :
-    t3 <= 0.65 ? 4 : 2;
+    t3 <= 0.35 + shift ? 10 :
+    t3 <= 0.45 + shift ? 8 :
+    t3 <= 0.55 + shift ? 6 :
+    t3 <= 0.65 + shift ? 4 : 2;
 
   return {
     id: "concentration",
@@ -96,14 +100,18 @@ export function scoreInternational(agg: PortfolioAggregates): DimensionScore {
   };
 }
 
-export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
+export function scoreCashEfficiency(
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const idle = agg.idle_cash_weight;
+  const L = sp.cashLeniency;
   const score =
-    idle <= 0.02 ? 10 :
-    idle <= 0.05 ? 8 :
-    idle <= 0.08 ? 7 :
-    idle <= 0.12 ? 5 :
-    idle <= 0.20 ? 3 : 1;
+    idle <= 0.02 * L ? 10 :
+    idle <= 0.05 * L ? 8 :
+    idle <= 0.08 * L ? 7 :
+    idle <= 0.12 * L ? 5 :
+    idle <= 0.20 * L ? 3 : 1;
 
   const display = agg.pending_cash_weight > 0
     ? `${(idle * 100).toFixed(1)}% idle + ${(agg.pending_cash_weight * 100).toFixed(1)}% pending`
