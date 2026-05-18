@@ -14,7 +14,8 @@ import { parseMacro } from "./intake/parseMacro";
 import { computeAggregates } from "./engine/aggregates";
 import { scoreAllDimensions, computePortfolioScore, scoreToGrade } from "./engine/dimensions";
 import { generateFlags, generateGapItems, generatePlanPhases } from "./engine/plan";
-import { REFERENCE_MODELS } from "./engine/benchmarks";
+import { buildReferenceModels } from "./engine/benchmarks";
+import { deriveScoringProfile } from "./engine/riskProfile";
 import { generateNarratives } from "./ai/narratives";
 import { loadUserContext, saveUserContext } from "./server/userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
@@ -164,16 +165,30 @@ async function main() {
   const macro = parseMacro(loadJSON(MACRO_FILE));
   console.log(`  Macro regime: ${macro.market_regime}`);
 
+  // Derive the scoring profile from the user's captured age + risk tolerance.
+  // userContext.profile is null until a profile is saved via the report — in
+  // that case deriveScoringProfile reproduces the regime-only behavior.
+  const scoringProfile = deriveScoringProfile(userContext.profile, macro);
+  const reference_models = buildReferenceModels(scoringProfile.activeDimensionIds);
+  if (userContext.profile) {
+    console.log(
+      `  Profile: age ${userContext.profile.age}, ${userContext.profile.risk_tolerance}` +
+        (scoringProfile.droppedDimensions.length
+          ? ` (not graded: ${scoringProfile.droppedDimensions.map((d) => d.id).join(", ")})`
+          : ""),
+    );
+  }
+
   // Apply open Situation portfolio_effects before scoring
   const effectedPortfolio = applyPortfolioEffects(portfolio, userContext.situations);
 
   // Run engine
   const aggregates = computeAggregates(effectedPortfolio, accounts);
-  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro, accounts);
+  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro, accounts, scoringProfile);
   const portfolio_score = computePortfolioScore(dimension_scores);
   const portfolio_grade = scoreToGrade(portfolio_score);
-  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro, accounts);
-  const rawGapItems = generateGapItems(aggregates, dimension_scores, macro);
+  const rawFlags = generateFlags(effectedPortfolio, aggregates, macro, accounts, scoringProfile);
+  const rawGapItems = generateGapItems(aggregates, dimension_scores, macro, scoringProfile);
 
   // Apply Note suppressions (cosmetic — flags retain finding_key, annotated with suppressed_by)
   const suppressed = applyNoteSuppressions(rawFlags, rawGapItems, userContext.notes);
@@ -181,7 +196,7 @@ async function main() {
   const gap_items = suppressed.gaps;
 
   const { phases: plan_phases, trajectory: score_trajectory } =
-    generatePlanPhases(aggregates, macro, portfolio_score);
+    generatePlanPhases(aggregates, macro, portfolio_score, scoringProfile);
 
   // Generate AI narratives (single Anthropic API call)
   let narratives = null;
@@ -197,7 +212,7 @@ async function main() {
         portfolio_score,
         portfolio_grade,
         dimension_scores,
-        reference_models: REFERENCE_MODELS,
+        reference_models,
         flags,
       });
       findings = [
@@ -303,7 +318,9 @@ async function main() {
     portfolio_score,
     portfolio_grade,
     dimension_scores,
-    reference_models: REFERENCE_MODELS,
+    profile: userContext.profile,
+    dropped_dimensions: scoringProfile.droppedDimensions,
+    reference_models,
     flags,
     gap_items,
     plan_phases,
@@ -346,7 +363,7 @@ async function main() {
   console.log("");
   console.log("BENCHMARK COMPARISON");
   console.log(`  Your portfolio:    ${portfolio_grade}   ${portfolio_score.toFixed(1)} / 10`);
-  for (const m of REFERENCE_MODELS) {
+  for (const m of reference_models) {
     console.log(`  ${m.label.padEnd(18)} ${m.grade}   ${m.score.toFixed(1)} / 10`);
   }
   console.log("");
