@@ -5,6 +5,13 @@ import { computeAggregates } from "../engine/aggregates";
 import { Holding } from "../types";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { loadEnv } from "../loadEnv";
+
+// The 20260509 broker snapshot lives in the production data directory
+// (PORTFOLIO_DIR in .env). These tests read the real broker export files
+// rather than a checked-in sample copy; they require a configured .env.
+loadEnv();
+const PORTFOLIO_DIR = process.env.PORTFOLIO_DIR ?? "data/SamplePortfolio";
 
 describe("parseMoneyString", () => {
   test("parses dollar-prefixed string with commas", () => {
@@ -81,7 +88,7 @@ describe("normalizeFidelityAccounts", () => {
   });
 
   test("loads and normalizes the real Fidelity sample file", () => {
-    const raw = JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio/20260509_FidelityRetirement.json"), "utf-8"));
+    const raw = JSON.parse(fs.readFileSync(path.resolve(PORTFOLIO_DIR, "20260509_FidelityRetirement.json"), "utf-8"));
     const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings.length).toBeGreaterThan(0);
     // Should include FSKAX from Kelly401k and from Kevin401k (2 separate holdings — Task 25 will dedupe)
@@ -138,7 +145,7 @@ describe("normalizeEmpowerAccounts", () => {
   });
 
   test("loads the real Empower sample file", () => {
-    const raw = JSON.parse(require("fs").readFileSync(require("path").resolve("data/SamplePortfolio/20260509_EmpowerKelly.json"), "utf-8"));
+    const raw = JSON.parse(require("fs").readFileSync(require("path").resolve(PORTFOLIO_DIR, "20260509_EmpowerKelly.json"), "utf-8"));
     const holdings = normalizeEmpowerAccounts(raw, "acct_a");
     expect(holdings).toHaveLength(3);
     expect(holdings.every(h => h.market_value > 0)).toBe(true);
@@ -202,7 +209,7 @@ describe("normalizeVanguardAccounts", () => {
   });
 
   test("loads the real VanguardBusiness sample file", () => {
-    const raw = JSON.parse(require("fs").readFileSync(require("path").resolve("data/SamplePortfolio/20260509_VanguardBusiness.json"), "utf-8"));
+    const raw = JSON.parse(require("fs").readFileSync(require("path").resolve(PORTFOLIO_DIR, "20260509_VanguardBusiness.json"), "utf-8"));
     const holdings = normalizeVanguardAccounts(raw, "acct_a");
     // 3 holdings (VFSUX, QQQ, NVDA) + 1 settlement_fund cash
     expect(holdings).toHaveLength(4);
@@ -314,7 +321,7 @@ describe("stock_metrics attachment", () => {
     const { computeAggregates } = await import("../engine/aggregates");
     const { scoreSingleStockRisk } = await import("../engine/dimensions");
 
-    const raw = JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio/20260509_VanguardPersonal.json"), "utf-8"));
+    const raw = JSON.parse(fs.readFileSync(path.resolve(PORTFOLIO_DIR, "20260509_VanguardPersonal.json"), "utf-8"));
     const holdings = normalizeVanguardAccounts(raw, "acct_a");
     // Build a portfolio that's mostly TSLA so the penalty shows clearly
     const portfolio = consolidatePortfolio(holdings, "2026-05-09", "Test");
@@ -442,7 +449,7 @@ describe("end-to-end normalization", () => {
     const path = await import("node:path");
     const { normalizeFidelityAccounts, normalizeEmpowerAccounts, normalizeVanguardAccounts } = await import("./normalize");
 
-    const load = (file: string) => JSON.parse(fs.readFileSync(path.resolve("data/SamplePortfolio", file), "utf-8"));
+    const load = (file: string) => JSON.parse(fs.readFileSync(path.resolve(PORTFOLIO_DIR, file), "utf-8"));
 
     const fidelityHoldings = normalizeFidelityAccounts(load("20260509_FidelityRetirement.json"), "acct_a");
     const empowerHoldings  = normalizeEmpowerAccounts(load("20260509_EmpowerKelly.json"), "acct_a");

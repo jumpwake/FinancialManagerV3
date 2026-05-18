@@ -88,7 +88,7 @@ export function generateFlags(
     });
   }
 
-  if (bondActive(sp) && macro.yield_curve_status === "inverted" && agg.fixed_income_weight < 0.15) {
+  if (bondActive(sp) && macro.yield_curve_status === "inverted" && agg.fixed_income_weight < fiTargetFor(macro, sp).min) {
     flags.push({
       ticker: "MACRO",
       severity: "yellow",
@@ -192,11 +192,15 @@ export function generateGapItems(
   // concentration, its absence is valid, so look it up non-throwing.
   const bondDim = dimensions.find((d) => d.id === "bond_balance");
   if (bondActive(sp) && bondDim && bondDim.score < 7) {
+    const fiTarget = fiTargetFor(macro, sp);
     gaps.push({
       title: "Fixed income underweight",
       type: "amber",
       body: `${(agg.fixed_income_weight * 100).toFixed(1)}% FI vs. the ${fiTargetPctText(macro, sp)} target. Add FXNAX or VBTLX weight.`,
-      progress: Math.round((agg.fixed_income_weight / 0.20) * 100),
+      // Progress toward the target floor (the point at which the gap closes).
+      progress: fiTarget.min > 0
+        ? Math.min(100, Math.round((agg.fixed_income_weight / fiTarget.min) * 100))
+        : 100,
       finding_key: buildFindingKey({ dimension: "bond_balance", type: "fi_underweight" }),
     });
   }
@@ -279,7 +283,7 @@ export function generatePlanPhases(
   const p2Actions: PlanAction[] = [];
   let p2Delta = 0;
 
-  if (bondActive(sp) && agg.fixed_income_weight < 0.16) {
+  if (bondActive(sp) && agg.fixed_income_weight < fiTargetFor(macro, sp).min) {
     p2Actions.push({
       category: "rebalance",
       description: `Increase fixed income from ${(agg.fixed_income_weight * 100).toFixed(1)}% to ${fiTargetPctText(macro, sp)}. ${capitalize(regimeAdjective(macro.market_regime))}${macro.yield_curve_status === "inverted" ? " with inverted yield curve" : ""} warrants adding FXNAX or VBTLX weight.`,
