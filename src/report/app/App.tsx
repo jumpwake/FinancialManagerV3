@@ -11,7 +11,7 @@ import Gaps from "./sections/Gaps";
 import Flags from "./sections/Flags";
 import NextMoves from "./sections/NextMoves";
 import { OpenSituations } from "./sections/OpenSituations";
-import ProfilePanel from "./sections/ProfilePanel";
+import ProfileDrawer from "./sections/ProfileDrawer";
 import { Sidebar } from "./sidebar/Sidebar";
 
 export default function App() {
@@ -20,6 +20,8 @@ export default function App() {
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
   const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
   const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
+  const [profileOpen, setProfileOpen] = useState(false);
+  const closeProfile = useCallback(() => setProfileOpen(false), []);
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -143,36 +145,55 @@ export default function App() {
     <div style={{ display: "grid", gridTemplateColumns: "1fr auto", minHeight: "100vh" }}>
       <main style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", fontFamily: "system-ui, sans-serif", width: "100%" }}>
         {/* Header */}
-        <div style={{ marginBottom: "2rem" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
-            {typedData.portfolio.account_label}
-          </h1>
-          <p style={{ fontSize: 13, color: COLORS.textMuted }}>
-            Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
-            {typedData.portfolio.holdings.length} holdings · Grade{" "}
-            <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
-            ({typedData.portfolio_score.toFixed(1)}/10)
-          </p>
-          {typedData.narratives?.headline_summary && (
-            <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
-              {typedData.narratives.headline_summary}
+        <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
+              {typedData.portfolio.account_label}
+            </h1>
+            <p style={{ fontSize: 13, color: COLORS.textMuted }}>
+              Generated {new Date(typedData.generated_at).toLocaleDateString()} ·{" "}
+              {typedData.portfolio.holdings.length} holdings · Grade{" "}
+              <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
+              ({typedData.portfolio_score.toFixed(1)}/10)
             </p>
-          )}
-          <a
-            href="#next-moves"
+            {typedData.narratives?.headline_summary && (
+              <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
+                {typedData.narratives.headline_summary}
+              </p>
+            )}
+            <a
+              href="#next-moves"
+              style={{
+                fontSize: 12,
+                color: COLORS.accentBlue,
+                textDecoration: "none",
+                marginTop: 10,
+                display: "inline-block",
+              }}
+            >
+              ↓ Jump to recommended moves
+            </a>
+          </div>
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            aria-label="User Profile"
+            title="User Profile"
             style={{
-              fontSize: 12,
-              color: COLORS.accentBlue,
-              textDecoration: "none",
-              marginTop: 10,
-              display: "inline-block",
+              flexShrink: 0,
+              background: "transparent",
+              border: `1px solid ${COLORS.border}`,
+              color: COLORS.textMuted,
+              padding: "6px 9px",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 16,
+              lineHeight: 1,
             }}
           >
-            ↓ Jump to recommended moves
-          </a>
+            👤
+          </button>
         </div>
-
-        <ProfilePanel />
 
         <OpenSituations
           situations={situations}
@@ -238,6 +259,8 @@ export default function App() {
         onScopeChange={setScope}
         initialHistory={[]}
       />
+
+      <ProfileDrawer open={profileOpen} onClose={closeProfile} />
     </div>
   );
 }
