@@ -96,6 +96,8 @@ function computeFiTarget(profile: UserProfile, macro: MacroContext): { min: numb
   return { min: round2(Math.max(0, center - 0.05)), max: round2(center + 0.05) };
 }
 
+const AGE_60_CASH_BUMP = 1.3;
+
 const RISK_CASH_MULT: Record<RiskTolerance, number> = {
   conservative: 1.5,
   moderately_conservative: 1.25,
@@ -148,7 +150,7 @@ export function deriveScoringProfile(
   }
 
   const cashLeniency =
-    RISK_CASH_MULT[profile.risk_tolerance] * (profile.age >= 60 ? 1.3 : 1.0);
+    RISK_CASH_MULT[profile.risk_tolerance] * (profile.age >= 60 ? AGE_60_CASH_BUMP : 1.0);
 
   const dropReason = bondDropReason(profile);
   const droppedDimensions: DroppedDimension[] = dropReason

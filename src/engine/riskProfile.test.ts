@@ -104,6 +104,10 @@ describe("deriveScoringProfile — tuning knobs", () => {
     expect(deriveScoringProfile({ age: 65, risk_tolerance: "moderate" }, macro).cashLeniency).toBeCloseTo(1.3, 5);
     expect(deriveScoringProfile({ age: 65, risk_tolerance: "conservative" }, macro).cashLeniency).toBeCloseTo(1.95, 5);
   });
+  it("no age bump below 60 — boundary at 59/60", () => {
+    expect(deriveScoringProfile({ age: 59, risk_tolerance: "moderate" }, macro).cashLeniency).toBeCloseTo(1.0, 5);
+    expect(deriveScoringProfile({ age: 60, risk_tolerance: "moderate" }, macro).cashLeniency).toBeCloseTo(1.3, 5);
+  });
   it("concentrationShift scales by risk tolerance", () => {
     expect(deriveScoringProfile({ age: 45, risk_tolerance: "conservative" }, macro).concentrationShift).toBeCloseTo(-0.05, 5);
     expect(deriveScoringProfile({ age: 45, risk_tolerance: "aggressive" }, macro).concentrationShift).toBeCloseTo(0.10, 5);
