@@ -4,6 +4,7 @@ import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { PortfolioAggregates, DimensionScore } from "../types";
+import { NEUTRAL_SCORING_PROFILE } from "./riskProfile";
 
 function aggWithER(er: number): PortfolioAggregates {
   return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], cross_account_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [] };
@@ -790,5 +791,123 @@ describe("scoreAssetLocation", () => {
     const result = scoreAssetLocation(p, accounts);
     expect(result.score).toBeGreaterThanOrEqual(1);
     expect(result.score).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("computePortfolioScore renormalization", () => {
+  function dim(id: string, score: number, weight: number): DimensionScore {
+    return { id, label: id, score, rating: "green", display_value: "", note: "", weight };
+  }
+
+  it("is unchanged for a full set whose weights already sum to 1.0", () => {
+    const dims = [dim("a", 8, 0.5), dim("b", 6, 0.5)];
+    expect(computePortfolioScore(dims)).toBeCloseTo(7, 5);
+  });
+
+  it("normalizes by the sum of weights when a dimension is dropped", () => {
+    // (8*0.11 + 6*0.07) / (0.11 + 0.07) = 1.30 / 0.18 = 7.2222...
+    const dims = [dim("a", 8, 0.11), dim("b", 6, 0.07)];
+    expect(computePortfolioScore(dims)).toBeCloseTo(7.2222, 3);
+  });
+
+  it("returns 0 for an empty dimension list", () => {
+    expect(computePortfolioScore([])).toBe(0);
+  });
+});
+
+describe("scoreBondBalance with a ScoringProfile", () => {
+  it("grades against the profile's fiTarget instead of the regime lookup", () => {
+    // 18% FI is inside a {0.15, 0.25} regime target (score 9) but BELOW a
+    // profile target of {0.30, 0.40} → should score lower than 9.
+    const agg = { ...aggWithER(0), fixed_income_weight: 0.18 } as PortfolioAggregates;
+    const sp = { ...NEUTRAL_SCORING_PROFILE, fiTarget: { min: 0.30, max: 0.40 } };
+    const result = scoreBondBalance(agg, makeMacro({ market_regime: "Mid Cycle" }), sp);
+    expect(result.score).toBeLessThan(9);
+    expect(result.display_value).toContain("30–40%");
+  });
+});
+
+describe("scoreCashEfficiency with cashLeniency", () => {
+  it("a lenient profile rates a cash buffer higher than the neutral profile", () => {
+    const agg = aggForCash(0.07); // neutral: 7
+    const lenient = { ...NEUTRAL_SCORING_PROFILE, cashLeniency: 1.5 };
+    expect(scoreCashEfficiency(agg, lenient).score).toBeGreaterThan(
+      scoreCashEfficiency(agg).score,
+    );
+  });
+  it("a strict profile rates a cash buffer lower than the neutral profile", () => {
+    // idle 0.06: neutral thresholds → score 7; strict (cashLeniency 0.7)
+    // shrinks thresholds (0.05*0.7=0.035, 0.08*0.7=0.056, 0.12*0.7=0.084)
+    // so 0.06 falls into a lower band → strictly lower score.
+    const agg = aggForCash(0.06);
+    const strict = { ...NEUTRAL_SCORING_PROFILE, cashLeniency: 0.7 };
+    expect(scoreCashEfficiency(agg, strict).score).toBeLessThan(
+      scoreCashEfficiency(agg).score,
+    );
+  });
+});
+
+describe("scoreConcentration with concentrationShift", () => {
+  it("a positive shift rates the same top-3 weight higher", () => {
+    const agg = aggForConc(0.50); // neutral: 6
+    const relaxed = { ...NEUTRAL_SCORING_PROFILE, concentrationShift: 0.10 };
+    expect(scoreConcentration(agg, relaxed).score).toBeGreaterThan(
+      scoreConcentration(agg).score,
+    );
+  });
+  it("a negative shift rates the same top-3 weight lower", () => {
+    const agg = aggForConc(0.35); // neutral: 10
+    const strict = { ...NEUTRAL_SCORING_PROFILE, concentrationShift: -0.05 };
+    expect(scoreConcentration(agg, strict).score).toBeLessThan(
+      scoreConcentration(agg).score,
+    );
+  });
+});
+
+describe("scoreSingleStockRisk with singleStockPenaltyScale", () => {
+  it("a scale below 1 softens the penalty (higher score)", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({
+          ticker: "RISK", market_value: 1000, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 120, beta: 1.8 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio);
+    const lenient = { ...NEUTRAL_SCORING_PROFILE, singleStockPenaltyScale: 0.6 };
+    expect(scoreSingleStockRisk(portfolio, agg, lenient).score).toBeGreaterThan(
+      scoreSingleStockRisk(portfolio, agg).score,
+    );
+  });
+});
+
+describe("scoreQualityTilt with qualityTiltRelaxed", () => {
+  it("raises the score floor when relaxed so a weak tilt is not punished", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const agg = computeAggregates(portfolio);
+    const relaxed = { ...NEUTRAL_SCORING_PROFILE, qualityTiltRelaxed: true };
+    expect(scoreQualityTilt(portfolio, agg).score).toBeLessThan(5);
+    expect(scoreQualityTilt(portfolio, agg, relaxed).score).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe("scoreAllDimensions with a ScoringProfile", () => {
+  it("returns all 11 dimensions when no profile is supplied", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro());
+    expect(dims).toHaveLength(11);
+  });
+
+  it("omits bond_balance when the profile drops it", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const sp = { ...NEUTRAL_SCORING_PROFILE, activeDimensionIds: new Set(
+      [...NEUTRAL_SCORING_PROFILE.activeDimensionIds].filter((id) => id !== "bond_balance"),
+    ) };
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro(), undefined, sp);
+    expect(dims).toHaveLength(10);
+    expect(dims.find((d) => d.id === "bond_balance")).toBeUndefined();
   });
 });

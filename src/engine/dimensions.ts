@@ -1,4 +1,6 @@
 import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
+import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET, NEUTRAL_SCORING_PROFILE, deriveScoringProfile } from "./riskProfile";
+import type { ScoringProfile } from "./riskProfile";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -56,13 +58,17 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
   };
 }
 
-export function scoreConcentration(agg: PortfolioAggregates): DimensionScore {
+export function scoreConcentration(
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const t3 = agg.top3_weight;
+  const shift = sp.concentrationShift;
   const score =
-    t3 <= 0.35 ? 10 :
-    t3 <= 0.45 ? 8 :
-    t3 <= 0.55 ? 6 :
-    t3 <= 0.65 ? 4 : 2;
+    t3 <= 0.35 + shift ? 10 :
+    t3 <= 0.45 + shift ? 8 :
+    t3 <= 0.55 + shift ? 6 :
+    t3 <= 0.65 + shift ? 4 : 2;
 
   return {
     id: "concentration",
@@ -94,14 +100,18 @@ export function scoreInternational(agg: PortfolioAggregates): DimensionScore {
   };
 }
 
-export function scoreCashEfficiency(agg: PortfolioAggregates): DimensionScore {
+export function scoreCashEfficiency(
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const idle = agg.idle_cash_weight;
+  const L = sp.cashLeniency;
   const score =
-    idle <= 0.02 ? 10 :
-    idle <= 0.05 ? 8 :
-    idle <= 0.08 ? 7 :
-    idle <= 0.12 ? 5 :
-    idle <= 0.20 ? 3 : 1;
+    idle <= 0.02 * L ? 10 :
+    idle <= 0.05 * L ? 8 :
+    idle <= 0.08 * L ? 7 :
+    idle <= 0.12 * L ? 5 :
+    idle <= 0.20 * L ? 3 : 1;
 
   const display = agg.pending_cash_weight > 0
     ? `${(idle * 100).toFixed(1)}% idle + ${(agg.pending_cash_weight * 100).toFixed(1)}% pending`
@@ -164,18 +174,14 @@ export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContex
   };
 }
 
-export const FI_TARGETS_BY_REGIME: Record<string, { min: number; max: number }> = {
-  "Late Cycle":  { min: 0.18, max: 0.30 },
-  "Mid Cycle":   { min: 0.15, max: 0.25 },
-  "Early Cycle": { min: 0.10, max: 0.20 },
-  "Recession":   { min: 0.25, max: 0.40 },
-};
-
-export const DEFAULT_FI_TARGET = { min: 0.15, max: 0.25 };
-
-export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
+export function scoreBondBalance(
+  agg: PortfolioAggregates,
+  macro: MacroContext,
+  sp?: ScoringProfile,
+): DimensionScore {
   const fi = agg.fixed_income_weight;
-  const target = FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET;
+  const target =
+    sp?.fiTarget ?? FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET;
 
   const score =
     fi >= target.min && fi <= target.max ? 9 :
@@ -194,7 +200,11 @@ export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext):
   };
 }
 
-export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
+export function scoreSingleStockRisk(
+  portfolio: Portfolio,
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const total = agg.total_value;
   const stocks = portfolio.holdings.filter(h => h.asset_class === "individual_stock" && h.stock_metrics);
 
@@ -231,7 +241,7 @@ export function scoreSingleStockRisk(portfolio: Portfolio, agg: PortfolioAggrega
     }
   }
 
-  const score = Math.max(1, 10 - totalPenalty);
+  const score = Math.max(1, 10 - totalPenalty * sp.singleStockPenaltyScale);
 
   return {
     id: "single_stock_risk",
@@ -260,7 +270,9 @@ export function scoreToGrade(score: number): string {
 }
 
 export function computePortfolioScore(dimensions: DimensionScore[]): number {
-  return dimensions.reduce((sum, d) => sum + d.score * d.weight, 0);
+  const weightSum = dimensions.reduce((sum, d) => sum + d.weight, 0);
+  if (weightSum === 0) return 0;
+  return dimensions.reduce((sum, d) => sum + d.score * d.weight, 0) / weightSum;
 }
 
 export function scoreAllDimensions(
@@ -268,20 +280,27 @@ export function scoreAllDimensions(
   agg: PortfolioAggregates,
   macro: MacroContext,
   accounts?: AccountConfig,
+  scoringProfile?: ScoringProfile,
 ): DimensionScore[] {
-  return [
+  // No profile threaded in → fall back to the regime-only, all-dimensions-active
+  // profile, which reproduces today's behavior exactly.
+  const sp = scoringProfile ?? deriveScoringProfile(null, macro);
+
+  const all: DimensionScore[] = [
     scoreCostEfficiency(agg),
     scoreDiversification(agg),
-    scoreCashEfficiency(agg),
+    scoreCashEfficiency(agg, sp),
     scoreMacroAlignment(agg, macro),
-    scoreSingleStockRisk(portfolio, agg),
+    scoreSingleStockRisk(portfolio, agg, sp),
     scoreSimplicity(agg),
-    scoreBondBalance(agg, macro),
-    scoreConcentration(agg),
+    scoreBondBalance(agg, macro, sp),
+    scoreConcentration(agg, sp),
     scoreInternational(agg),
-    scoreQualityTilt(portfolio, agg),
+    scoreQualityTilt(portfolio, agg, sp),
     scoreAssetLocation(portfolio, accounts),
   ];
+
+  return all.filter((d) => sp.activeDimensionIds.has(d.id));
 }
 
 const QUALITY_TICKERS: Record<string, number> = {
@@ -294,7 +313,11 @@ const GROWTH_CLASSES = new Set<string>([
   "us_equity_small_mid",
 ]);
 
-export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates): DimensionScore {
+export function scoreQualityTilt(
+  portfolio: Portfolio,
+  agg: PortfolioAggregates,
+  sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+): DimensionScore {
   const total = agg.total_value;
   let raw = 0;
   for (const h of portfolio.holdings) {
@@ -303,7 +326,8 @@ export function scoreQualityTilt(portfolio: Portfolio, agg: PortfolioAggregates)
       raw += QUALITY_TICKERS[h.ticker] * wt;
     }
   }
-  const score = Math.min(10, Math.max(1, raw * 2.5));
+  const floor = sp.qualityTiltRelaxed ? 5 : 1;
+  const score = Math.min(10, Math.max(floor, raw * 2.5));
 
   return {
     id: "quality_tilt",

@@ -46,7 +46,7 @@ const SEEDS: ReferenceModelSeed[] = [
 
 // Engine weights per dimension (must match dimensions.ts).
 // Stable values; benchmarks.test.ts asserts consistency with computePortfolioScore.
-const WEIGHTS: Record<string, number> = {
+export const WEIGHTS: Record<string, number> = {
   cost_efficiency: 0.09,
   diversification: 0.11,
   cash_efficiency: 0.11,
@@ -61,17 +61,36 @@ const WEIGHTS: Record<string, number> = {
 };
 
 function deriveScore(dim_scores: Record<string, number>): number {
-  return Object.entries(dim_scores).reduce(
-    (sum, [id, score]) => sum + score * (WEIGHTS[id] ?? 0),
-    0,
-  );
+  let weighted = 0;
+  let weightSum = 0;
+  for (const [id, score] of Object.entries(dim_scores)) {
+    const w = WEIGHTS[id] ?? 0;
+    weighted += score * w;
+    weightSum += w;
+  }
+  return weightSum === 0 ? 0 : weighted / weightSum;
 }
 
-export const REFERENCE_MODELS: ReferenceModel[] = SEEDS.map(seed => {
-  const score = Number(deriveScore(seed.dimension_scores).toFixed(2));
-  return {
-    ...seed,
-    score,
-    grade: scoreToGrade(score),
-  };
-});
+/**
+ * Build the reference models graded on the SAME active dimension set as the
+ * user's portfolio, so the benchmark comparison is apples-to-apples. Each
+ * seed carries all 11 dimension scores; dimensions absent from
+ * `activeDimensionIds` are filtered out and the score is re-derived.
+ */
+export function buildReferenceModels(activeDimensionIds: Set<string>): ReferenceModel[] {
+  return SEEDS.map((seed) => {
+    const dimension_scores: Record<string, number> = {};
+    for (const [id, score] of Object.entries(seed.dimension_scores)) {
+      if (activeDimensionIds.has(id)) dimension_scores[id] = score;
+    }
+    const score = Number(deriveScore(dimension_scores).toFixed(2));
+    return {
+      id: seed.id,
+      label: seed.label,
+      description: seed.description,
+      dimension_scores,
+      score,
+      grade: scoreToGrade(score),
+    };
+  });
+}

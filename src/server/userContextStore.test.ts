@@ -32,7 +32,17 @@ describe("loadUserContext", () => {
   it("returns the parsed file when it exists", () => {
     fs.writeFileSync(filePath, JSON.stringify(emptyUserContext()));
     const ctx = loadUserContext(filePath);
-    expect(ctx.version).toBe(1);
+    expect(ctx.version).toBe(2);
+  });
+
+  it("migrates a persisted v1 file to v2 on load", () => {
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({ version: 1, situations: [], notes: [], chat_history: [] }),
+    );
+    const ctx = loadUserContext(filePath);
+    expect(ctx.version).toBe(2);
+    expect(ctx.profile).toBeNull();
   });
 
   it("throws on corrupt JSON", () => {

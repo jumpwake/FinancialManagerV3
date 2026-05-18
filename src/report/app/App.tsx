@@ -11,6 +11,7 @@ import Gaps from "./sections/Gaps";
 import Flags from "./sections/Flags";
 import NextMoves from "./sections/NextMoves";
 import { OpenSituations } from "./sections/OpenSituations";
+import ProfilePanel from "./sections/ProfilePanel";
 import { Sidebar } from "./sidebar/Sidebar";
 
 export default function App() {
@@ -170,6 +171,8 @@ export default function App() {
             ↓ Jump to recommended moves
           </a>
         </div>
+
+        <ProfilePanel />
 
         <OpenSituations
           situations={situations}

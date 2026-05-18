@@ -1,14 +1,20 @@
 import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint, AccountConfig, taxTreatmentFor } from "../types";
-import { scoreToGrade, FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./dimensions";
+import { scoreToGrade } from "./dimensions";
+import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./riskProfile";
+import type { ScoringProfile } from "./riskProfile";
 import { buildFindingKey } from "./findingKeys";
 
-function fiTargetFor(regime: string): { min: number; max: number } {
-  return FI_TARGETS_BY_REGIME[regime] ?? DEFAULT_FI_TARGET;
+function fiTargetFor(macro: MacroContext, sp?: ScoringProfile): { min: number; max: number } {
+  return sp?.fiTarget ?? FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET;
 }
 
-function fiTargetPctText(regime: string): string {
-  const t = fiTargetFor(regime);
+function fiTargetPctText(macro: MacroContext, sp?: ScoringProfile): string {
+  const t = fiTargetFor(macro, sp);
   return `${(t.min * 100).toFixed(0)}–${(t.max * 100).toFixed(0)}%`;
+}
+
+function bondActive(sp?: ScoringProfile): boolean {
+  return sp ? sp.activeDimensionIds.has("bond_balance") : true;
 }
 
 function regimeAdjective(regime: string): string {
@@ -34,6 +40,7 @@ export function generateFlags(
   agg: PortfolioAggregates,
   macro: MacroContext,
   accounts?: AccountConfig,
+  sp?: ScoringProfile,
 ): Flag[] {
   const flags: Flag[] = [];
   const total = agg.total_value;
@@ -81,12 +88,12 @@ export function generateFlags(
     });
   }
 
-  if (macro.yield_curve_status === "inverted" && agg.fixed_income_weight < 0.15) {
+  if (bondActive(sp) && macro.yield_curve_status === "inverted" && agg.fixed_income_weight < 0.15) {
     flags.push({
       ticker: "MACRO",
       severity: "yellow",
       title: "Inverted yield curve — bond underweight",
-      body: `Yield curve spread at ${macro.yield_curve_spread_10y_2y.toFixed(2)}%. Fixed income at ${(agg.fixed_income_weight * 100).toFixed(1)}% is below the ${fiTargetPctText(macro.market_regime)} ${regimeAdjective(macro.market_regime)} target.`,
+      body: `Yield curve spread at ${macro.yield_curve_spread_10y_2y.toFixed(2)}%. Fixed income at ${(agg.fixed_income_weight * 100).toFixed(1)}% is below the ${fiTargetPctText(macro, sp)} ${regimeAdjective(macro.market_regime)} target.`,
       finding_key: buildFindingKey({ dimension: "macro_alignment", type: "fi_underweight_inverted_curve" }),
     });
   }
@@ -154,7 +161,8 @@ export function generateFlags(
 export function generateGapItems(
   agg: PortfolioAggregates,
   dimensions: DimensionScore[],
-  macro: MacroContext
+  macro: MacroContext,
+  sp?: ScoringProfile,
 ): GapItem[] {
   const gaps: GapItem[] = [];
 
@@ -179,12 +187,15 @@ export function generateGapItems(
     });
   }
 
-  const bondDim = requireDim(dimensions, "bond_balance");
-  if (bondDim.score < 7) {
+  // bond_balance is intentionally optional — a ScoringProfile can drop it
+  // (aggressive / long-horizon profiles). Unlike single_stock_risk and
+  // concentration, its absence is valid, so look it up non-throwing.
+  const bondDim = dimensions.find((d) => d.id === "bond_balance");
+  if (bondActive(sp) && bondDim && bondDim.score < 7) {
     gaps.push({
       title: "Fixed income underweight",
       type: "amber",
-      body: `${(agg.fixed_income_weight * 100).toFixed(1)}% FI vs. ${macro.market_regime} target. Add FXNAX or VBTLX weight.`,
+      body: `${(agg.fixed_income_weight * 100).toFixed(1)}% FI vs. the ${fiTargetPctText(macro, sp)} target. Add FXNAX or VBTLX weight.`,
       progress: Math.round((agg.fixed_income_weight / 0.20) * 100),
       finding_key: buildFindingKey({ dimension: "bond_balance", type: "fi_underweight" }),
     });
@@ -218,7 +229,8 @@ export function generateGapItems(
 export function generatePlanPhases(
   agg: PortfolioAggregates,
   macro: MacroContext,
-  baseScore: number
+  baseScore: number,
+  sp?: ScoringProfile,
 ): { phases: PlanPhase[]; trajectory: ScorePoint[] } {
   const phases: PlanPhase[] = [];
   let runningScore = baseScore;
@@ -267,10 +279,10 @@ export function generatePlanPhases(
   const p2Actions: PlanAction[] = [];
   let p2Delta = 0;
 
-  if (agg.fixed_income_weight < 0.16) {
+  if (bondActive(sp) && agg.fixed_income_weight < 0.16) {
     p2Actions.push({
       category: "rebalance",
-      description: `Increase fixed income from ${(agg.fixed_income_weight * 100).toFixed(1)}% to ${fiTargetPctText(macro.market_regime)}. ${capitalize(regimeAdjective(macro.market_regime))}${macro.yield_curve_status === "inverted" ? " with inverted yield curve" : ""} warrants adding FXNAX or VBTLX weight.`,
+      description: `Increase fixed income from ${(agg.fixed_income_weight * 100).toFixed(1)}% to ${fiTargetPctText(macro, sp)}. ${capitalize(regimeAdjective(macro.market_regime))}${macro.yield_curve_status === "inverted" ? " with inverted yield curve" : ""} warrants adding FXNAX or VBTLX weight.`,
       tags: ["impact"],
     });
     p2Delta += 0.3;

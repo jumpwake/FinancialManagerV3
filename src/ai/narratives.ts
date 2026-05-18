@@ -9,6 +9,7 @@ import type {
   DimensionScore,
   ReferenceModel,
   Flag,
+  UserProfile,
 } from "../types";
 
 const AINarrativesSchema = z.object({
@@ -64,6 +65,7 @@ export interface NarrativesInput {
   dimension_scores: DimensionScore[];
   reference_models: ReferenceModel[];
   flags: Flag[];
+  profile?: UserProfile | null;
 }
 
 export async function generateNarratives(
@@ -84,6 +86,7 @@ export async function generateNarratives(
     })),
     macro: input.macro,
     flags: input.flags,
+    profile: input.profile ?? null,
   });
 
   const response = await client.messages.parse({

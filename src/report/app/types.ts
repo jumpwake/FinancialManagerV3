@@ -1,4 +1,21 @@
 export type Rating = "green" | "yellow" | "red";
+export type RiskTolerance =
+  | "conservative"
+  | "moderately_conservative"
+  | "moderate"
+  | "moderately_aggressive"
+  | "aggressive";
+
+export interface UserProfile {
+  age: number;
+  risk_tolerance: RiskTolerance;
+}
+
+export interface DroppedDimension {
+  id: string;
+  label: string;
+  reason: string;
+}
 export type AssetClass =
   | "us_equity_total_market" | "us_equity_large_cap" | "us_equity_large_cap_growth"
   | "us_equity_small_mid" | "us_equity_sector" | "international_equity"
@@ -323,6 +340,8 @@ export interface AnalysisOutput {
   portfolio_score: number;
   portfolio_grade: string;
   dimension_scores: DimensionScore[];
+  profile?: UserProfile | null;
+  dropped_dimensions?: DroppedDimension[];
   reference_models: ReferenceModel[];
   flags: Flag[];
   gap_items: GapItem[];
