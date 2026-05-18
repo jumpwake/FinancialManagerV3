@@ -51,6 +51,7 @@ Rules:
 - No vague language: not "consider rebalancing", not "may want to look at"
 - No words "robust" or "optimize"
 - Tone: direct, like a CFA reading a portfolio to a colleague
+- When an investor profile (age, risk tolerance) is present, frame the assessment for that investor — judge the portfolio against what suits their horizon and risk appetite, not a generic ideal
 - Each gap must reference specific values from the data and propose specific actions
 - Each strength must reference specific tickers or values that make it true
 - Additional takeaways should surface non-obvious insights (overlap analysis, macro-timing nuance, sector positioning)
@@ -91,7 +92,9 @@ export async function generateNarratives(
 
   const response = await client.messages.parse({
     model: process.env.CLAUDE_MODEL_NARRATIVES ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
-    max_tokens: 2000,
+    // The structured output is 11 prose fields and adaptive thinking shares
+    // this budget — 2000 truncated the JSON for content-rich portfolios.
+    max_tokens: 8000,
     thinking: { type: "adaptive" },
     output_config: {
       effort: "medium",
