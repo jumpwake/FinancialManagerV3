@@ -51,6 +51,7 @@ Rules:
 - No vague language: not "consider rebalancing", not "may want to look at"
 - No words "robust" or "optimize"
 - Tone: direct, like a CFA reading a portfolio to a colleague
+- When an investor profile (age, risk tolerance) is present, frame the assessment for that investor — judge the portfolio against what suits their horizon and risk appetite, not a generic ideal
 - Each gap must reference specific values from the data and propose specific actions
 - Each strength must reference specific tickers or values that make it true
 - Additional takeaways should surface non-obvious insights (overlap analysis, macro-timing nuance, sector positioning)
