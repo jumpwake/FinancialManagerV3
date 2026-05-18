@@ -11,8 +11,10 @@ import Gaps from "./sections/Gaps";
 import Flags from "./sections/Flags";
 import NextMoves from "./sections/NextMoves";
 import { OpenSituations } from "./sections/OpenSituations";
-import ProfilePanel from "./sections/ProfilePanel";
+import ProfileDrawer from "./sections/ProfileDrawer";
+import TopBar from "./TopBar";
 import { Sidebar } from "./sidebar/Sidebar";
+import { initialChatState, persistCollapsed } from "./sidebar/chatStore";
 
 export default function App() {
   const [data, setData] = useState<AnalysisOutput | null>(null);
@@ -20,6 +22,17 @@ export default function App() {
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
   const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
   const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
+  const [profileOpen, setProfileOpen] = useState(false);
+  const closeProfile = useCallback(() => setProfileOpen(false), []);
+  const [chatCollapsed, setChatCollapsed] = useState(() => initialChatState().collapsed);
+  const toggleChat = useCallback(() => setChatCollapsed((c) => !c), []);
+
+  useEffect(() => persistCollapsed(chatCollapsed), [chatCollapsed]);
+
+  // Auto-open chat when something elsewhere scopes it (💬 buttons, situations).
+  useEffect(() => {
+    if (scope.type !== "global") setChatCollapsed(false);
+  }, [scope.type, scope.finding_key, scope.situation_id]);
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -140,7 +153,9 @@ export default function App() {
   const situations = liveSituations.length > 0 ? liveSituations : (typedData.situations ?? []);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <TopBar onOpenProfile={() => setProfileOpen(true)} onToggleChat={toggleChat} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", flex: 1 }}>
       <main style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", fontFamily: "system-ui, sans-serif", width: "100%" }}>
         {/* Header */}
         <div style={{ marginBottom: "2rem" }}>
@@ -171,8 +186,6 @@ export default function App() {
             ↓ Jump to recommended moves
           </a>
         </div>
-
-        <ProfilePanel />
 
         <OpenSituations
           situations={situations}
@@ -236,8 +249,13 @@ export default function App() {
       <Sidebar
         scope={scope}
         onScopeChange={setScope}
+        collapsed={chatCollapsed}
+        onCollapsedChange={setChatCollapsed}
         initialHistory={[]}
       />
+      </div>
+
+      <ProfileDrawer open={profileOpen} onClose={closeProfile} />
     </div>
   );
 }

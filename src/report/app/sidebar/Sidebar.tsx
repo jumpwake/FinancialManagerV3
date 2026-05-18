@@ -1,47 +1,30 @@
-import { useEffect, useState } from "react";
 import type { ChatScope, ChatMessage } from "../types";
-import { initialChatState, persistCollapsed } from "./chatStore";
 import { ChatHistory } from "./ChatHistory";
 import { ChatInput } from "./ChatInput";
 import { useChat } from "./useChat";
+import { TOP_BAR_HEIGHT } from "../TopBar";
 
 interface Props {
   scope: ChatScope;
   onScopeChange: (scope: ChatScope) => void;
+  /** Collapsed state is owned by App so the top-bar chat icon can toggle it. */
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
   initialHistory?: ChatMessage[];
 }
 
-export function Sidebar({ scope, onScopeChange, initialHistory = [] }: Props) {
-  const [collapsed, setCollapsed] = useState(initialChatState().collapsed);
+export function Sidebar({
+  scope,
+  onScopeChange,
+  collapsed,
+  onCollapsedChange,
+  initialHistory = [],
+}: Props) {
   const chat = useChat(initialHistory);
 
-  useEffect(() => persistCollapsed(collapsed), [collapsed]);
-
-  // Auto-open the sidebar when something gets scoped from elsewhere
-  // (e.g., 💬 button on a flag/gap row, or "Discuss in chat" on a situation card).
-  useEffect(() => {
-    if (scope.type !== "global") setCollapsed(false);
-  }, [scope.type, scope.finding_key, scope.situation_id]);
-
-  if (collapsed) {
-    return (
-      <button
-        onClick={() => setCollapsed(false)}
-        style={{
-          position: "fixed",
-          right: 12,
-          top: 12,
-          padding: "6px 10px",
-          background: "#11141a",
-          border: "1px solid #2a2d34",
-          color: "#fff",
-          cursor: "pointer",
-        }}
-      >
-        💬 Chat
-      </button>
-    );
-  }
+  // When collapsed the sidebar renders nothing — it is reopened from the
+  // top bar's chat icon (App owns the collapsed state).
+  if (collapsed) return null;
 
   return (
     <aside
@@ -51,9 +34,9 @@ export function Sidebar({ scope, onScopeChange, initialHistory = [] }: Props) {
         display: "flex",
         flexDirection: "column",
         borderLeft: "1px solid #2a2d34",
-        height: "100vh",
+        height: `calc(100vh - ${TOP_BAR_HEIGHT}px)`,
         position: "sticky",
-        top: 0,
+        top: TOP_BAR_HEIGHT,
       }}
     >
       <header
@@ -66,7 +49,7 @@ export function Sidebar({ scope, onScopeChange, initialHistory = [] }: Props) {
         }}
       >
         <strong>💬 Chat</strong>
-        <button onClick={() => setCollapsed(true)} style={{ fontSize: 11 }}>×</button>
+        <button onClick={() => onCollapsedChange(true)} style={{ fontSize: 11 }}>×</button>
       </header>
 
       {scope.type !== "global" && (
