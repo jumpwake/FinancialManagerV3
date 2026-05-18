@@ -1,5 +1,6 @@
 import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
 import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./riskProfile";
+import type { ScoringProfile } from "./riskProfile";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -165,9 +166,14 @@ export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContex
   };
 }
 
-export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
+export function scoreBondBalance(
+  agg: PortfolioAggregates,
+  macro: MacroContext,
+  sp?: ScoringProfile,
+): DimensionScore {
   const fi = agg.fixed_income_weight;
-  const target = FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET;
+  const target =
+    sp?.fiTarget ?? FI_TARGETS_BY_REGIME[macro.market_regime] ?? DEFAULT_FI_TARGET;
 
   const score =
     fi >= target.min && fi <= target.max ? 9 :

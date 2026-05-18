@@ -4,6 +4,7 @@ import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 import { PortfolioAggregates, DimensionScore } from "../types";
+import { NEUTRAL_SCORING_PROFILE } from "./riskProfile";
 
 function aggWithER(er: number): PortfolioAggregates {
   return { total_value: 1000, blended_expense_ratio: er, holding_count: 0, duplicate_groups: [], cross_account_groups: [], top3_weight: 0, top3_tickers: [], international_weight: 0, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0, fixed_income_weight: 0, individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [] };
@@ -811,5 +812,17 @@ describe("computePortfolioScore renormalization", () => {
 
   it("returns 0 for an empty dimension list", () => {
     expect(computePortfolioScore([])).toBe(0);
+  });
+});
+
+describe("scoreBondBalance with a ScoringProfile", () => {
+  it("grades against the profile's fiTarget instead of the regime lookup", () => {
+    // 18% FI is inside a {0.15, 0.25} regime target (score 9) but BELOW a
+    // profile target of {0.30, 0.40} → should score lower than 9.
+    const agg = { ...aggWithER(0), fixed_income_weight: 0.18 } as PortfolioAggregates;
+    const sp = { ...NEUTRAL_SCORING_PROFILE, fiTarget: { min: 0.30, max: 0.40 } };
+    const result = scoreBondBalance(agg, makeMacro({ market_regime: "Mid Cycle" }), sp);
+    expect(result.score).toBeLessThan(9);
+    expect(result.display_value).toContain("30–40%");
   });
 });
