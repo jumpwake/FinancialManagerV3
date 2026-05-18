@@ -412,3 +412,42 @@ describe("plan generators with a bond_balance-dropped ScoringProfile", () => {
     expect(allActions.some((d) => d.includes("Increase fixed income"))).toBe(false);
   });
 });
+
+describe("plan FI triggers use the profile target floor, not a hardcoded threshold", () => {
+  // A conservative profile with a 30–40% FI target. 20% FI is ABOVE the old
+  // hardcoded 15/16% thresholds but BELOW this profile's 30% floor.
+  const conservativeSp = {
+    ...NEUTRAL_SCORING_PROFILE,
+    fiTarget: { min: 0.30, max: 0.40 },
+  };
+  const aggAt20pctFI = {
+    total_value: 1000, blended_expense_ratio: 0, holding_count: 1,
+    duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
+    international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
+    pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.7, fixed_income_weight: 0.20,
+    individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+  } as PortfolioAggregates;
+
+  it("generateFlags fires the inverted-curve flag at 20% FI when the profile floor is 30%", () => {
+    const portfolio = makePortfolio({ holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })] });
+    const macro = makeMacro({ yield_curve_status: "inverted" });
+    // No profile (regime floor 15%): 20% FI would NOT flag.
+    expect(
+      generateFlags(portfolio, aggAt20pctFI, macro, undefined).some(
+        (f) => f.title === "Inverted yield curve — bond underweight",
+      ),
+    ).toBe(false);
+    // Conservative profile (floor 30%): 20% FI is underweight → flag fires.
+    expect(
+      generateFlags(portfolio, aggAt20pctFI, macro, undefined, conservativeSp).some(
+        (f) => f.title === "Inverted yield curve — bond underweight",
+      ),
+    ).toBe(true);
+  });
+
+  it("generatePlanPhases adds the Phase 2 FI action at 20% FI when the profile floor is 30%", () => {
+    const actions = generatePlanPhases(aggAt20pctFI, makeMacro(), 7, conservativeSp)
+      .phases.flatMap((p) => p.actions.map((a) => a.description));
+    expect(actions.some((d) => d.includes("Increase fixed income"))).toBe(true);
+  });
+});
