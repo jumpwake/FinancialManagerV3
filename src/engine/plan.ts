@@ -1,5 +1,6 @@
 import { Portfolio, MacroContext, PortfolioAggregates, Flag, DimensionScore, GapItem, PlanPhase, PlanAction, ScorePoint, AccountConfig, taxTreatmentFor } from "../types";
-import { scoreToGrade, FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./dimensions";
+import { scoreToGrade } from "./dimensions";
+import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./riskProfile";
 import { buildFindingKey } from "./findingKeys";
 
 function fiTargetFor(regime: string): { min: number; max: number } {

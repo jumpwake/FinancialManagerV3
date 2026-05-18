@@ -1,4 +1,5 @@
 import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
+import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET } from "./riskProfile";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -163,15 +164,6 @@ export function scoreMacroAlignment(agg: PortfolioAggregates, macro: MacroContex
     weight: 0.09,
   };
 }
-
-export const FI_TARGETS_BY_REGIME: Record<string, { min: number; max: number }> = {
-  "Late Cycle":  { min: 0.18, max: 0.30 },
-  "Mid Cycle":   { min: 0.15, max: 0.25 },
-  "Early Cycle": { min: 0.10, max: 0.20 },
-  "Recession":   { min: 0.25, max: 0.40 },
-};
-
-export const DEFAULT_FI_TARGET = { min: 0.15, max: 0.25 };
 
 export function scoreBondBalance(agg: PortfolioAggregates, macro: MacroContext): DimensionScore {
   const fi = agg.fixed_income_weight;
