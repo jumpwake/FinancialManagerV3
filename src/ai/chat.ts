@@ -137,6 +137,7 @@ function trimAnalysisByScope(analysis: any, scope: ChatScope): unknown {
       dimension_scores: analysis.dimension_scores,
       macro: analysis.macro,
       aggregates: analysis.aggregates,
+      profile: analysis.profile ?? null,
     };
   }
   if (scope.type === "flag" || scope.type === "gap") {
@@ -168,6 +169,7 @@ function trimAnalysisByScope(analysis: any, scope: ChatScope): unknown {
       aggregates: analysis.aggregates,
       macro: analysis.macro,
       top_flags: (analysis.flags ?? []).slice(0, 3),
+      profile: analysis.profile ?? null,
     };
   }
   if (scope.type === "tactical_move") {

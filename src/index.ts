@@ -206,6 +206,7 @@ async function main() {
     console.log("Calling Anthropic API for narratives...");
     try {
       narratives = await generateNarratives({
+        profile: userContext.profile,
         portfolio: effectedPortfolio,
         macro,
         aggregates,
@@ -288,6 +289,7 @@ async function main() {
     console.log("Calling Anthropic API for tactical advisor recommendations...");
     try {
       tactical_advisor = await runTacticalAdvisor({
+        profile: userContext.profile,
         portfolio: effectedPortfolio,
         aggregates,
         macro,

@@ -11,6 +11,7 @@ import type {
   AccountConfig,
   Situation,
   TacticalAdvisorOutput,
+  UserProfile,
 } from "../types";
 import { ADVISOR_PERSONA } from "./advisorPersona";
 
@@ -67,6 +68,7 @@ export interface TacticalInputContext {
   gap_items: GapItem[];
   accounts: AccountConfig;
   open_situations: Situation[];
+  profile?: UserProfile | null;
 }
 
 export function renderTacticalInput(ctx: TacticalInputContext): string {
@@ -82,6 +84,7 @@ export function renderTacticalInput(ctx: TacticalInputContext): string {
       gap_items: ctx.gap_items,
       accounts: ctx.accounts,
       open_situations: ctx.open_situations.filter(s => s.status === "open"),
+      profile: ctx.profile ?? null,
     },
     null,
     2,

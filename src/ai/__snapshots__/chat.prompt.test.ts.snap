@@ -37,7 +37,8 @@ exports[`renderChatInput > emits a global-scope context block including header, 
     "aggregates": {
       "total_value": 2500000,
       "cash_weight": 0.247
-    }
+    },
+    "profile": null
   },
   "open_situations": [],
   "notes_in_scope": [],
