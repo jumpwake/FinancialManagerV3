@@ -27,6 +27,30 @@ builder.Services.AddAuthentication(options =>
     {
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/access-denied";
+        // For /api/* requests, return a bare status code the SPA's fetch() can
+        // branch on, instead of a 302 redirect. A browser fetch silently follows
+        // a redirect — it would chase the /login -> Google hop and fail with an
+        // opaque CORS error instead of letting the SPA show its landing page.
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/api"))
+            {
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            }
+            ctx.Response.Redirect(ctx.RedirectUri);
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/api"))
+            {
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+            ctx.Response.Redirect(ctx.RedirectUri);
+            return Task.CompletedTask;
+        };
     })
     .AddGoogle(options =>
     {
@@ -71,6 +95,12 @@ app.MapMeEndpoints();
 app.MapAnalysisEndpoints();
 app.MapUserContextEndpoints();
 app.MapAuthEndpoints();
+
+// Dev-only sign-in bypass — never mapped outside the Development environment.
+if (app.Environment.IsDevelopment())
+{
+    app.MapDevAuthEndpoints();
+}
 
 // Unknown /api/* routes return 404 rather than falling back to the SPA.
 app.MapFallback("/api/{*path}", () => Results.NotFound());

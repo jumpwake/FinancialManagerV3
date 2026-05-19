@@ -15,10 +15,13 @@ import ProfileDrawer from "./sections/ProfileDrawer";
 import TopBar from "./TopBar";
 import { Sidebar } from "./sidebar/Sidebar";
 import { initialChatState, persistCollapsed } from "./sidebar/chatStore";
+import Landing from "./Landing";
 
 export default function App() {
   const [data, setData] = useState<AnalysisOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // null = still checking /api/me; true/false = signed-in state known.
+  const [authed, setAuthed] = useState<boolean | null>(null);
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
   const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
   const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
@@ -38,8 +41,8 @@ export default function App() {
     try {
       const r = await fetch("/api/analysis");
       if (r.status === 401) {
-        // Not signed in — hand off to the server's Google login.
-        window.location.href = "/login";
+        // Session ended — drop back to the landing page.
+        setAuthed(false);
         return;
       }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -61,12 +64,23 @@ export default function App() {
     }
   }, []);
 
+  // On mount, check whether a user is signed in before loading anything.
   useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me")
+      .then((r) => { if (!cancelled) setAuthed(r.ok); })
+      .catch(() => { if (!cancelled) setAuthed(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Load report data only once we know the user is signed in.
+  useEffect(() => {
+    if (authed !== true) return;
     loadAnalysis();
     loadSituations();
     const id = setInterval(loadSituations, 5000);
     return () => clearInterval(id);
-  }, [loadAnalysis, loadSituations]);
+  }, [authed, loadAnalysis, loadSituations]);
 
   const handleResolve = useCallback(
     async (sit: Situation) => {
@@ -136,6 +150,16 @@ export default function App() {
       });
     }
   }, [loadSituations]);
+
+  if (authed === null) {
+    return (
+      <div style={{ padding: "2rem", color: COLORS.textMuted }}>Checking sign-in…</div>
+    );
+  }
+
+  if (!authed) {
+    return <Landing />;
+  }
 
   if (error) {
     return (

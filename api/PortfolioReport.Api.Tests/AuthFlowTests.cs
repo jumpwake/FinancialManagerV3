@@ -1,0 +1,88 @@
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Xunit;
+
+/// <summary>
+/// Exercises the REAL auth pipeline (cookie + Google schemes), unlike ApiFactory
+/// which swaps in a header-driven test scheme. Dummy Google credentials satisfy
+/// GoogleOptions validation at startup; the Google scheme is never invoked here.
+/// </summary>
+public class AuthFlowTests
+{
+    private sealed class RealPipelineFactory : WebApplicationFactory<Program>
+    {
+        private readonly string _environment;
+        public RealPipelineFactory(string environment) => _environment = environment;
+
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseEnvironment(_environment);
+            builder.UseSetting("Google:ClientId", "test-client-id");
+            builder.UseSetting("Google:ClientSecret", "test-client-secret");
+            builder.UseSetting("Storage:DataRoot",
+                Path.Combine(Path.GetTempPath(), "authflow-" + Guid.NewGuid()));
+        }
+    }
+
+    private static HttpClient NoRedirectClient(WebApplicationFactory<Program> factory) =>
+        factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+    [Fact]
+    public async Task UnauthenticatedApiRequestReturns401NotRedirect()
+    {
+        using var factory = new RealPipelineFactory("Development");
+        using var client = NoRedirectClient(factory);
+
+        var res = await client.GetAsync("/api/me");
+
+        // Must be a clean 401 the SPA can branch on — NOT a 302 to /login, which
+        // a browser fetch() would silently follow into Google and CORS-fail.
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task DevLoginSignsInTheChosenUser()
+    {
+        using var factory = new RealPipelineFactory("Development");
+        using var client = NoRedirectClient(factory);
+
+        var login = await client.GetAsync("/dev-login?user=luke");
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+        // The auth cookie set by /dev-login is carried by the client.
+        var me = await client.GetAsync("/api/me");
+        me.EnsureSuccessStatusCode();
+        var body = await me.Content.ReadFromJsonAsync<MeBody>();
+        Assert.Equal("luke", body!.User);
+    }
+
+    [Fact]
+    public async Task DevLoginRejectsUnknownUser()
+    {
+        using var factory = new RealPipelineFactory("Development");
+        using var client = NoRedirectClient(factory);
+
+        var res = await client.GetAsync("/dev-login?user=nobody");
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task DevLoginDoesNothingInProduction()
+    {
+        using var factory = new RealPipelineFactory("Production");
+        using var client = NoRedirectClient(factory);
+
+        // In Production the /dev-login route is not mapped, so the request falls
+        // through to the SPA fallback and signs nobody in.
+        await client.GetAsync("/dev-login?user=luke");
+
+        var me = await client.GetAsync("/api/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+    }
+
+    private sealed record MeBody(string User);
+}
