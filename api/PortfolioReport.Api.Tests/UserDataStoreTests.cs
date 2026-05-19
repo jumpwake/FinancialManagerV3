@@ -49,10 +49,19 @@ public class UserDataStoreTests : IDisposable
     [Theory]
     [InlineData("../secrets.json")]
     [InlineData("sub/file.json")]
+    [InlineData("C:evil.json")]
     public async Task RejectsUnsafeFileNames(string badFile)
     {
         var store = new UserDataStore(_root);
         await Assert.ThrowsAsync<ArgumentException>(
             () => store.ReadAsync("kevin", badFile));
+    }
+
+    [Fact]
+    public async Task WriteAsyncRejectsUnsafeFileNames()
+    {
+        var store = new UserDataStore(_root);
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => store.WriteAsync("kevin", "../evil.json", "{}"));
     }
 }

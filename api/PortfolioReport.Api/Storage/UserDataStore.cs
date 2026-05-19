@@ -27,20 +27,35 @@ public sealed class UserDataStore
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         // Write to a temp file then move, so a reader never sees a half-written file.
         var tmp = path + ".tmp";
-        await File.WriteAllTextAsync(tmp, content);
-        File.Move(tmp, path, overwrite: true);
+        try
+        {
+            await File.WriteAllTextAsync(tmp, content);
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmp); } catch { /* best-effort cleanup */ }
+            throw;
+        }
     }
 
     private string ResolvePath(string user, string fileName)
     {
         if (string.IsNullOrWhiteSpace(user) ||
-            user.IndexOfAny(PathSeparators) >= 0 || user.Contains(".."))
+            user.IndexOfAny(PathSeparators) >= 0 || user.Contains("..") || user.Contains(':'))
             throw new ArgumentException($"Invalid user key: '{user}'", nameof(user));
 
         if (string.IsNullOrWhiteSpace(fileName) ||
-            fileName.IndexOfAny(PathSeparators) >= 0 || fileName.Contains(".."))
+            fileName.IndexOfAny(PathSeparators) >= 0 || fileName.Contains("..") || fileName.Contains(':'))
             throw new ArgumentException($"Invalid file name: '{fileName}'", nameof(fileName));
 
-        return Path.Combine(_root, user, fileName);
+        // Defense-in-depth: confirm the resolved path is genuinely inside _root,
+        // even if some future syntactic trick slips past the checks above.
+        var resolved = Path.GetFullPath(Path.Combine(_root, user, fileName));
+        var prefix = _root + Path.DirectorySeparatorChar;
+        if (!resolved.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"Resolved path escapes the data root: '{fileName}'");
+
+        return resolved;
     }
 }
