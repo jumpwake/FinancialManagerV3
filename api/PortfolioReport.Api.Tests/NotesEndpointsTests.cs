@@ -85,6 +85,22 @@ public class NotesEndpointsTests
         var updated = await res.Content.ReadFromJsonAsync<JsonObject>();
 
         Assert.False((bool)updated!["suppress_flag"]!);
+        Assert.Equal(id, (string)updated["id"]!);
+        Assert.NotNull(updated["created_at"]);
+    }
+
+    [Fact]
+    public async Task PostIsScopedToTheCallingUser()
+    {
+        using var factory = new ApiFactory();
+        using var kevin = SignedIn(factory, "kevin");
+        using var luke = SignedIn(factory, "luke");
+
+        await kevin.PostAsJsonAsync("/api/notes", SampleNote());
+
+        var lukeList = await (await luke.GetAsync("/api/notes"))
+            .Content.ReadFromJsonAsync<JsonArray>();
+        Assert.Empty(lukeList!);
     }
 
     [Fact]
