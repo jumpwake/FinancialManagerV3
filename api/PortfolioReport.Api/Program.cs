@@ -113,6 +113,7 @@ app.MapAnalysisEndpoints();
 app.MapUserContextEndpoints();
 app.MapSituationsEndpoints();
 app.MapNotesEndpoints();
+app.MapProfileEndpoints();
 app.MapAuthEndpoints();
 
 // Dev-only sign-in bypass — never mapped outside the Development environment.
