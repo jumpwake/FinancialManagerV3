@@ -14,6 +14,7 @@ export default defineConfig({
       "/api": { target: API_TARGET, changeOrigin: true },
       "/login": { target: API_TARGET, changeOrigin: true },
       "/logout": { target: API_TARGET, changeOrigin: true },
+      "/dev-login": { target: API_TARGET, changeOrigin: true },
       "/access-denied": { target: API_TARGET, changeOrigin: true },
       "/signin-google": { target: API_TARGET, changeOrigin: true },
     },
