@@ -59,5 +59,62 @@ public static class SituationsEndpoints
             var json = Encoding.UTF8.GetString(ms.ToArray());
             return Results.Content(json, "application/json", statusCode: StatusCodes.Status201Created);
         }).RequireAuthorization("session");
+
+        app.MapPatch("/api/situations/{id}", async (
+            string id, HttpContext http, UserContextStore store, JsonObject? body) =>
+        {
+            var user = CurrentUser.KeyOf(http.User);
+            if (user is null) return Results.Unauthorized();
+            if (body is null) return Results.BadRequest(new { error = "body required" });
+
+            JsonObject? updated = null;
+            await store.MutateAsync(user, c =>
+            {
+                var match = c["situations"]!.AsArray().OfType<JsonObject>()
+                    .FirstOrDefault(s => Json.Str(s["id"]) == id);
+                if (match is null) return;
+
+                foreach (var kv in body)
+                {
+                    if (kv.Key == "id") continue;  // the id is server-owned
+                    match[kv.Key] = kv.Value?.DeepClone();
+                }
+                match["updated_at"] = ContextIds.Timestamp();
+                if (Json.Str(match["status"]) == "closed" && match["closed_at"] is null)
+                    match["closed_at"] = ContextIds.Timestamp();
+
+                updated = (JsonObject)match.DeepClone();
+            });
+            if (updated is null)
+                return Results.NotFound(new { error = "not found" });
+
+            // Serialize via ToJsonString() to avoid JsonNode TypeInfoResolver issues in .NET 8.
+            return Results.Content(updated.ToJsonString(), "application/json");
+        }).RequireAuthorization("session");
+
+        app.MapDelete("/api/situations/{id}", async (
+            string id, HttpContext http, UserContextStore store) =>
+        {
+            var user = CurrentUser.KeyOf(http.User);
+            if (user is null) return Results.Unauthorized();
+
+            var removed = false;
+            await store.MutateAsync(user, c =>
+            {
+                var arr = c["situations"]!.AsArray();
+                for (var i = 0; i < arr.Count; i++)
+                {
+                    if (Json.Str(arr[i]?["id"]) == id)
+                    {
+                        arr.RemoveAt(i);
+                        removed = true;
+                        return;
+                    }
+                }
+            });
+            return removed
+                ? Results.NoContent()
+                : Results.NotFound(new { error = "not found" });
+        }).RequireAuthorization("session");
     }
 }
