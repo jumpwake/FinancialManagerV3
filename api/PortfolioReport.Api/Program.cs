@@ -111,6 +111,7 @@ app.MapGet("/api/config", (
 app.MapMeEndpoints();
 app.MapAnalysisEndpoints();
 app.MapUserContextEndpoints();
+app.MapSituationsEndpoints();
 app.MapAuthEndpoints();
 
 // Dev-only sign-in bypass — never mapped outside the Development environment.
