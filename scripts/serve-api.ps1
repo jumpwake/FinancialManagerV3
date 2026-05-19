@@ -9,5 +9,5 @@ Write-Host "Building the React report into wwwroot..."
 npx vite build (Join-Path $repo "src/report/app") --outDir "$wwwroot" --emptyOutDir
 if ($LASTEXITCODE -ne 0) { throw "vite build failed" }
 
-Write-Host "Starting the API — open http://localhost:5000  (Ctrl+C to stop)"
+Write-Host "Starting the API - open http://localhost:5000  (Ctrl+C to stop)"
 dotnet run --project (Join-Path $repo "api/PortfolioReport.Api")
