@@ -76,7 +76,7 @@ public static class SituationsEndpoints
 
                 foreach (var kv in body)
                 {
-                    if (kv.Key == "id") continue;  // the id is server-owned
+                    if (kv.Key is "id" or "created_at") continue;  // server-owned, never overwritten
                     match[kv.Key] = kv.Value?.DeepClone();
                 }
                 match["updated_at"] = ContextIds.Timestamp();

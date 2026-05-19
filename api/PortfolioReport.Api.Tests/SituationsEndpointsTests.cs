@@ -98,6 +98,7 @@ public class SituationsEndpointsTests
         Assert.Equal("closed", (string)updated!["status"]!);
         Assert.Equal("completed", (string)updated["closure_reason"]!);
         Assert.NotNull(updated["closed_at"]);
+        Assert.NotNull(updated!["updated_at"]);
     }
 
     [Fact]
