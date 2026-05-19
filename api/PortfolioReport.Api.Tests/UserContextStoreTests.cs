@@ -44,4 +44,20 @@ public class UserContextStoreTests : IDisposable
         var luke = await store.LoadAsync("luke");
         Assert.Empty(luke["notes"]!.AsArray());
     }
+
+    [Fact]
+    public async Task ConcurrentMutationsDoNotLoseUpdates()
+    {
+        var store = NewStore();
+        const int N = 20;
+
+        var tasks = Enumerable.Range(0, N)
+            .Select(i => store.MutateAsync("kevin",
+                c => c["situations"]!.AsArray().Add($"m{i}")))
+            .ToArray();
+        await Task.WhenAll(tasks);
+
+        var reloaded = await store.LoadAsync("kevin");
+        Assert.Equal(N, reloaded["situations"]!.AsArray().Count);
+    }
 }

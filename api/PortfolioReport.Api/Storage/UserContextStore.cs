@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -20,6 +21,7 @@ public sealed class UserContextStore
     private static readonly JsonWriterOptions IndentedWriter = new() { Indented = true };
 
     private readonly UserDataStore _files;
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
 
     public UserContextStore(UserDataStore files) => _files = files;
 
@@ -31,13 +33,26 @@ public sealed class UserContextStore
             ?? throw new InvalidOperationException("user-context.json is not a JSON object.");
     }
 
-    /// <summary>Loads, applies the mutation, then atomically writes the result back.</summary>
+    /// <summary>
+    /// Loads, applies the mutation, then atomically writes the result back.
+    /// Serialized per user — concurrent calls for the same user run one at a
+    /// time, so no mutation is lost. Different users do not contend.
+    /// </summary>
     public async Task<JsonObject> MutateAsync(string user, Action<JsonObject> mutate)
     {
-        var ctx = await LoadAsync(user);
-        mutate(ctx);
-        await _files.WriteAsync(user, FileName, Serialize(ctx));
-        return ctx;
+        var gate = _locks.GetOrAdd(user, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try
+        {
+            var ctx = await LoadAsync(user);
+            mutate(ctx);
+            await _files.WriteAsync(user, FileName, Serialize(ctx));
+            return ctx;
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     /// <summary>Serializes a JsonObject to an indented string via Utf8JsonWriter.</summary>
