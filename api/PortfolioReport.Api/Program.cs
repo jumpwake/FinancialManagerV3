@@ -60,11 +60,11 @@ builder.Services.AddAuthorizationBuilder()
 
 var app = builder.Build();
 
-app.UseAuthentication();
-app.UseAuthorization();
-
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/healthz", () => Results.Ok("ok"));
 app.MapMeEndpoints();
