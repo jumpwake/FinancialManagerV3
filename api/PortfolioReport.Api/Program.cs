@@ -18,12 +18,37 @@ builder.Services.AddSingleton(_ =>
 });
 builder.Services.AddSingleton<PortfolioReport.Api.Auth.PushTokenResolver>();
 
-// Production auth uses a cookie. The Google challenge scheme is added in Task 10.
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.Google.GoogleDefaults.AuthenticationScheme;
+    })
     .AddCookie(options =>
     {
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/access-denied";
+    })
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Google:ClientId"] ?? "";
+        options.ClientSecret = builder.Configuration["Google:ClientSecret"] ?? "";
+        options.Events.OnCreatingTicket = context =>
+        {
+            // Match the Google email against the allowlist. Reject unknown
+            // accounts; for known ones, attach the short user key as a claim.
+            var allowlist = context.HttpContext.RequestServices
+                .GetRequiredService<Microsoft.Extensions.Options.IOptions<AllowlistOptions>>().Value;
+            var email = context.Identity?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var record = allowlist.FindByEmail(email);
+            if (record is null)
+            {
+                context.Fail("Email is not on the allowlist.");
+                return Task.CompletedTask;
+            }
+            context.Identity!.AddClaim(
+                new System.Security.Claims.Claim(PortfolioReport.Api.Auth.CurrentUser.UserClaim, record.User));
+            return Task.CompletedTask;
+        };
     });
 
 builder.Services.AddAuthorizationBuilder()
@@ -42,6 +67,7 @@ app.MapGet("/healthz", () => Results.Ok("ok"));
 app.MapMeEndpoints();
 app.MapAnalysisEndpoints();
 app.MapUserContextEndpoints();
+app.MapAuthEndpoints();
 
 app.Run();
 

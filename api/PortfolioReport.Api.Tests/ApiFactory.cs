@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using PortfolioReport.Api.Storage;
 
 /// <summary>
@@ -31,6 +33,13 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
         builder.ConfigureTestServices(services =>
         {
+            // Remove the Google OAuth options validator so empty ClientId/ClientSecret
+            // don't cause 500s in tests (the Google scheme is never invoked in tests).
+            var googleValidators = services
+                .Where(d => d.ServiceType == typeof(IValidateOptions<GoogleOptions>))
+                .ToList();
+            foreach (var d in googleValidators) services.Remove(d);
+
             // Replace the real cookie/Google scheme with the header-driven test scheme.
             services.AddAuthentication(TestAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
