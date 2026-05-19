@@ -15,7 +15,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public string DataRoot { get; } =
         Path.Combine(Path.GetTempPath(), "api-" + Guid.NewGuid());
 
-    public UserDataStore Store => new(DataRoot);
+    public UserDataStore Store { get; }
+
+    public ApiFactory()
+    {
+        Store = new UserDataStore(DataRoot);
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
