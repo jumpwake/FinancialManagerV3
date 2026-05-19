@@ -39,6 +39,7 @@ app.UseAuthorization();
 
 app.MapGet("/healthz", () => Results.Ok("ok"));
 app.MapMeEndpoints();
+app.MapAnalysisEndpoints();
 
 app.Run();
 
