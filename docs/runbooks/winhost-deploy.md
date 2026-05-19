@@ -13,8 +13,10 @@
 3. Provide production config. Either deploy an `appsettings.Production.json`
    (NOT in git) or set environment variables on the IIS app:
    - `Google__ClientId`, `Google__ClientSecret`
-   - `Allowlist__Users__0__Email`, `__0__User`, `__0__PushToken`
-     (repeat the index for each user)
+   - `Allowlist__Users__0__Email`
+   - `Allowlist__Users__0__User`
+   - `Allowlist__Users__0__PushToken`
+     (repeat the `__0__` index — `__1__`, `__2__` … — for each additional user)
    - `Storage__DataRoot` — absolute path to the App_Data folder if it must
      live outside the site root.
 4. Generate a strong random push token per user; put it in both the server
@@ -28,6 +30,12 @@ PUBLISH_PUSH_TOKEN=<that user's push token — must match the server's Allowlist
 ```
 `USER_CONTEXT_FILE` and `OUTPUT_FILE` are already used by the existing
 `analyze` pipeline and must also be set.
+
+Example for user `kevin`:
+```
+USER_CONTEXT_FILE=data/kevin/user-context.json
+OUTPUT_FILE=output/kevin/analysis.json
+```
 
 ## Each deployment
 1. Locally: `npm run build:api`.
