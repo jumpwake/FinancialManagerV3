@@ -10,3 +10,11 @@ output/
 data/**/user-context.json
 data/**/accounts.csv
 data/**/analysis.json
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# Server data + deployed secrets (never commit)
+api/PortfolioReport.Api/App_Data/
+appsettings.Production.json
