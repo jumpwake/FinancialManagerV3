@@ -18,3 +18,6 @@ data/**/analysis.json
 # Server data + deployed secrets (never commit)
 api/PortfolioReport.Api/App_Data/
 appsettings.Production.json
+
+# React build output written into the API wwwroot by scripts/build-api.ps1
+api/PortfolioReport.Api/wwwroot/assets/
