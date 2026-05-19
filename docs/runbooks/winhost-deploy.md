@@ -49,7 +49,9 @@ OUTPUT_FILE=output/kevin/analysis.json
 - `https://finance.bis-corp.com/` signed out -> redirects to Google login.
 - Sign in with an allowlisted account -> report loads (or shows the
   "no analysis published" hint).
-- Run `npm run publish -- --user <name>` locally -> report shows the analysis.
+- Run `npm run publish:<name>` locally (e.g. `npm run publish:kevin`) -> report
+  shows the analysis. Use the per-user script — `npm run publish -- --user <name>`
+  loses the `--user` flag under Windows PowerShell.
 
 ## Backups
 - `App_Data/<user>/user-context.json` is the only server-authoritative data.

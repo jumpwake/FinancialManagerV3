@@ -2,7 +2,11 @@
  * Local publish flow: pull the server's user-context.json, run the analyze
  * pipeline, then push the resulting analysis.json back to the server.
  *
- * Usage:  npm run publish -- --user kevin
+ * Usage:  npm run publish:kevin   (or publish:luke)
+ *
+ * Prefer the per-user scripts above. The bare `npm run publish -- --user <name>`
+ * works only in shells that forward `--` cleanly (e.g. bash) — Windows
+ * PowerShell drops it, so `--user` never reaches this script.
  *
  * Env (from .env / .env.<user>):
  *   PUBLISH_API_BASE   e.g. https://finance.bis-corp.com

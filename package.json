@@ -8,6 +8,8 @@
     "report": "tsx scripts/report.ts",
     "report:luke": "tsx scripts/report.ts --user luke",
     "publish": "tsx scripts/publish.ts",
+    "publish:kevin": "tsx scripts/publish.ts --user kevin",
+    "publish:luke": "tsx scripts/publish.ts --user luke",
     "build": "tsc && vite build src/report/app",
     "build:api": "powershell -ExecutionPolicy Bypass -File scripts/build-api.ps1",
     "test": "vitest run",
