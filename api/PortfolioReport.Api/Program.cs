@@ -63,11 +63,20 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapGet("/healthz", () => Results.Ok("ok"));
 app.MapMeEndpoints();
 app.MapAnalysisEndpoints();
 app.MapUserContextEndpoints();
 app.MapAuthEndpoints();
+
+// Unknown /api/* routes return 404 rather than falling back to the SPA.
+app.MapFallback("/api/{*path}", () => Results.NotFound());
+
+// Any non-API, non-file GET falls back to the SPA so client-side routing works.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
