@@ -91,6 +91,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/healthz", () => Results.Ok("ok"));
+
+// Unauthenticated: tells the SPA landing page whether the dev-login bypass is
+// available (Development only) and which users it offers.
+app.MapGet("/api/config", (
+    IWebHostEnvironment env,
+    Microsoft.Extensions.Options.IOptions<AllowlistOptions> allowlist) =>
+{
+    var dev = env.IsDevelopment();
+    return Results.Ok(new
+    {
+        devLogin = dev,
+        devUsers = dev
+            ? allowlist.Value.Users.Select(u => u.User).ToArray()
+            : Array.Empty<string>(),
+    });
+});
 app.MapMeEndpoints();
 app.MapAnalysisEndpoints();
 app.MapUserContextEndpoints();

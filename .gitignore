@@ -19,5 +19,6 @@ data/**/analysis.json
 api/PortfolioReport.Api/App_Data/
 appsettings.Production.json
 
-# React build output written into the API wwwroot by scripts/build-api.ps1
-api/PortfolioReport.Api/wwwroot/assets/
+# React build output — wwwroot is populated by scripts/build-api.ps1 and
+# scripts/serve-api.ps1, and is never committed.
+api/PortfolioReport.Api/wwwroot/

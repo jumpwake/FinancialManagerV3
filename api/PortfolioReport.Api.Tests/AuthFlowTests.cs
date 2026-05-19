@@ -84,5 +84,34 @@ public class AuthFlowTests
         Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
     }
 
+    [Fact]
+    public async Task ConfigReportsDevLoginInDevelopment()
+    {
+        using var factory = new RealPipelineFactory("Development");
+        using var client = NoRedirectClient(factory);
+
+        var res = await client.GetAsync("/api/config");
+        res.EnsureSuccessStatusCode();
+        var cfg = await res.Content.ReadFromJsonAsync<ConfigBody>();
+
+        Assert.True(cfg!.DevLogin);
+        Assert.Contains("kevin", cfg.DevUsers);
+    }
+
+    [Fact]
+    public async Task ConfigHidesDevLoginInProduction()
+    {
+        using var factory = new RealPipelineFactory("Production");
+        using var client = NoRedirectClient(factory);
+
+        var res = await client.GetAsync("/api/config");
+        res.EnsureSuccessStatusCode();
+        var cfg = await res.Content.ReadFromJsonAsync<ConfigBody>();
+
+        Assert.False(cfg!.DevLogin);
+        Assert.Empty(cfg.DevUsers);
+    }
+
     private sealed record MeBody(string User);
+    private sealed record ConfigBody(bool DevLogin, string[] DevUsers);
 }

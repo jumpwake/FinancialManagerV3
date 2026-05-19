@@ -7,23 +7,33 @@ using Microsoft.Extensions.DependencyInjection;
 using PortfolioReport.Api.Storage;
 
 /// <summary>
-/// Boots the real app for integration tests, but with a temp data root and the
-/// test auth scheme swapped in for Google. Each instance gets its own folder.
+/// Boots the real app for integration tests. Each instance is fully
+/// self-contained: a temp data root, a temp web root holding a minimal SPA
+/// index, and the header-driven test auth scheme swapped in for Google. Nothing
+/// here depends on a build having populated the source wwwroot/.
 /// </summary>
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public string DataRoot { get; } =
         Path.Combine(Path.GetTempPath(), "api-" + Guid.NewGuid());
 
+    private readonly string _webRoot =
+        Path.Combine(Path.GetTempPath(), "api-wwwroot-" + Guid.NewGuid());
+
     public UserDataStore Store { get; }
 
     public ApiFactory()
     {
         Store = new UserDataStore(DataRoot);
+        Directory.CreateDirectory(_webRoot);
+        File.WriteAllText(
+            Path.Combine(_webRoot, "index.html"),
+            "<!doctype html><html><body><div id=\"root\"></div></body></html>");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseWebRoot(_webRoot);
         builder.UseSetting("Storage:DataRoot", DataRoot);
         builder.UseSetting("Google:ClientId", "test-client-id");
         builder.UseSetting("Google:ClientSecret", "test-client-secret");
@@ -54,5 +64,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     {
         base.Dispose(disposing);
         if (Directory.Exists(DataRoot)) Directory.Delete(DataRoot, recursive: true);
+        if (Directory.Exists(_webRoot)) Directory.Delete(_webRoot, recursive: true);
     }
 }
