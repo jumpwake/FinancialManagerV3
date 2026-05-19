@@ -196,6 +196,29 @@ export default function ProfileDrawer({ open, onClose }: Props) {
             Saved — re-run <code>npm run analyze</code> to apply it to the analysis.
           </div>
         )}
+        <div
+          style={{
+            marginTop: "auto",
+            paddingTop: 14,
+            borderTop: `1px solid ${COLORS.border}`,
+          }}
+        >
+          <a
+            href="/logout"
+            style={{
+              display: "block",
+              textAlign: "center",
+              border: `1px solid ${COLORS.border}`,
+              color: COLORS.textMuted,
+              padding: "8px 14px",
+              borderRadius: 4,
+              fontSize: 13,
+              textDecoration: "none",
+            }}
+          >
+            Log out
+          </a>
+        </div>
       </div>
     </>
   );
