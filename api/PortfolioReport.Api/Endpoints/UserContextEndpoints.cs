@@ -7,10 +7,10 @@ public static class UserContextEndpoints
 {
     public const string FileName = "user-context.json";
 
-    // Returned when a user has no stored context yet — matches the shape the
-    // report and the local analyze step expect.
+    // Returned when a user has no stored context yet. Must include "version":2 —
+    // the intake schema (src/intake/parseUserContext.ts) requires z.literal(2).
     private const string EmptyContext =
-        "{\"situations\":[],\"notes\":[],\"chat_history\":[],\"profile\":null}";
+        "{\"version\":2,\"situations\":[],\"notes\":[],\"chat_history\":[],\"profile\":null}";
 
     public static void MapUserContextEndpoints(this IEndpointRouteBuilder app)
     {

@@ -28,6 +28,8 @@ public class UserContextEndpointsTests
         var body = await res.Content.ReadAsStringAsync();
 
         // A fresh user gets a valid empty context, not a 404.
+        Assert.Contains("\"version\"", body);
+        Assert.Contains("\"profile\"", body);
         Assert.Contains("\"situations\"", body);
         Assert.Contains("\"notes\"", body);
         Assert.Contains("\"chat_history\"", body);
