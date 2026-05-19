@@ -17,6 +17,7 @@ builder.Services.AddSingleton(_ =>
     return new UserDataStore(root);
 });
 builder.Services.AddSingleton<PortfolioReport.Api.Auth.PushTokenResolver>();
+builder.Services.AddSingleton<PortfolioReport.Api.Storage.UserContextStore>();
 
 builder.Services.AddAuthentication(options =>
     {
