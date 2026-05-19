@@ -48,6 +48,18 @@ public class ProfileEndpointsTests
     }
 
     [Fact]
+    public async Task PutRejectsAgeAbove100()
+    {
+        using var factory = new ApiFactory();
+        using var client = SignedIn(factory, "kevin");
+
+        var res = await client.PutAsJsonAsync("/api/profile",
+            new { age = 101, risk_tolerance = "moderate" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
     public async Task PutRejectsUnknownRiskTolerance()
     {
         using var factory = new ApiFactory();
@@ -68,6 +80,10 @@ public class ProfileEndpointsTests
         var put = await client.PutAsJsonAsync("/api/profile",
             new { age = 52, risk_tolerance = "moderately_aggressive" });
         put.EnsureSuccessStatusCode();
+
+        var returned = await put.Content.ReadFromJsonAsync<JsonObject>();
+        Assert.Equal(52, (int)returned!["age"]!);
+        Assert.Equal("moderately_aggressive", (string)returned["risk_tolerance"]!);
 
         var profile = await (await client.GetAsync("/api/profile"))
             .Content.ReadFromJsonAsync<JsonObject>();
