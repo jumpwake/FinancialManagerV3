@@ -7,6 +7,7 @@
     "analyze:luke": "tsx src/index.ts --user luke",
     "report": "tsx scripts/report.ts",
     "report:luke": "tsx scripts/report.ts --user luke",
+    "publish": "tsx scripts/publish.ts",
     "build": "tsc && vite build src/report/app",
     "test": "vitest run",
     "test:watch": "vitest"
