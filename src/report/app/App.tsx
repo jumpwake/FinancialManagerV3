@@ -36,7 +36,12 @@ export default function App() {
 
   const loadAnalysis = useCallback(async () => {
     try {
-      const r = await fetch("/analysis.json");
+      const r = await fetch("/api/analysis");
+      if (r.status === 401) {
+        // Not signed in — hand off to the server's Google login.
+        window.location.href = "/login";
+        return;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = (await r.json()) as AnalysisOutput;
       setData(json);
@@ -137,7 +142,8 @@ export default function App() {
       <div style={{ padding: "2rem", color: COLORS.red }}>
         Failed to load analysis: {error}
         <div style={{ color: COLORS.textMuted, marginTop: 8, fontSize: 13 }}>
-          Did you run <code>npm run analyze</code> first? It writes <code>output/analysis.json</code>.
+          No analysis has been published yet. Run <code>npm run publish</code> locally to
+          analyze and upload your portfolio.
         </div>
       </div>
     );
