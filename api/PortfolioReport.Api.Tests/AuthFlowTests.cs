@@ -24,6 +24,14 @@ public class AuthFlowTests
             builder.UseSetting("Google:ClientSecret", "test-client-secret");
             builder.UseSetting("Storage:DataRoot",
                 Path.Combine(Path.GetTempPath(), "authflow-" + Guid.NewGuid()));
+            // Self-contained allowlist for these tests — independent of the
+            // committed appsettings.json. The dev-login tests reference "luke".
+            builder.UseSetting("Allowlist:Users:0:Email", "kbowsher@gmail.com");
+            builder.UseSetting("Allowlist:Users:0:User", "kevin");
+            builder.UseSetting("Allowlist:Users:0:PushToken", "");
+            builder.UseSetting("Allowlist:Users:1:Email", "lukebowsher05@gmail.com");
+            builder.UseSetting("Allowlist:Users:1:User", "luke");
+            builder.UseSetting("Allowlist:Users:1:PushToken", "");
         }
     }
 
