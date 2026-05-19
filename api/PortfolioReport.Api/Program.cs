@@ -16,6 +16,7 @@ builder.Services.AddSingleton(_ =>
         : Path.Combine(builder.Environment.ContentRootPath, configured);
     return new UserDataStore(root);
 });
+builder.Services.AddSingleton<PortfolioReport.Api.Auth.PushTokenResolver>();
 
 // Production auth uses a cookie. The Google challenge scheme is added in Task 10.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

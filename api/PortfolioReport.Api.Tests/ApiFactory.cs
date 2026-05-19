@@ -25,6 +25,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("Storage:DataRoot", DataRoot);
+        builder.UseSetting("Allowlist:Users:0:Email", "kbowsher@gmail.com");
+        builder.UseSetting("Allowlist:Users:0:User", "kevin");
+        builder.UseSetting("Allowlist:Users:0:PushToken", "tok-kevin");
 
         builder.ConfigureTestServices(services =>
         {

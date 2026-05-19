@@ -54,4 +54,47 @@ public class AnalysisEndpointsTests
         // luke has no file of their own and cannot see kevin's.
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
+
+    [Fact]
+    public async Task PostRejectsRequestWithNoPushToken()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var res = await client.PostAsync("/api/analysis",
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostRejectsRequestWithWrongPushToken()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "wrong-token");
+
+        var res = await client.PostAsync("/api/analysis",
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostWithValidPushTokenWritesTheUsersAnalysis()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "tok-kevin");
+
+        var res = await client.PostAsync("/api/analysis",
+            new StringContent("{\"portfolio_grade\":\"B\"}",
+                System.Text.Encoding.UTF8, "application/json"));
+        res.EnsureSuccessStatusCode();
+
+        Assert.Equal("{\"portfolio_grade\":\"B\"}",
+            await factory.Store.ReadAsync("kevin", "analysis.json"));
+    }
 }
