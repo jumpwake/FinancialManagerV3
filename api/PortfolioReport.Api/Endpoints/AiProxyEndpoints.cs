@@ -10,6 +10,7 @@ public static class AiProxyEndpoints
     private const string UpstreamUrl = "https://api.anthropic.com/v1/messages";
     private const string AnthropicVersionHeader = "anthropic-version";
     private const string AnthropicVersion = "2023-06-01";
+    public const int MaxTokensCap = 16_000;
 
     public static void MapAiProxyEndpoints(this IEndpointRouteBuilder app)
     {
@@ -28,6 +29,21 @@ public static class AiProxyEndpoints
 
             using var reader = new StreamReader(http.Request.Body);
             var body = await reader.ReadToEndAsync();
+
+            // Cap max_tokens to prevent an authenticated user from running up the bill.
+            try
+            {
+                var parsed = System.Text.Json.Nodes.JsonNode.Parse(body) as System.Text.Json.Nodes.JsonObject;
+                if (parsed?["max_tokens"] is System.Text.Json.Nodes.JsonValue v
+                    && v.TryGetValue<int>(out var mt) && mt > MaxTokensCap)
+                {
+                    return Results.BadRequest(new { error = $"max_tokens {mt} exceeds cap {MaxTokensCap}" });
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return Results.BadRequest(new { error = "request body is not valid JSON" });
+            }
 
             var upstreamReq = new HttpRequestMessage(HttpMethod.Post, UpstreamUrl);
             upstreamReq.Headers.Add("x-api-key", key);
@@ -49,6 +65,6 @@ public static class AiProxyEndpoints
             await using var upstream = await upstreamRes.Content.ReadAsStreamAsync(http.RequestAborted);
             await upstream.CopyToAsync(http.Response.Body, http.RequestAborted);
             return Results.Empty;
-        }).RequireAuthorization("session");
+        }).RequireAuthorization("session").RequireRateLimiting("ai-per-user");
     }
 }

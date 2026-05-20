@@ -100,4 +100,34 @@ public class AiProxyEndpointsTests
         Assert.Equal(HttpStatusCode.TooManyRequests, res.StatusCode);
         Assert.Contains("rate_limit_error", await res.Content.ReadAsStringAsync());
     }
+
+    [Fact]
+    public async Task RejectsRequestsExceedingMaxTokensCap()
+    {
+        using var factory = new ApiFactory();
+        using var client = SignedIn(factory, "kevin");
+
+        var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
+            new { model = "claude-sonnet-4-6", max_tokens = 50000, messages = Array.Empty<object>() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task SixtyFirstRequestInOneMinuteIsRateLimited()
+    {
+        using var factory = new ApiFactory();
+        using var client = SignedIn(factory, "kevin");
+
+        // Burst through the per-user window. The limit is 60/min.
+        HttpResponseMessage? last = null;
+        for (var i = 0; i < 61; i++)
+        {
+            last = await client.PostAsJsonAsync("/api/ai/v1/messages",
+                new { model = "claude-sonnet-4-6", max_tokens = 10, messages = Array.Empty<object>() });
+            if (last.StatusCode == HttpStatusCode.TooManyRequests) break;
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, last!.StatusCode);
+    }
 }

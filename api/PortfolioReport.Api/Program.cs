@@ -84,6 +84,20 @@ builder.Services.AddAuthorizationBuilder()
         p.RequireAuthenticatedUser();
     });
 
+builder.Services.AddRateLimiter(opts =>
+{
+    opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    opts.AddPolicy("ai-per-user", http =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PortfolioReport.Api.Auth.CurrentUser.KeyOf(http.User) ?? "anonymous",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+});
+
 var app = builder.Build();
 
 app.UseDefaultFiles();
@@ -91,6 +105,7 @@ app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapGet("/healthz", () => Results.Ok("ok"));
 
