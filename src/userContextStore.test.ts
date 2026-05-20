@@ -7,7 +7,7 @@ import {
   saveUserContext,
   mutateUserContext,
 } from "./userContextStore";
-import { emptyUserContext } from "../intake/parseUserContext";
+import { emptyUserContext } from "./intake/parseUserContext";
 
 let tmpDir: string;
 let filePath: string;

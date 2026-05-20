@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type {
   ChatMessage,
   ChatScope,
@@ -232,41 +231,3 @@ export function renderChatInput(ctx: ChatInputContext): string {
   );
 }
 
-export interface RunChatOptions {
-  context: ChatInputContext;
-  onDelta: (text: string) => void;
-  onToolUse?: (toolName: string, payload: Record<string, unknown>) => void;
-}
-
-export async function runChat(opts: RunChatOptions): Promise<void> {
-  const client = new Anthropic();
-  const userContent = renderChatInput(opts.context);
-
-  const stream = client.messages.stream({
-    model:
-      process.env.CLAUDE_MODEL_CHAT ??
-      process.env.CLAUDE_MODEL ??
-      "claude-sonnet-4-6",
-    max_tokens: 2000,
-    system: CHAT_SYSTEM_PROMPT,
-    tools: CHAT_TOOLS as any,
-    messages: [{ role: "user", content: userContent }],
-  });
-
-  for await (const event of stream) {
-    if (event.type === "content_block_delta") {
-      const d = event.delta;
-      if (d.type === "text_delta") {
-        opts.onDelta(d.text);
-      }
-    }
-  }
-  const final = await stream.finalMessage();
-  if (opts.onToolUse) {
-    for (const block of final.content) {
-      if (block.type === "tool_use") {
-        opts.onToolUse(block.name, block.input as Record<string, unknown>);
-      }
-    }
-  }
-}

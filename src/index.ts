@@ -18,7 +18,7 @@ import { generateFlags, generateGapItems, generatePlanPhases } from "./engine/pl
 import { buildReferenceModels } from "./engine/benchmarks";
 import { deriveScoringProfile } from "./engine/riskProfile";
 import { generateNarratives } from "./ai/narratives";
-import { loadUserContext, saveUserContext } from "./server/userContextStore";
+import { loadUserContext, saveUserContext } from "./userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
 import { runPulseCheck } from "./report/app/ai/pulseCheck";

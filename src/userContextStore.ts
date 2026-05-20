@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { UserContext } from "../types";
-import { parseUserContext, emptyUserContext } from "../intake/parseUserContext";
+import type { UserContext } from "./types";
+import { parseUserContext, emptyUserContext } from "./intake/parseUserContext";
 
 export function loadUserContext(filePath: string): UserContext {
   const abs = path.resolve(filePath);
