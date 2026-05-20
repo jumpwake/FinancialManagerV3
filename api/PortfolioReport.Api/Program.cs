@@ -130,6 +130,7 @@ app.MapUserContextEndpoints();
 app.MapSituationsEndpoints();
 app.MapNotesEndpoints();
 app.MapProfileEndpoints();
+app.MapChatEndpoints();
 app.MapAiProxyEndpoints();
 app.MapAuthEndpoints();
 
