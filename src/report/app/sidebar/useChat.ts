@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import Anthropic from "@anthropic-ai/sdk";
 import type { ChatScope, ChatMessage, ChatToolCall } from "../types";
 import {
   CHAT_SYSTEM_PROMPT,
@@ -7,6 +6,7 @@ import {
   renderChatInput,
   type ChatInputContext,
 } from "../ai/chat";
+import { aiClient as client } from "../ai/client";
 
 export interface UseChatResult {
   send: (
@@ -20,12 +20,6 @@ export interface UseChatResult {
   streaming: boolean;
   resetPending: () => void;
 }
-
-const client = new Anthropic({
-  baseURL: "/api/ai",
-  apiKey: "browser-placeholder",       // real key injected server-side by /api/ai
-  dangerouslyAllowBrowser: true,       // safe — we only talk to our own proxy
-});
 
 function makeMsgId(): string {
   const stamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);

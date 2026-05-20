@@ -101,8 +101,7 @@ export function macroSnapshotFor(macro: MacroContext): MacroSnapshot {
   };
 }
 
-export async function runPulseCheck(input: PulseInput): Promise<PulseVerdict> {
-  const client = new Anthropic();
+export async function runPulseCheck(input: PulseInput, client: Anthropic): Promise<PulseVerdict> {
   const userContent = renderPulseInput(input);
 
   const response = await client.messages.parse({

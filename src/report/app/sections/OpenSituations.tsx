@@ -1,7 +1,11 @@
-import type { Situation } from "../types";
+import { useState } from "react";
+import type { Situation, AnalysisOutput } from "../types";
+import { runPulseCheck } from "../ai/pulseCheck";
+import { aiClient } from "../ai/client";
 
 interface Props {
   situations: Situation[];
+  analysis: AnalysisOutput;
   onDiscuss: (sit: Situation) => void;
   onResolve: (sit: Situation) => void;
   onDelete: (sit: Situation) => void;
@@ -14,9 +18,35 @@ function verdictPillStyle(verdict: string): React.CSSProperties {
   return { background: "#2a2d34", color: "#9ca3af" };
 }
 
-export function OpenSituations({ situations, onDiscuss, onResolve, onDelete }: Props) {
+const actionButtonStyle: React.CSSProperties = { fontSize: 10, padding: "3px 8px" };
+
+export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onDelete }: Props) {
   const open = situations.filter((s) => s.status === "open");
+  const [pulsing, setPulsing] = useState<Set<string>>(new Set());
+
   if (open.length === 0) return null;
+
+  async function refreshVerdict(sit: Situation) {
+    if (pulsing.has(sit.id)) return;
+    setPulsing(p => { const n = new Set(p); n.add(sit.id); return n; });
+    try {
+      const related_flags = (analysis.flags ?? []).filter(f =>
+        sit.related_findings?.includes(f.finding_key));
+      const verdict = await runPulseCheck(
+        { situation: sit, macro: analysis.macro, portfolio: analysis.portfolio, related_flags },
+        aiClient,
+      );
+      const next = [...(sit.verdict_history ?? []), verdict];
+      await fetch(`/api/situations/${encodeURIComponent(sit.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict_history: next }),
+      });
+      // App.tsx's 5s situations poll will pick up the change.
+    } finally {
+      setPulsing(p => { const n = new Set(p); n.delete(sit.id); return n; });
+    }
+  }
 
   return (
     <section
@@ -108,11 +138,19 @@ export function OpenSituations({ situations, onDiscuss, onResolve, onDelete }: P
                   .join(", ")}`}
             </div>
             <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-              <button onClick={() => onDiscuss(sit)} style={{ fontSize: 10, padding: "3px 8px" }}>
+              <button onClick={() => onDiscuss(sit)} style={actionButtonStyle}>
                 Discuss in chat
               </button>
-              <button onClick={() => onResolve(sit)} style={{ fontSize: 10, padding: "3px 8px" }}>
+              <button onClick={() => onResolve(sit)} style={actionButtonStyle}>
                 Mark resolved
+              </button>
+              <button
+                type="button"
+                disabled={pulsing.has(sit.id)}
+                onClick={() => refreshVerdict(sit)}
+                style={actionButtonStyle}
+              >
+                {pulsing.has(sit.id) ? "Checking…" : "Refresh verdict"}
               </button>
             </div>
           </div>

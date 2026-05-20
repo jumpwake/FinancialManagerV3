@@ -1,4 +1,5 @@
 import { loadEnv } from "./loadEnv";
+import Anthropic from "@anthropic-ai/sdk";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -235,6 +236,7 @@ async function main() {
   if (openSituations.length > 0 && process.env.ANTHROPIC_API_KEY) {
     console.log("");
     console.log(`Running pulse-check on ${openSituations.length} open situation(s)...`);
+    const anthropic = new Anthropic();
     await Promise.all(
       openSituations.map(async (sit) => {
         const related_flags = flags.filter((f) =>
@@ -247,7 +249,7 @@ async function main() {
             macro,
             portfolio: effectedPortfolio,
             related_flags,
-          });
+          }, anthropic);
           console.log(`  ${sit.title}: ${verdict.verdict.toUpperCase()} (${verdict.confidence})`);
         } catch (err) {
           verdict = {

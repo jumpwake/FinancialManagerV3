@@ -219,6 +219,7 @@ export default function App() {
 
         <OpenSituations
           situations={situations}
+          analysis={typedData}
           onDiscuss={(sit) => setScope({ type: "situation", situation_id: sit.id })}
           onResolve={handleResolve}
           onDelete={handleDelete}
