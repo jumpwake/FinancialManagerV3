@@ -82,4 +82,22 @@ public class AiProxyEndpointsTests
 
         Assert.Equal(HttpStatusCode.BadGateway, res.StatusCode);
     }
+
+    [Fact]
+    public async Task ForwardsUpstreamErrorStatusAndBody()
+    {
+        using var factory = new ApiFactory();
+        factory.AnthropicStub.Responder = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent("{\"error\":{\"type\":\"rate_limit_error\"}}",
+                System.Text.Encoding.UTF8, "application/json"),
+        };
+        using var client = SignedIn(factory, "kevin");
+
+        var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
+            new { model = "claude-sonnet-4-6", max_tokens = 50, messages = Array.Empty<object>() });
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, res.StatusCode);
+        Assert.Contains("rate_limit_error", await res.Content.ReadAsStringAsync());
+    }
 }

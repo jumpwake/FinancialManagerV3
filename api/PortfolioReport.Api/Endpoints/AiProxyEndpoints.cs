@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using PortfolioReport.Api.Auth;
 using PortfolioReport.Api.Configuration;
@@ -34,7 +35,7 @@ public static class AiProxyEndpoints
             upstreamReq.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
 
             var client = hcf.CreateClient("anthropic");
-            var upstreamRes = await client.SendAsync(
+            using var upstreamRes = await client.SendAsync(
                 upstreamReq,
                 HttpCompletionOption.ResponseHeadersRead,
                 http.RequestAborted);
@@ -42,6 +43,8 @@ public static class AiProxyEndpoints
             http.Response.StatusCode = (int)upstreamRes.StatusCode;
             if (upstreamRes.Content.Headers.ContentType is { } ct)
                 http.Response.ContentType = ct.ToString();
+
+            http.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
             await using var upstream = await upstreamRes.Content.ReadAsStreamAsync(http.RequestAborted);
             await upstream.CopyToAsync(http.Response.Body, http.RequestAborted);
