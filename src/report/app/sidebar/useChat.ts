@@ -1,8 +1,19 @@
 import { useCallback, useState } from "react";
+import Anthropic from "@anthropic-ai/sdk";
 import type { ChatScope, ChatMessage, ChatToolCall } from "../types";
+import {
+  CHAT_SYSTEM_PROMPT,
+  CHAT_TOOLS,
+  renderChatInput,
+  type ChatInputContext,
+} from "../ai/chat";
 
 export interface UseChatResult {
-  send: (message: string, scope: ChatScope) => Promise<void>;
+  send: (
+    message: string,
+    scope: ChatScope,
+    context: Omit<ChatInputContext, "user_message" | "scope" | "history">,
+  ) => Promise<void>;
   history: ChatMessage[];
   pendingAssistantText: string;
   pendingToolUse: { tool: string; payload: Record<string, unknown> } | null;
@@ -10,9 +21,23 @@ export interface UseChatResult {
   resetPending: () => void;
 }
 
+const client = new Anthropic({
+  baseURL: "/api/ai",
+  apiKey: "browser-placeholder",       // real key injected server-side by /api/ai
+  dangerouslyAllowBrowser: true,       // safe — we only talk to our own proxy
+});
+
 function makeMsgId(): string {
-  const d = new Date();
-  return `msg_${d.toISOString().replace(/[^0-9]/g, "").slice(0, 14)}_${Math.random().toString(36).slice(2, 6)}`;
+  const stamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
+  return `msg_${stamp}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+async function persist(messages: ChatMessage[]): Promise<void> {
+  await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(messages),
+  });
 }
 
 export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
@@ -28,7 +53,11 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
   }, []);
 
   const send = useCallback(
-    async (message: string, scope: ChatScope) => {
+    async (
+      message: string,
+      scope: ChatScope,
+      ctx: Omit<ChatInputContext, "user_message" | "scope" | "history">,
+    ) => {
       setStreaming(true);
       setPendingAssistantText("");
       setPendingToolUse(null);
@@ -42,60 +71,42 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
       };
       setHistory((h) => [...h, userMsg]);
 
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, scope }),
+      const userContent = renderChatInput({
+        user_message: message,
+        scope,
+        history,
+        ...ctx,
       });
 
-      if (!res.ok || !res.body) {
-        setHistory((h) => [
-          ...h,
-          {
-            id: makeMsgId(),
-            role: "assistant",
-            content: `(error: ${res.status} ${res.statusText})`,
-            scope,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-        setStreaming(false);
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
       let assistantText = "";
       let toolUse: { tool: string; payload: Record<string, unknown> } | null = null;
-      let buf = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const events = buf.split("\n\n");
-        buf = events.pop() ?? "";
-        for (const ev of events) {
-          const lines = ev.split("\n");
-          let eventName = "";
-          let data = "";
-          for (const line of lines) {
-            if (line.startsWith("event: ")) eventName = line.slice(7).trim();
-            if (line.startsWith("data: ")) data += line.slice(6);
-          }
-          if (!eventName || !data) continue;
-          const parsed = JSON.parse(data);
-          if (eventName === "delta") {
-            assistantText += parsed.text;
-            setPendingAssistantText(assistantText);
-          } else if (eventName === "tool_use") {
-            toolUse = { tool: parsed.tool, payload: parsed.payload };
-            setPendingToolUse(toolUse);
-          } else if (eventName === "error") {
-            assistantText += `\n[error: ${parsed.message}]`;
+      try {
+        const stream = client.messages.stream({
+          model: "claude-sonnet-4-6",
+          max_tokens: 2000,
+          system: CHAT_SYSTEM_PROMPT,
+          tools: CHAT_TOOLS as never,
+          messages: [{ role: "user", content: userContent }],
+        });
+
+        for await (const event of stream) {
+          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+            assistantText += event.delta.text;
             setPendingAssistantText(assistantText);
           }
         }
+        const final = await stream.finalMessage();
+        for (const block of final.content) {
+          if (block.type === "tool_use") {
+            toolUse = { tool: block.name, payload: block.input as Record<string, unknown> };
+            setPendingToolUse(toolUse);
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        assistantText += `\n[error: ${msg}]`;
+        setPendingAssistantText(assistantText);
       }
 
       const assistantMsg: ChatMessage = {
@@ -109,11 +120,14 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
           : {}),
       };
       setHistory((h) => [...h, assistantMsg]);
+
+      await persist([userMsg, assistantMsg]).catch(() => {/* non-fatal */});
+
       setPendingAssistantText("");
       setPendingToolUse(null);
       setStreaming(false);
     },
-    [],
+    [history],
   );
 
   return { send, history, pendingAssistantText, pendingToolUse, streaming, resetPending };

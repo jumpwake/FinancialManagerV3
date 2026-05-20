@@ -1,4 +1,4 @@
-import type { ChatScope, ChatMessage } from "../types";
+import type { ChatScope, ChatMessage, Situation, Note, AnalysisOutput } from "../types";
 import { ChatHistory } from "./ChatHistory";
 import { ChatInput } from "./ChatInput";
 import { useChat } from "./useChat";
@@ -11,6 +11,9 @@ interface Props {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   initialHistory?: ChatMessage[];
+  analysis: AnalysisOutput;
+  situations: Situation[];
+  notes: Note[];
 }
 
 export function Sidebar({
@@ -19,6 +22,9 @@ export function Sidebar({
   collapsed,
   onCollapsedChange,
   initialHistory = [],
+  analysis,
+  situations,
+  notes,
 }: Props) {
   const chat = useChat(initialHistory);
 
@@ -102,7 +108,7 @@ export function Sidebar({
         pendingAssistantText={chat.pendingAssistantText}
         pendingToolUse={chat.pendingToolUse}
       />
-      <ChatInput onSend={(text) => chat.send(text, scope)} disabled={chat.streaming} />
+      <ChatInput onSend={(text) => chat.send(text, scope, { analysis, situations, notes })} disabled={chat.streaming} />
     </aside>
   );
 }

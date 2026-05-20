@@ -282,6 +282,9 @@ export default function App() {
         collapsed={chatCollapsed}
         onCollapsedChange={setChatCollapsed}
         initialHistory={[]}
+        analysis={typedData}
+        situations={situations}
+        notes={[]}
       />
       </div>
 
