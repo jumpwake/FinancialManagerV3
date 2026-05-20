@@ -29,6 +29,18 @@ export interface UnderlyingComposition {
   cash: number;
 }
 
+export interface StockMetrics {
+  pe_ratio: number | null;
+  ev_ebitda: number | null;
+  fcf_yield: number | null;
+  roe: number | null;
+  eps_growth_yoy: number | null;
+  revenue_growth_yoy: number | null;
+  net_debt_ebitda: number | null;
+  beta: number | null;
+  analyst_consensus: number | null;
+}
+
 export interface Holding {
   ticker: string;
   label: string;
@@ -41,7 +53,7 @@ export interface Holding {
   deployment_date?: string;
   deployment_label?: string;
   expense_ratio: number | null;
-  stock_metrics?: Record<string, number | null>;
+  stock_metrics?: StockMetrics;
   underlying_composition?: UnderlyingComposition;
 }
 
@@ -133,11 +145,15 @@ export interface MacroContext {
   yield_curve_status: string;
   yield_curve_spread_10y_2y: number;
   vix: number;
+  federal_funds_rate: number;
   cpi_yoy_headline: number;
+  cpi_yoy_core: number;
+  hy_credit_spread_oas_bps: number;
   lei_consecutive_declines: number;
+  ism_manufacturing: number;
+  ism_services: number;
   sector_overweight: string[];
   sector_underweight: string[];
-  [k: string]: unknown;
 }
 
 export interface DimensionScore {

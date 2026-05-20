@@ -13,7 +13,7 @@ import type {
   TacticalAdvisorOutput,
   UserProfile,
 } from "../types";
-import { ADVISOR_PERSONA } from "./advisorPersona";
+import { ADVISOR_PERSONA } from "../report/app/ai/advisorPersona";
 
 const SYSTEM_PROMPT = `${ADVISOR_PERSONA}
 

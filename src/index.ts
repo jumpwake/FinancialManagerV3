@@ -20,7 +20,7 @@ import { generateNarratives } from "./ai/narratives";
 import { loadUserContext, saveUserContext } from "./server/userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
-import { runPulseCheck } from "./ai/pulseCheck";
+import { runPulseCheck } from "./report/app/ai/pulseCheck";
 import { runTacticalAdvisor } from "./ai/tacticalAdvisor";
 import type { AccountConfig, Holding, Finding, PulseVerdict, TacticalAdvisorOutput } from "./types";
 
