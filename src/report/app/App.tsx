@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AnalysisOutput, ChatScope, Situation, TacticalMove } from "./types";
+import { AnalysisOutput, ChatScope, Situation, TacticalMove, ChatMessage } from "./types";
 import { COLORS } from "./theme";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
@@ -29,6 +29,7 @@ export default function App() {
   const closeProfile = useCallback(() => setProfileOpen(false), []);
   const [chatCollapsed, setChatCollapsed] = useState(() => initialChatState().collapsed);
   const toggleChat = useCallback(() => setChatCollapsed((c) => !c), []);
+  const [initialChatHistory, setInitialChatHistory] = useState<ChatMessage[]>([]);
 
   useEffect(() => persistCollapsed(chatCollapsed), [chatCollapsed]);
 
@@ -81,6 +82,17 @@ export default function App() {
     const id = setInterval(loadSituations, 5000);
     return () => clearInterval(id);
   }, [authed, loadAnalysis, loadSituations]);
+
+  // Load persisted chat history once we know the user is signed in.
+  useEffect(() => {
+    if (authed !== true) return;
+    let cancelled = false;
+    fetch("/api/chat")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((h: ChatMessage[]) => { if (!cancelled) setInitialChatHistory(h ?? []); })
+      .catch(() => {/* leave empty */});
+    return () => { cancelled = true; };
+  }, [authed]);
 
   const handleResolve = useCallback(
     async (sit: Situation) => {
@@ -282,7 +294,7 @@ export default function App() {
         onScopeChange={setScope}
         collapsed={chatCollapsed}
         onCollapsedChange={setChatCollapsed}
-        initialHistory={[]}
+        initialHistory={initialChatHistory}
         analysis={typedData}
         situations={situations}
         notes={[]}

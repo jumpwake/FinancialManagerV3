@@ -43,6 +43,10 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
         body: JSON.stringify({ verdict_history: next }),
       });
       // App.tsx's 5s situations poll will pick up the change.
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Refresh verdict failed:", err);
+      alert(`Refresh verdict failed: ${msg}`);
     } finally {
       setPulsing(p => { const n = new Set(p); n.delete(sit.id); return n; });
     }

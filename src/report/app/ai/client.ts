@@ -6,7 +6,10 @@ import Anthropic from "@anthropic-ai/sdk";
  * here never reaches Anthropic.
  */
 export const aiClient = new Anthropic({
-  baseURL: "/api/ai",
+  // Absolute URL — the SDK uses new URL() which requires a scheme.
+  baseURL: typeof window === "undefined"
+    ? "http://localhost/api/ai"  // SSR / test fallback; never hit in the browser
+    : `${window.location.origin}/api/ai`,
   apiKey: "browser-placeholder",
   dangerouslyAllowBrowser: true,
 });
