@@ -18,6 +18,7 @@ builder.Services.AddSingleton(_ =>
 });
 builder.Services.AddSingleton<PortfolioReport.Api.Auth.PushTokenResolver>();
 builder.Services.AddSingleton<PortfolioReport.Api.Storage.UserContextStore>();
+builder.Services.AddHttpClient("anthropic");
 
 builder.Services.AddAuthentication(options =>
     {
@@ -114,6 +115,7 @@ app.MapUserContextEndpoints();
 app.MapSituationsEndpoints();
 app.MapNotesEndpoints();
 app.MapProfileEndpoints();
+app.MapAiProxyEndpoints();
 app.MapAuthEndpoints();
 
 // Dev-only sign-in bypass — never mapped outside the Development environment.

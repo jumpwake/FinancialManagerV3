@@ -22,6 +22,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     public UserDataStore Store { get; }
 
+    public StubHttpMessageHandler AnthropicStub { get; } = new();
+
+    /// <summary>Test override for kevin's Anthropic key (empty = simulate not configured).</summary>
+    public string OverrideAnthropicKeyForKevin { get; set; } = "sk-kevin-test";
+
     public ApiFactory()
     {
         Store = new UserDataStore(DataRoot);
@@ -40,6 +45,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Allowlist:Users:0:Email", "kbowsher@gmail.com");
         builder.UseSetting("Allowlist:Users:0:User", "kevin");
         builder.UseSetting("Allowlist:Users:0:PushToken", "tok-kevin");
+        builder.UseSetting("Allowlist:Users:0:AnthropicApiKey", OverrideAnthropicKeyForKevin);
 
         builder.ConfigureTestServices(services =>
         {
@@ -57,6 +63,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                     p.AddAuthenticationSchemes(TestAuthHandler.SchemeName);
                     p.RequireAuthenticatedUser();
                 });
+
+            services.AddHttpClient("anthropic")
+                .ConfigurePrimaryHttpMessageHandler(() => AnthropicStub);
         });
     }
 
