@@ -17,6 +17,7 @@ data/**/analysis.json
 
 # Server data + deployed secrets (never commit)
 api/PortfolioReport.Api/App_Data/
+api/PortfolioReport.Api/appsettings.json
 appsettings.Production.json
 
 # React build output — wwwroot is populated by scripts/build-api.ps1 and
