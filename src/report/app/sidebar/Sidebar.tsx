@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ChatScope, ChatMessage, Situation, Note, AnalysisOutput } from "../types";
 import { ChatHistory } from "./ChatHistory";
 import { ChatInput } from "./ChatInput";
@@ -30,6 +31,15 @@ export function Sidebar({
 }: Props) {
   const chat = useChat(initialHistory);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!isMobile || collapsed) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobile, collapsed]);
 
   // When collapsed the sidebar renders nothing — it is reopened from the
   // top bar's chat icon (App owns the collapsed state).
