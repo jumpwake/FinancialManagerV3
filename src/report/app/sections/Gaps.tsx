@@ -1,5 +1,6 @@
 import { AnalysisOutput, GapItem } from "../types";
 import { COLORS } from "../theme";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 function gapColor(type: GapItem["type"]): string {
   if (type === "red") return COLORS.red;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function Gaps({ data, onDiscuss }: Props) {
+  const isMobile = useIsMobile();
   const gaps = data.gap_items;
 
   if (!gaps || gaps.length === 0) {
@@ -63,24 +65,6 @@ export default function Gaps({ data, onDiscuss }: Props) {
                   💬 suppressed
                 </span>
               )}
-              {onDiscuss && (
-                <button
-                  onClick={() => onDiscuss(gap.finding_key)}
-                  title="Discuss in chat"
-                  style={{
-                    marginLeft: "auto",
-                    fontSize: 12,
-                    padding: "2px 8px",
-                    background: "transparent",
-                    border: `1px solid ${COLORS.border}`,
-                    borderRadius: 4,
-                    color: COLORS.text,
-                    cursor: "pointer",
-                  }}
-                >
-                  💬
-                </button>
-              )}
             </div>
             <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6, flex: 1, marginBottom: 12 }}>
               {gap.body}
@@ -99,6 +83,33 @@ export default function Gaps({ data, onDiscuss }: Props) {
                 transition: "width 0.3s ease",
               }} />
             </div>
+            {onDiscuss && (
+              <div
+                style={{
+                  display: isMobile ? "grid" : "flex",
+                  gridTemplateColumns: isMobile ? "1fr" : undefined,
+                  gap: 8,
+                  marginTop: 10,
+                }}
+              >
+                <button
+                  onClick={() => onDiscuss(gap.finding_key)}
+                  title="Discuss in chat"
+                  style={{
+                    fontSize: 12,
+                    padding: "2px 8px",
+                    background: "transparent",
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 4,
+                    color: COLORS.text,
+                    cursor: "pointer",
+                    width: isMobile ? "100%" : undefined,
+                  }}
+                >
+                  💬 Discuss
+                </button>
+              </div>
+            )}
           </div>
         );
       })}

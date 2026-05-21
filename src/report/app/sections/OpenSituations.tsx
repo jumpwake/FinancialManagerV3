@@ -3,6 +3,7 @@ import type { Situation, AnalysisOutput } from "../types";
 import { runPulseCheck } from "../ai/pulseCheck";
 import { aiClient } from "../ai/client";
 import { appPath } from "../api";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface Props {
   situations: Situation[];
@@ -24,6 +25,7 @@ const actionButtonStyle: React.CSSProperties = { fontSize: 10, padding: "3px 8px
 export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onDelete }: Props) {
   const open = situations.filter((s) => s.status === "open");
   const [pulsing, setPulsing] = useState<Set<string>>(new Set());
+  const isMobile = useIsMobile();
 
   if (open.length === 0) return null;
 
@@ -142,18 +144,31 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
                   )
                   .join(", ")}`}
             </div>
-            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-              <button onClick={() => onDiscuss(sit)} style={actionButtonStyle}>
+            <div
+              style={{
+                marginTop: 8,
+                display: isMobile ? "grid" : "flex",
+                gridTemplateColumns: isMobile ? "1fr" : undefined,
+                gap: 6,
+              }}
+            >
+              <button
+                onClick={() => onDiscuss(sit)}
+                style={{ ...actionButtonStyle, width: isMobile ? "100%" : undefined }}
+              >
                 Discuss in chat
               </button>
-              <button onClick={() => onResolve(sit)} style={actionButtonStyle}>
+              <button
+                onClick={() => onResolve(sit)}
+                style={{ ...actionButtonStyle, width: isMobile ? "100%" : undefined }}
+              >
                 Mark resolved
               </button>
               <button
                 type="button"
                 disabled={pulsing.has(sit.id)}
                 onClick={() => refreshVerdict(sit)}
-                style={actionButtonStyle}
+                style={{ ...actionButtonStyle, width: isMobile ? "100%" : undefined }}
               >
                 {pulsing.has(sit.id) ? "Checking…" : "Refresh verdict"}
               </button>

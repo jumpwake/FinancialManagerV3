@@ -1,5 +1,6 @@
 import { AnalysisOutput, TacticalMove } from "../types";
 import { COLORS } from "../theme";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 const CATEGORY_COLOR: Record<TacticalMove["category"], string> = {
   deploy_cash: COLORS.amber,
@@ -74,6 +75,7 @@ function MoveList({ title, moves, inflightMoves, onDiscussMove, onTrackMove }: {
   onDiscussMove?: (id: string) => void;
   onTrackMove?: (m: TacticalMove) => void;
 }) {
+  const isMobile = useIsMobile();
   if (moves.length === 0) return null;
   return (
     <div style={{ marginBottom: 18 }}>
@@ -100,11 +102,17 @@ function MoveList({ title, moves, inflightMoves, onDiscussMove, onTrackMove }: {
               Addresses: {m.scenarios_addressed.join(", ")}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div
+            style={{
+              display: isMobile ? "grid" : "flex",
+              gridTemplateColumns: isMobile ? "1fr" : undefined,
+              gap: 8,
+            }}
+          >
             <button
               type="button"
               onClick={() => onDiscussMove?.(m.id)}
-              style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+              style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11, width: isMobile ? "100%" : undefined }}
             >
               💬 Discuss
             </button>
@@ -112,7 +120,7 @@ function MoveList({ title, moves, inflightMoves, onDiscussMove, onTrackMove }: {
               type="button"
               onClick={() => onTrackMove?.(m)}
               disabled={isInflight}
-              style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: isInflight ? "not-allowed" : "pointer", fontSize: 11, opacity: isInflight ? 0.5 : 1 }}
+              style={{ background: "transparent", border: `1px solid ${COLORS.amber}`, color: COLORS.amber, padding: "2px 6px", borderRadius: 4, cursor: isInflight ? "not-allowed" : "pointer", fontSize: 11, opacity: isInflight ? 0.5 : 1, width: isMobile ? "100%" : undefined }}
             >
               {isInflight ? "Adding…" : "+ Situation"}
             </button>

@@ -1,5 +1,6 @@
 import { AnalysisOutput, Flag } from "../types";
 import { COLORS } from "../theme";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface Props {
   data: AnalysisOutput;
@@ -42,6 +43,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
   const isSuppressed = !!flag.suppressed_by;
   const severityColor = isRed ? COLORS.red : COLORS.amber;
   const severityBg = isRed ? "rgba(226, 75, 74, 0.12)" : "rgba(186, 117, 23, 0.12)";
+  const isMobile = useIsMobile();
 
   return (
     <div style={{
@@ -87,7 +89,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
         {flag.ticker}
       </span>
 
-      {/* Title + body */}
+      {/* Title + body + action row */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}>
           <span>{flag.title}</span>
@@ -112,10 +114,38 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
             Suppressed by your note: "{flag.suppressed_by.body}"
           </div>
         )}
+        {/* Discuss button — action row (desktop: inline; mobile: full-width below body) */}
+        {onDiscuss && isMobile && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            <button
+              onClick={() => onDiscuss(flag.finding_key)}
+              title="Discuss in chat"
+              style={{
+                fontSize: 12,
+                padding: "2px 8px",
+                background: "transparent",
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 4,
+                color: COLORS.text,
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              💬 Discuss
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Discuss button */}
-      {onDiscuss && (
+      {/* Discuss button — desktop only (inline at end of row) */}
+      {onDiscuss && !isMobile && (
         <button
           onClick={() => onDiscuss(flag.finding_key)}
           title="Discuss in chat"
