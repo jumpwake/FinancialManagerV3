@@ -32,7 +32,7 @@ export default function Flags({ data, onDiscuss }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {flags.map((flag, i) => (
-        <FlagRow key={flag.finding_key ?? i} flag={flag} onDiscuss={onDiscuss} />
+        <FlagRow key={`${flag.finding_key ?? "flag"}-${i}`} flag={flag} onDiscuss={onDiscuss} />
       ))}
     </div>
   );

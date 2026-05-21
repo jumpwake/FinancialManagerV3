@@ -39,7 +39,7 @@ export default function Gaps({ data, onDiscuss }: Props) {
         const isSuppressed = !!gap.suppressed_by;
         return (
           <div
-            key={gap.finding_key ?? i}
+            key={`${gap.finding_key ?? "gap"}-${i}`}
             style={{
               background: isSuppressed ? "transparent" : COLORS.card,
               border: isSuppressed ? "1px dashed #555" : `1px solid ${COLORS.border}`,
