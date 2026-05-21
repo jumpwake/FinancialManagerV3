@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { RiskTolerance, UserProfile } from "../types";
 import { COLORS } from "../theme";
 import { appPath } from "../api";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
   { value: "conservative", label: "Conservative" },
@@ -35,6 +36,8 @@ export default function ProfileDrawer({ open, onClose }: Props) {
       })
       .catch(() => {});
   }, []);
+
+  const isMobile = useIsMobile();
 
   // While open: clear transient state and close on Escape.
   useEffect(() => {
@@ -103,10 +106,10 @@ export default function ProfileDrawer({ open, onClose }: Props) {
           top: 0,
           right: 0,
           bottom: 0,
-          width: 320,
-          maxWidth: "90vw",
+          width: isMobile ? "100vw" : 320,
+          maxWidth: isMobile ? "100vw" : "90vw",
           background: COLORS.card,
-          borderLeft: `1px solid ${COLORS.border}`,
+          borderLeft: isMobile ? "none" : `1px solid ${COLORS.border}`,
           zIndex: 101,
           padding: "16px 18px",
           fontFamily: "system-ui, sans-serif",
