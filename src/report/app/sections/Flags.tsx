@@ -56,8 +56,8 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
       gap: 8,
       opacity: isSuppressed ? 0.6 : 1,
     }}>
-      {/* Header row: severity badge, ticker pill, title, desktop discuss */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* Row 1: severity + ticker (and desktop discuss on the right) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{
           flexShrink: 0,
           fontSize: 10,
@@ -85,22 +85,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
         }}>
           {flag.ticker}
         </span>
-        <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: COLORS.text, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{flag.title}</span>
-          {isSuppressed && (
-            <span style={{
-              padding: "1px 5px",
-              borderRadius: 3,
-              background: "#1a3a2a",
-              color: "#4ade80",
-              fontSize: 10,
-              fontWeight: 600,
-              flexShrink: 0,
-            }}>
-              💬 suppressed
-            </span>
-          )}
-        </div>
+        <div style={{ flex: 1 }} />
         {onDiscuss && !isMobile && (
           <button
             onClick={() => onDiscuss(flag.finding_key)}
@@ -121,7 +106,25 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
         )}
       </div>
 
-      {/* Body — own row, full card width */}
+      {/* Row 2: title — own row, full card width */}
+      <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span>{flag.title}</span>
+        {isSuppressed && (
+          <span style={{
+            padding: "1px 5px",
+            borderRadius: 3,
+            background: "#1a3a2a",
+            color: "#4ade80",
+            fontSize: 10,
+            fontWeight: 600,
+            flexShrink: 0,
+          }}>
+            💬 suppressed
+          </span>
+        )}
+      </div>
+
+      {/* Row 3: body — own row, full card width */}
       <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6 }}>
         {flag.body}
       </div>
