@@ -8,6 +8,7 @@ import {
 } from "chart.js";
 import { AnalysisOutput, AssetClass, DeploymentMove } from "../types";
 import { COLORS } from "../theme";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -88,6 +89,7 @@ export default function AllocationBreakdown({
   const buckets = buildBuckets(portfolio.holdings);
   const pendingHolding = portfolio.holdings.find(h => h.is_pending_deployment);
   const [holdingsOpen, setHoldingsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const chartData = {
     labels: buckets.map(b => b.label),
@@ -192,7 +194,7 @@ export default function AllocationBreakdown({
         </span>
       </button>
 
-      {holdingsOpen && (
+      {holdingsOpen && !isMobile && (
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -222,6 +224,41 @@ export default function AllocationBreakdown({
             ))}
           </tbody>
         </table>
+      </div>
+      )}
+
+      {holdingsOpen && isMobile && (
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
+        {sorted.map((h, i) => (
+          <div
+            key={`${h.account_id}::${h.ticker}`}
+            style={{
+              padding: "10px 12px",
+              borderBottom: i < sorted.length - 1 ? `1px solid ${COLORS.border}` : undefined,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                {h.ticker}
+              </span>
+              <span style={{ fontSize: 13, color: COLORS.text, flexShrink: 0 }}>
+                {fmt$(h.market_value)}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 3, overflowWrap: "anywhere" }}>
+              {h.label}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2, display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{accountLabel(h.account_id, data.accounts)}</span>
+              <span style={{ flexShrink: 0 }}>{fmtPct(h.market_value / total)}</span>
+            </div>
+            {h.is_pending_deployment && (
+              <div style={{ marginTop: 4 }}>
+                <span style={{ background: COLORS.pendingBg, color: COLORS.amber, fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>pending</span>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
       )}
 
