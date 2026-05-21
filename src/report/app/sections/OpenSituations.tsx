@@ -164,7 +164,11 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
               </button>
               <button
                 type="button"
-                onClick={() => onResolve(sit)}
+                onClick={() => {
+                  if (window.confirm(`Resolve situation: "${sit.title}"?`)) {
+                    onResolve(sit);
+                  }
+                }}
                 title="Mark resolved"
                 aria-label="Mark resolved"
                 style={iconButtonStyle}
