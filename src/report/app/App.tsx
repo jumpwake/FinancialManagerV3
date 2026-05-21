@@ -33,15 +33,19 @@ export default function App() {
   const [chatCollapsed, setChatCollapsed] = useState(() => initialChatState().collapsed);
   const toggleChat = useCallback(() => setChatCollapsed((c) => !c), []);
   const [initialChatHistory, setInitialChatHistory] = useState<ChatMessage[]>([]);
+  // Incremented every time a Discuss button fires. Sidebar watches this and
+  // clears the chat (server + local) when it changes, so each Discuss starts
+  // a fresh thread scoped to the clicked item.
+  const [chatResetEpoch, setChatResetEpoch] = useState(0);
 
   useEffect(() => persistCollapsed(chatCollapsed), [chatCollapsed]);
 
-  // Discuss handlers everywhere call this — it both sets the scope and
-  // (re-)opens the chat sheet. Explicit, so re-clicking Discuss after closing
-  // the sheet works even when the scope value didn't change.
+  // Discuss handlers everywhere call this — it sets the scope, opens the chat
+  // sheet, and bumps chatResetEpoch so Sidebar clears the existing thread.
   const startDiscussion = useCallback((newScope: ChatScope) => {
     setScope(newScope);
     setChatCollapsed(false);
+    setChatResetEpoch((e) => e + 1);
   }, []);
 
   const loadAnalysis = useCallback(async () => {
@@ -316,6 +320,7 @@ export default function App() {
         analysis={typedData}
         situations={situations}
         notes={[]}
+        chatResetEpoch={chatResetEpoch}
       />
       </div>
 

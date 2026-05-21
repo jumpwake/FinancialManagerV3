@@ -24,6 +24,12 @@ interface Props {
   analysis: AnalysisOutput;
   situations: Situation[];
   notes: Note[];
+  /**
+   * Bumped by App whenever a Discuss button fires. When this changes, the
+   * existing chat thread is wiped (server + local) so the new discussion
+   * starts fresh. Initial value (0) is ignored on first mount.
+   */
+  chatResetEpoch: number;
 }
 
 export function Sidebar({
@@ -35,6 +41,7 @@ export function Sidebar({
   analysis,
   situations,
   notes,
+  chatResetEpoch,
 }: Props) {
   const chat = useChat(initialHistory);
   const isMobile = useIsMobile();
@@ -47,6 +54,23 @@ export function Sidebar({
       document.body.style.overflow = prev;
     };
   }, [isMobile, collapsed]);
+
+  // Clear the chat thread whenever a Discuss button is clicked. App bumps
+  // chatResetEpoch on each click; we skip the initial mount (epoch === 0)
+  // so the loaded history survives the first render.
+  useEffect(() => {
+    if (chatResetEpoch === 0) return;
+    (async () => {
+      try {
+        await fetch(appPath("/api/chat"), { method: "DELETE" });
+      } catch {
+        // Non-fatal — local clear still happens so the UI matches intent.
+      }
+      chat.clear();
+    })();
+    // chat.clear is stable (useCallback with []) so omitting from deps is safe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatResetEpoch]);
 
   // When collapsed the sidebar renders nothing — it is reopened from the
   // top bar's chat icon (App owns the collapsed state).
