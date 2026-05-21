@@ -1,4 +1,5 @@
 import { COLORS } from "./theme";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 /** Fixed height of the top bar — shared so the chat sidebar can sit below it. */
 export const TOP_BAR_HEIGHT = 48;
@@ -20,6 +21,7 @@ const iconBtn: React.CSSProperties = {
 };
 
 export default function TopBar({ onOpenProfile, onToggleChat }: Props) {
+  const isMobile = useIsMobile();
   return (
     <header
       style={{
@@ -31,16 +33,27 @@ export default function TopBar({ onOpenProfile, onToggleChat }: Props) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "0 18px",
+        padding: isMobile ? "0 12px" : "0 18px",
         background: COLORS.card,
         borderBottom: `1px solid ${COLORS.border}`,
         fontFamily: "system-ui, sans-serif",
+        gap: 8,
       }}
     >
-      <span style={{ fontSize: 14, fontWeight: 500, color: COLORS.text }}>
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: COLORS.text,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          minWidth: 0,
+        }}
+      >
         Portfolio Analyzer
       </span>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         <button
           type="button"
           onClick={onToggleChat}
