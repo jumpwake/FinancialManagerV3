@@ -163,9 +163,9 @@ export default function DimensionScorecard({ data, onDiscuss }: Props) {
               style={{ borderBottom: i < dimensions.length - 1 ? `1px solid ${COLORS.border}` : undefined }}
             >
               <td style={{ padding: "9px 14px" }}>
-                <div style={{ fontSize: 13, color: COLORS.text, fontWeight: 500 }}>{dim.label}</div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
-                  {dim.note.length > 60 ? dim.note.slice(0, 57) + "..." : dim.note}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <Dot rating={dim.rating} />
+                  <span style={{ fontSize: 13, color: COLORS.text, fontWeight: 500 }}>{dim.label}</span>
                 </div>
               </td>
               <td style={{ padding: "9px 14px", background: yourColBg }}>
