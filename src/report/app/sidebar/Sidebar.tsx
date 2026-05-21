@@ -4,11 +4,11 @@ import { ChatInput } from "./ChatInput";
 import { useChat } from "./useChat";
 import { TOP_BAR_HEIGHT } from "../TopBar";
 import { appPath } from "../api";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface Props {
   scope: ChatScope;
   onScopeChange: (scope: ChatScope) => void;
-  /** Collapsed state is owned by App so the top-bar chat icon can toggle it. */
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   initialHistory?: ChatMessage[];
@@ -28,24 +28,12 @@ export function Sidebar({
   notes,
 }: Props) {
   const chat = useChat(initialHistory);
+  const isMobile = useIsMobile();
 
-  // When collapsed the sidebar renders nothing — it is reopened from the
-  // top bar's chat icon (App owns the collapsed state).
   if (collapsed) return null;
 
-  return (
-    <aside
-      style={{
-        width: 340,
-        background: "#11141a",
-        display: "flex",
-        flexDirection: "column",
-        borderLeft: "1px solid #2a2d34",
-        height: `calc(100vh - ${TOP_BAR_HEIGHT}px)`,
-        position: "sticky",
-        top: TOP_BAR_HEIGHT,
-      }}
-    >
+  const headerAndBody = (
+    <>
       <header
         style={{
           padding: 10,
@@ -125,6 +113,60 @@ export function Sidebar({
         pendingToolUse={chat.pendingToolUse}
       />
       <ChatInput onSend={(text) => chat.send(text, scope, { analysis, situations, notes })} disabled={chat.streaming} />
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <div
+          onClick={() => onCollapsedChange(true)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 200,
+          }}
+        />
+        <aside
+          role="dialog"
+          aria-label="Chat"
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "85dvh",
+            background: "#11141a",
+            borderTop: "1px solid #2a2d34",
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 201,
+            boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          {headerAndBody}
+        </aside>
+      </>
+    );
+  }
+
+  return (
+    <aside
+      style={{
+        width: 340,
+        background: "#11141a",
+        display: "flex",
+        flexDirection: "column",
+        borderLeft: "1px solid #2a2d34",
+        height: `calc(100vh - ${TOP_BAR_HEIGHT}px)`,
+        position: "sticky",
+        top: TOP_BAR_HEIGHT,
+      }}
+    >
+      {headerAndBody}
     </aside>
   );
 }
