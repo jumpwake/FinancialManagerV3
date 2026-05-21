@@ -25,10 +25,12 @@ const iconButtonStyle: React.CSSProperties = {
   borderRadius: 4,
   color: "#aaa",
   cursor: "pointer",
-  fontSize: 13,
+  fontSize: 15,
   lineHeight: 1,
-  padding: "4px 8px",
-  minWidth: 30,
+  // ≥ 40×36 CSS px hit target for thumbs.
+  padding: "10px 14px",
+  minWidth: 40,
+  minHeight: 36,
 };
 
 export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onDelete }: Props) {
@@ -125,9 +127,12 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
                     border: "none",
                     color: "#888",
                     cursor: "pointer",
-                    fontSize: 14,
+                    fontSize: 18,
                     lineHeight: 1,
-                    padding: "2px 6px",
+                    // ≥ 32×32 CSS px hit target.
+                    padding: "8px 10px",
+                    minWidth: 32,
+                    minHeight: 32,
                   }}
                 >
                   ×
