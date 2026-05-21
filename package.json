@@ -10,6 +10,8 @@
     "publish": "tsx scripts/publish.ts",
     "publish:kevin": "tsx scripts/publish.ts --user kevin",
     "publish:luke": "tsx scripts/publish.ts --user luke",
+    "publish:kevin:dev": "tsx scripts/publish.ts --user kevin --dev",
+    "publish:luke:dev": "tsx scripts/publish.ts --user luke --dev",
     "build": "tsc && vite build src/report/app",
     "build:api": "powershell -ExecutionPolicy Bypass -File scripts/build-api.ps1",
     "serve": "powershell -ExecutionPolicy Bypass -File scripts/serve-api.ps1",
