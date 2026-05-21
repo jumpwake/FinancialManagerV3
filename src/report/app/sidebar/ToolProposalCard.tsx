@@ -59,7 +59,7 @@ export function ToolProposalCard({ tool, payload }: Props) {
       }}
     >
       <div style={{ fontWeight: "bold", marginBottom: 4 }}>{title}</div>
-      <pre style={{ margin: 0, fontSize: 10, overflowX: "auto" }}>
+      <pre style={{ margin: 0, fontSize: 10, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
         {JSON.stringify(payload, null, 2)}
       </pre>
       {status === "proposed" && (
