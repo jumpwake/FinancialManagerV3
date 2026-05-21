@@ -9,6 +9,7 @@ import { useIsMobile } from "../hooks/useIsMobile";
 interface Props {
   scope: ChatScope;
   onScopeChange: (scope: ChatScope) => void;
+  /** Collapsed state is owned by App so the top-bar chat icon can toggle it. */
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   initialHistory?: ChatMessage[];
@@ -30,6 +31,8 @@ export function Sidebar({
   const chat = useChat(initialHistory);
   const isMobile = useIsMobile();
 
+  // When collapsed the sidebar renders nothing — it is reopened from the
+  // top bar's chat icon (App owns the collapsed state).
   if (collapsed) return null;
 
   const headerAndBody = (
