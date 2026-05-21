@@ -66,7 +66,6 @@ const cardStyle: React.CSSProperties = {
   border: `1px solid ${COLORS.border}`,
   borderRadius: 8,
   padding: "12px 16px",
-  flex: 1,
   minWidth: 0,
 };
 
@@ -119,9 +118,9 @@ export default function AllocationBreakdown({
 
   return (
     <div>
-      {/* 4 stat cards */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-        <div style={cardStyle}>
+      {/* Stat cards: total spans the row; equity/fixed/cash share row 2 */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ ...cardStyle, gridColumn: "1 / -1" }}>
           <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>Total Portfolio Value</div>
           <div style={{ fontSize: 20, fontWeight: 600, color: COLORS.text }}>{fmt$(total)}</div>
         </div>
