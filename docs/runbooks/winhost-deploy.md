@@ -66,3 +66,21 @@ PUBLISH_API_BASE=http://localhost:5000
 ## Backups
 - `App_Data/<user>/user-context.json` is the only server-authoritative data.
   Copy `App_Data/` on a schedule. `analysis.json` is re-pushable from local.
+
+## Gotcha: WebDAVModule blocks DELETE / PUT / etc.
+
+IIS ships with `WebDAVModule` enabled by default. It intercepts the WebDAV
+verbs (DELETE, PUT, MKCOL, COPY, MOVE, LOCK, UNLOCK) **before any handler
+runs**, returning 405 "Method Not Allowed" because nothing in the app is a
+WebDAV-managed resource. Symptom: `DELETE /api/situations/{id}` returns 405
+with `Allow: GET, HEAD, OPTIONS, TRACE`.
+
+The fix is `<modules><remove name="WebDAVModule" /></modules>` in `web.config`
+(already committed). The previous comment in the repo claimed `<modules>`
+was Winhost-locked — it isn't, at least not for WebDAVModule. If a future
+`<modules>` change produces a 500.19 lock violation on deploy, that module
+is locked; back it out and contact Winhost support.
+
+**Important:** the WebDAVModule remove **must live in source** (`web.config`
+in this repo). `dotnet publish` overwrites the deployed `web.config`, so
+manual IIS Manager edits on the server don't survive a redeploy.
