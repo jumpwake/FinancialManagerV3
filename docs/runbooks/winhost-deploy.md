@@ -22,19 +22,29 @@
 4. Generate a strong random push token per user; put it in both the server
    config above and that user's local `.env.<user>`.
 
-## Local `.env.<user>` keys (for `npm run publish`)
-Each user's local `.env.<user>` file needs:
-```
-PUBLISH_API_BASE=https://finance.bis-corp.com
-PUBLISH_PUSH_TOKEN=<that user's push token — must match the server's Allowlist PushToken>
-```
-`USER_CONTEXT_FILE` and `OUTPUT_FILE` are already used by the existing
-`analyze` pipeline and must also be set.
+## Local env files (for `npm run publish`)
 
-Example for user `kevin`:
+The publish flow loads env files in layered order (later wins):
+
+1. `.env` — shared base. Holds `PUBLISH_API_BASE` (the prod URL) and
+   `ANTHROPIC_API_KEY`.
+2. `.env.<user>` — per-user, layered when `--user <name>` is on argv. Holds
+   that user's `PUBLISH_PUSH_TOKEN` (must match the server's Allowlist
+   PushToken), `USER_CONTEXT_FILE`, `OUTPUT_FILE`, and any portfolio paths.
+3. `.env.development` — local overrides, layered when `--dev` is on argv.
+   Typically just `PUBLISH_API_BASE=http://localhost:5000` for testing the
+   publish flow against a local API server.
+
+Example `.env.kevin`:
 ```
 USER_CONTEXT_FILE=data/kevin/user-context.json
 OUTPUT_FILE=output/kevin/analysis.json
+PUBLISH_PUSH_TOKEN=<long random token, must match server's Allowlist[0].PushToken>
+```
+
+Example `.env.development` (only on dev machines; gitignored):
+```
+PUBLISH_API_BASE=http://localhost:5000
 ```
 
 ## Each deployment
