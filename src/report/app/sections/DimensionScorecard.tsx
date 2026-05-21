@@ -75,12 +75,15 @@ export default function DimensionScorecard({ data, onDiscuss }: Props) {
                   </span>
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, color: COLORS.accentBlue, fontWeight: 600 }}>{dim.display_value}</span>
+                  <span style={{ fontSize: 12, color: COLORS.accentBlue, fontWeight: 600 }}>{dim.score.toFixed(1)}</span>
                   <span style={{ fontSize: 10, color: COLORS.textMuted }}>{isOpen ? "▾" : "▸"}</span>
                 </span>
               </button>
               {isOpen && (
                 <div style={{ padding: "0 14px 12px 36px", background: yourColBg }}>
+                  <div style={{ fontSize: 12, color: COLORS.accentBlue, fontWeight: 600, marginBottom: 6 }}>
+                    {dim.display_value}
+                  </div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontStyle: "italic", marginBottom: 6 }}>
                     {dim.note}
                   </div>
