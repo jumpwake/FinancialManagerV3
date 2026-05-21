@@ -52,47 +52,41 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
       borderRadius: 6,
       padding: "12px 14px",
       display: "flex",
-      alignItems: "flex-start",
-      gap: 10,
+      flexDirection: "column",
+      gap: 8,
       opacity: isSuppressed ? 0.6 : 1,
     }}>
-      {/* Severity badge */}
-      <span style={{
-        flexShrink: 0,
-        fontSize: 10,
-        fontWeight: 700,
-        color: severityColor,
-        background: severityBg,
-        border: `1px solid ${severityColor}`,
-        borderRadius: 3,
-        padding: "2px 6px",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        marginTop: 1,
-      }}>
-        {flag.severity}
-      </span>
-
-      {/* Ticker pill */}
-      <span style={{
-        flexShrink: 0,
-        fontSize: 11,
-        fontWeight: 600,
-        color: COLORS.text,
-        background: "#222",
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 4,
-        padding: "2px 7px",
-        marginTop: 1,
-        fontFamily: "monospace",
-      }}>
-        {flag.ticker}
-      </span>
-
-      {/* Title + body + action row */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>{flag.title}</span>
+      {/* Header row: severity badge, ticker pill, title, desktop discuss */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{
+          flexShrink: 0,
+          fontSize: 10,
+          fontWeight: 700,
+          color: severityColor,
+          background: severityBg,
+          border: `1px solid ${severityColor}`,
+          borderRadius: 3,
+          padding: "2px 6px",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+        }}>
+          {flag.severity}
+        </span>
+        <span style={{
+          flexShrink: 0,
+          fontSize: 11,
+          fontWeight: 600,
+          color: COLORS.text,
+          background: "#222",
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: 4,
+          padding: "2px 7px",
+          fontFamily: "monospace",
+        }}>
+          {flag.ticker}
+        </span>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: COLORS.text, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{flag.title}</span>
           {isSuppressed && (
             <span style={{
               padding: "1px 5px",
@@ -101,56 +95,48 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
               color: "#4ade80",
               fontSize: 10,
               fontWeight: 600,
+              flexShrink: 0,
             }}>
               💬 suppressed
             </span>
           )}
         </div>
-        <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6 }}>
-          {flag.body}
-        </div>
-        {isSuppressed && flag.suppressed_by && (
-          <div style={{ marginTop: 4, fontSize: 11, color: "#888", fontStyle: "italic" }}>
-            Suppressed by your note: "{flag.suppressed_by.body}"
-          </div>
-        )}
-        {/* Discuss button — action row (desktop: inline; mobile: full-width below body) */}
-        {onDiscuss && isMobile && (
-          <div
+        {onDiscuss && !isMobile && (
+          <button
+            onClick={() => onDiscuss(flag.finding_key)}
+            title="Discuss in chat"
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr",
-              gap: 8,
-              marginTop: 10,
+              flexShrink: 0,
+              fontSize: 12,
+              padding: "2px 8px",
+              background: "transparent",
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 4,
+              color: COLORS.text,
+              cursor: "pointer",
             }}
           >
-            <button
-              onClick={() => onDiscuss(flag.finding_key)}
-              title="Discuss in chat"
-              style={{
-                fontSize: 12,
-                padding: "2px 8px",
-                background: "transparent",
-                border: `1px solid ${COLORS.border}`,
-                borderRadius: 4,
-                color: COLORS.text,
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              💬 Discuss
-            </button>
-          </div>
+            💬 Discuss
+          </button>
         )}
       </div>
 
-      {/* Discuss button — desktop only (inline at end of row) */}
-      {onDiscuss && !isMobile && (
+      {/* Body — own row, full card width */}
+      <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6 }}>
+        {flag.body}
+      </div>
+
+      {isSuppressed && flag.suppressed_by && (
+        <div style={{ fontSize: 11, color: "#888", fontStyle: "italic" }}>
+          Suppressed by your note: "{flag.suppressed_by.body}"
+        </div>
+      )}
+
+      {onDiscuss && isMobile && (
         <button
           onClick={() => onDiscuss(flag.finding_key)}
           title="Discuss in chat"
           style={{
-            flexShrink: 0,
             fontSize: 12,
             padding: "2px 8px",
             background: "transparent",
@@ -158,7 +144,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
             borderRadius: 4,
             color: COLORS.text,
             cursor: "pointer",
-            marginTop: 1,
+            width: "100%",
           }}
         >
           💬 Discuss
