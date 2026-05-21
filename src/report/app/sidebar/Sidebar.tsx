@@ -165,6 +165,8 @@ export function Sidebar({
             flexDirection: "column",
             zIndex: 201,
             boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
+            // Push the chat input above the iOS home indicator.
+            paddingBottom: "env(safe-area-inset-bottom)",
           }}
         >
           {headerAndBody}

@@ -28,12 +28,16 @@ export default function TopBar({ onOpenProfile, onToggleChat }: Props) {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        height: TOP_BAR_HEIGHT,
+        // Mobile: extend behind the notch and push content down past it.
+        // env(safe-area-inset-top) is 0 outside iOS / on devices without a notch.
+        minHeight: TOP_BAR_HEIGHT,
         boxSizing: "border-box",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: isMobile ? "0 12px" : "0 18px",
+        padding: isMobile
+          ? "env(safe-area-inset-top) 12px 0 12px"
+          : "0 18px",
         background: COLORS.card,
         borderBottom: `1px solid ${COLORS.border}`,
         fontFamily: "system-ui, sans-serif",

@@ -111,7 +111,10 @@ export default function ProfileDrawer({ open, onClose }: Props) {
           background: COLORS.card,
           borderLeft: isMobile ? "none" : `1px solid ${COLORS.border}`,
           zIndex: 101,
-          padding: "16px 18px",
+          // On mobile, pad past the notch (top) and home indicator (bottom).
+          padding: isMobile
+            ? "calc(16px + env(safe-area-inset-top)) 18px calc(16px + env(safe-area-inset-bottom))"
+            : "16px 18px",
           fontFamily: "system-ui, sans-serif",
           display: "flex",
           flexDirection: "column",
