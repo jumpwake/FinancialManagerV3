@@ -72,6 +72,13 @@ export function Sidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatResetEpoch]);
 
+  // Drop the active scope whenever the sheet collapses, so reopening via the
+  // top-bar chat icon starts at "global" without the "Discussing: <X>" pill
+  // hanging around from a previous Discuss click.
+  useEffect(() => {
+    if (collapsed) onScopeChange({ type: "global" });
+  }, [collapsed, onScopeChange]);
+
   // When collapsed the sidebar renders nothing — it is reopened from the
   // top bar's chat icon (App owns the collapsed state).
   if (collapsed) return null;
