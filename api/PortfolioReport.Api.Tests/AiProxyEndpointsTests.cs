@@ -71,10 +71,10 @@ public class AiProxyEndpointsTests
     }
 
     [Fact]
-    public async Task ReturnsBadGatewayWhenUserHasNoAnthropicKey()
+    public async Task ReturnsBadGatewayWhenAnthropicKeyMissing()
     {
         using var factory = new ApiFactory();
-        factory.OverrideAnthropicKeyForKevin = "";
+        factory.OverrideAnthropicKey = "";
         using var client = SignedIn(factory, "kevin");
 
         var res = await client.PostAsJsonAsync("/api/ai/v1/messages",

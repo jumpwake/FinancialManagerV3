@@ -34,5 +34,14 @@ public static class ChatEndpoints
             });
             return Results.NoContent();
         }).RequireAuthorization("session");
+
+        app.MapDelete("/api/chat", async (HttpContext http, UserContextStore store) =>
+        {
+            var user = CurrentUser.KeyOf(http.User);
+            if (user is null) return Results.Unauthorized();
+
+            await store.MutateAsync(user, c => c["chat_history"] = new JsonArray());
+            return Results.NoContent();
+        }).RequireAuthorization("session");
     }
 }

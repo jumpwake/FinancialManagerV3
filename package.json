@@ -13,6 +13,8 @@
     "build": "tsc && vite build src/report/app",
     "build:api": "powershell -ExecutionPolicy Bypass -File scripts/build-api.ps1",
     "serve": "powershell -ExecutionPolicy Bypass -File scripts/serve-api.ps1",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-winhost.ps1",
+    "deploy:whatif": "powershell -ExecutionPolicy Bypass -File scripts/deploy-winhost.ps1 -WhatIf",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -33,8 +33,9 @@ public static class AnalysisEndpoints
 
             await store.WriteAsync(user, FileName, body);
             return Results.Ok(new { user, bytes = body.Length });
-        });
+        }).RequireRateLimiting("push-token");
         // No RequireAuthorization: this endpoint authenticates via push token,
-        // not the cookie session.
+        // not the cookie session. The rate limiter partitions by IP so a
+        // bogus-token caller can't brute-force or DoS the endpoint.
     }
 }

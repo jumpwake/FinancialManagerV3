@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ChatMessage, ChatScope } from "../types";
 import { sameScope } from "./chatStore";
 import { ToolProposalCard } from "./ToolProposalCard";
@@ -15,8 +16,17 @@ export function ChatHistory({ history, scope, pendingAssistantText, pendingToolU
       ? history
       : history.filter((m) => m.scope.type === "global" || sameScope(m.scope, scope));
 
+  // Auto-scroll to the bottom whenever a new message lands or the streaming
+  // assistant text grows. The deps cover both: filtered.length for committed
+  // turns, pendingAssistantText.length for the live stream.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [filtered.length, pendingAssistantText.length, pendingToolUse]);
+
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", fontSize: 12 }}>
+    <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "8px 10px", fontSize: 12 }}>
       {filtered.map((m) => (
         <div
           key={m.id}

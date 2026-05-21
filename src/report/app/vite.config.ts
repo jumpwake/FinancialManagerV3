@@ -6,7 +6,14 @@ import react from "@vitejs/plugin-react";
 // browser sees a single origin — matching production.
 const API_TARGET = process.env.API_TARGET ?? "http://localhost:5000";
 
+// VITE_APP_BASE lets the prod build override the served base URL when the app
+// is hosted under a sub-path (e.g. /finance). build-api.ps1 sets it before
+// running `vite build`. In dev the base stays "/" so the proxy paths below
+// keep working without a prefix.
+const APP_BASE = process.env.VITE_APP_BASE ?? "/";
+
 export default defineConfig({
+  base: APP_BASE,
   plugins: [react()],
   server: {
     port: 5173,

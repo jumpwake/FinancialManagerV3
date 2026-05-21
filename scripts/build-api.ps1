@@ -5,7 +5,12 @@ $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 $wwwroot = Join-Path $repo "api/PortfolioReport.Api/wwwroot"
 
-Write-Host "1/2  Building the React report..."
+# Production hosts the app at /finance under the bis-corp.com IIS site.
+# VITE_APP_BASE feeds the `base` config in vite.config.ts so asset URLs and
+# import.meta.env.BASE_URL are all prefixed correctly.
+$env:VITE_APP_BASE = "/finance/"
+
+Write-Host "1/2  Building the React report (base = $env:VITE_APP_BASE)..."
 npx vite build (Join-Path $repo "src/report/app") --outDir "$wwwroot" --emptyOutDir
 if ($LASTEXITCODE -ne 0) { throw "vite build failed" }
 

@@ -17,13 +17,12 @@ public static class AiProxyEndpoints
         app.MapPost("/api/ai/v1/messages", async (
             HttpContext http,
             IHttpClientFactory hcf,
-            IOptions<AllowlistOptions> allowlist) =>
+            IOptions<AnthropicOptions> anthropic) =>
         {
             var user = CurrentUser.KeyOf(http.User);
             if (user is null) return Results.Unauthorized();
 
-            var record = allowlist.Value.FindByUser(user);
-            var key = record?.AnthropicApiKey;
+            var key = anthropic.Value.ApiKey;
             if (string.IsNullOrEmpty(key))
                 return Results.StatusCode(StatusCodes.Status502BadGateway);
 

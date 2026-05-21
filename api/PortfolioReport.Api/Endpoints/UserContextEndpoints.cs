@@ -23,8 +23,9 @@ public static class UserContextEndpoints
 
             var json = await store.ReadAsync(user, FileName) ?? EmptyContext;
             return Results.Content(json, "application/json");
-        });
+        }).RequireRateLimiting("push-token");
         // No RequireAuthorization: this endpoint accepts two auth mechanisms and
-        // checks them itself.
+        // checks them itself. Rate-limited by IP because the un-authed path
+        // (push token) is reachable before any user identity is known.
     }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { COLORS } from "./theme";
+import { appPath } from "./api";
 
 interface AppConfig {
   devLogin: boolean;
@@ -41,7 +42,7 @@ export default function Landing() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/config")
+    fetch(appPath("/api/config"))
       .then((r) => (r.ok ? r.json() : { devLogin: false, devUsers: [] }))
       .then((c) => { if (!cancelled) setConfig(c as AppConfig); })
       .catch(() => { if (!cancelled) setConfig({ devLogin: false, devUsers: [] }); });
@@ -73,7 +74,7 @@ export default function Landing() {
           Sign in with your authorized Google account to view your portfolio analysis.
         </p>
 
-        <a href="/login" style={primaryButton}>
+        <a href={appPath("/login")} style={primaryButton}>
           Sign in with Google
         </a>
 
@@ -93,7 +94,7 @@ export default function Landing() {
             {config.devUsers.map((u) => (
               <a
                 key={u}
-                href={`/dev-login?user=${encodeURIComponent(u)}`}
+                href={appPath(`/dev-login?user=${encodeURIComponent(u)}`)}
                 style={{ ...secondaryButton, marginBottom: 8 }}
               >
                 Login as {titleCase(u)}

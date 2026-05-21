@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnalysisOutput, ChatScope, Situation, TacticalMove, ChatMessage } from "./types";
 import { COLORS } from "./theme";
+import { appPath } from "./api";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
 import DimensionScorecard from "./sections/DimensionScorecard";
@@ -40,7 +41,7 @@ export default function App() {
 
   const loadAnalysis = useCallback(async () => {
     try {
-      const r = await fetch("/api/analysis");
+      const r = await fetch(appPath("/api/analysis"));
       if (r.status === 401) {
         // Session ended — drop back to the landing page.
         setAuthed(false);
@@ -56,19 +57,19 @@ export default function App() {
 
   const loadSituations = useCallback(async () => {
     try {
-      const r = await fetch("/api/situations");
+      const r = await fetch(appPath("/api/situations"));
       if (!r.ok) return;
       const list = (await r.json()) as Situation[];
       setLiveSituations(list);
     } catch {
-      // Silently fall back to analysis.json situations
+      // Network error — keep prior state; the 5s poll will retry.
     }
   }, []);
 
   // On mount, check whether a user is signed in before loading anything.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/me")
+    fetch(appPath("/api/me"))
       .then((r) => { if (!cancelled) setAuthed(r.ok); })
       .catch(() => { if (!cancelled) setAuthed(false); });
     return () => { cancelled = true; };
@@ -87,7 +88,7 @@ export default function App() {
   useEffect(() => {
     if (authed !== true) return;
     let cancelled = false;
-    fetch("/api/chat")
+    fetch(appPath("/api/chat"))
       .then((r) => (r.ok ? r.json() : []))
       .then((h: ChatMessage[]) => { if (!cancelled) setInitialChatHistory(h ?? []); })
       .catch(() => {/* leave empty */});
@@ -96,7 +97,7 @@ export default function App() {
 
   const handleResolve = useCallback(
     async (sit: Situation) => {
-      await fetch(`/api/situations/${sit.id}`, {
+      await fetch(appPath(`/api/situations/${sit.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "closed", closure_reason: "completed" }),
@@ -108,7 +109,7 @@ export default function App() {
 
   const handleDelete = useCallback(
     async (sit: Situation) => {
-      await fetch(`/api/situations/${sit.id}`, { method: "DELETE" });
+      await fetch(appPath(`/api/situations/${sit.id}`), { method: "DELETE" });
       await loadSituations();
     },
     [loadSituations],
@@ -144,7 +145,7 @@ export default function App() {
     };
 
     try {
-      const r = await fetch("/api/situations", {
+      const r = await fetch(appPath("/api/situations"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -190,9 +191,7 @@ export default function App() {
   }
 
   const typedData = data;
-  // Prefer live situations from /api/situations (always current) over the
-  // snapshot baked into analysis.json (stale until next `npm run analyze`).
-  const situations = liveSituations.length > 0 ? liveSituations : (typedData.situations ?? []);
+  const situations = liveSituations;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>

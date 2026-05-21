@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Winhost: Deploy",
+      "detail": "Build SPA + dotnet publish, then msdeploy sync to bis-corp.com.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/deploy-winhost.ps1",
+        "-Password", "${input:winhostPassword}"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Winhost: Deploy (dry run)",
+      "detail": "Same as Deploy, but msdeploy runs with -whatif. No files are written on the server.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/deploy-winhost.ps1",
+        "-Password", "${input:winhostPassword}",
+        "-WhatIf"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "winhostPassword",
+      "type": "promptString",
+      "description": "Winhost (biscorpc) password",
+      "password": true
+    }
+  ]
+}

@@ -24,8 +24,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     public StubHttpMessageHandler AnthropicStub { get; } = new();
 
-    /// <summary>Test override for kevin's Anthropic key (empty = simulate not configured).</summary>
-    public string OverrideAnthropicKeyForKevin { get; set; } = "sk-kevin-test";
+    /// <summary>Test override for the Anthropic key (empty = simulate not configured).</summary>
+    public string OverrideAnthropicKey { get; set; } = "sk-kevin-test";
 
     public ApiFactory()
     {
@@ -45,7 +45,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Allowlist:Users:0:Email", "kbowsher@gmail.com");
         builder.UseSetting("Allowlist:Users:0:User", "kevin");
         builder.UseSetting("Allowlist:Users:0:PushToken", "tok-kevin");
-        builder.UseSetting("Allowlist:Users:0:AnthropicApiKey", OverrideAnthropicKeyForKevin);
+        builder.UseSetting("Anthropic:ApiKey", OverrideAnthropicKey);
 
         builder.ConfigureTestServices(services =>
         {

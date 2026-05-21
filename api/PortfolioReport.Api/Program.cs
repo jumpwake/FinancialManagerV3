@@ -7,6 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<AllowlistOptions>(
     builder.Configuration.GetSection(AllowlistOptions.SectionName));
+builder.Services.Configure<AnthropicOptions>(
+    builder.Configuration.GetSection(AnthropicOptions.SectionName));
 
 builder.Services.AddSingleton(_ =>
 {
@@ -96,9 +98,44 @@ builder.Services.AddRateLimiter(opts =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
+
+    // Push-token endpoints (POST /api/analysis, GET /api/user-context) run
+    // before any cookie auth, so we can't partition by user claim. Partition
+    // by IP instead — the legitimate publish CLI calls these a handful of
+    // times a day; a malicious caller pounding the host gets cut off fast.
+    opts.AddPolicy("push-token", http =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 
 var app = builder.Build();
+
+// In production the app is hosted as the /finance virtual application under
+// the bis-corp.com IIS site. ANCM sets PathBase automatically for in-process
+// hosting, but calling UsePathBase explicitly is defensive — it makes URL
+// generation, cookie scope, and OAuth callback construction correct under
+// any hosting model (including a non-IIS reverse proxy). The local Kestrel
+// dev server runs at the origin root, so this is gated on non-Development.
+if (!app.Environment.IsDevelopment())
+{
+    app.UsePathBase("/finance");
+}
+
+// HTTPS posture for non-Development. HSTS tells browsers "always come back
+// over HTTPS for this host"; HttpsRedirection turns a stray HTTP request
+// into a 307 to the HTTPS URL. Gated so localhost dev (port 5000, no cert)
+// still works without a redirect loop.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
 
 app.UseDefaultFiles();
 app.UseStaticFiles();

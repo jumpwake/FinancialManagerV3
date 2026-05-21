@@ -55,20 +55,13 @@ public class AllowlistOptionsTests
         {
             Users =
             {
-                new UserRecord { Email = "a@x", User = "alice", PushToken = "t", AnthropicApiKey = "sk-A" },
-                new UserRecord { Email = "b@x", User = "bob",   PushToken = "u", AnthropicApiKey = "sk-B" },
+                new UserRecord { Email = "a@x", User = "alice", PushToken = "t" },
+                new UserRecord { Email = "b@x", User = "bob",   PushToken = "u" },
             }
         };
 
-        Assert.Equal("sk-A", options.FindByUser("alice")?.AnthropicApiKey);
-        Assert.Equal("sk-B", options.FindByUser("bob")?.AnthropicApiKey);
+        Assert.Equal("alice", options.FindByUser("alice")?.User);
+        Assert.Equal("bob", options.FindByUser("bob")?.User);
         Assert.Null(options.FindByUser("nobody"));
-    }
-
-    [Fact]
-    public void UserRecordAnthropicApiKeyDefaultsToEmpty()
-    {
-        var r = new UserRecord();
-        Assert.Equal("", r.AnthropicApiKey);
     }
 }

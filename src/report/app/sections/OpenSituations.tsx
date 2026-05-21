@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Situation, AnalysisOutput } from "../types";
 import { runPulseCheck } from "../ai/pulseCheck";
 import { aiClient } from "../ai/client";
+import { appPath } from "../api";
 
 interface Props {
   situations: Situation[];
@@ -37,7 +38,7 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
         aiClient,
       );
       const next = [...(sit.verdict_history ?? []), verdict];
-      await fetch(`/api/situations/${encodeURIComponent(sit.id)}`, {
+      await fetch(appPath(`/api/situations/${encodeURIComponent(sit.id)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ verdict_history: next }),

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { appPath } from "../api";
 
 interface Props {
   tool: string;
@@ -13,12 +14,12 @@ export function ToolProposalCard({ tool, payload }: Props) {
     let url = "";
     let body: unknown = payload;
     if (tool === "propose_situation") {
-      url = "/api/situations";
+      url = appPath("/api/situations");
     } else if (tool === "propose_note") {
-      url = "/api/notes";
+      url = appPath("/api/notes");
     } else if (tool === "propose_close_situation") {
       const sid = payload.situation_id as string;
-      url = `/api/situations/${sid}`;
+      url = appPath(`/api/situations/${sid}`);
       body = { status: "closed", closure_reason: payload.closure_reason };
       await fetch(url, {
         method: "PATCH",

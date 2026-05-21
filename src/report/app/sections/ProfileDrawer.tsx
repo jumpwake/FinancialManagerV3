@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { RiskTolerance, UserProfile } from "../types";
 import { COLORS } from "../theme";
+import { appPath } from "../api";
 
 const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
   { value: "conservative", label: "Conservative" },
@@ -24,7 +25,7 @@ export default function ProfileDrawer({ open, onClose }: Props) {
 
   // Load the current profile once on mount.
   useEffect(() => {
-    fetch("/api/profile")
+    fetch(appPath("/api/profile"))
       .then((r) => (r.ok ? r.json() : null))
       .then((p: UserProfile | null) => {
         if (p) {
@@ -58,7 +59,7 @@ export default function ProfileDrawer({ open, onClose }: Props) {
     }
     const body: UserProfile = { age: ageNum, risk_tolerance: risk };
     try {
-      const r = await fetch("/api/profile", {
+      const r = await fetch(appPath("/api/profile"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -204,7 +205,7 @@ export default function ProfileDrawer({ open, onClose }: Props) {
           }}
         >
           <a
-            href="/logout"
+            href={appPath("/logout")}
             style={{
               display: "block",
               textAlign: "center",

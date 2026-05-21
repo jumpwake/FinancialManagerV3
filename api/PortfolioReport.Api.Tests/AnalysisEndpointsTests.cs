@@ -97,4 +97,26 @@ public class AnalysisEndpointsTests
         Assert.Equal("{\"portfolio_grade\":\"B\"}",
             await factory.Store.ReadAsync("kevin", "analysis.json"));
     }
+
+    [Fact]
+    public async Task PostIsRateLimitedAfterTenRequestsInOneMinute()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "wrong-token");
+
+        // Burst through the IP-partitioned window. Limit is 10/min. Using a
+        // wrong token so the 401 path still counts (rate limiter runs before
+        // the auth check). The 11th request should hit 429.
+        HttpResponseMessage? last = null;
+        for (var i = 0; i < 11; i++)
+        {
+            last = await client.PostAsync("/api/analysis",
+                new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+            if (last.StatusCode == HttpStatusCode.TooManyRequests) break;
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, last!.StatusCode);
+    }
 }

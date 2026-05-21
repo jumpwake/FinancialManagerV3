@@ -74,6 +74,34 @@ public class ChatEndpointsTests
     }
 
     [Fact]
+    public async Task DeleteClearsHistoryForCallingUser()
+    {
+        using var factory = new ApiFactory();
+        using var client = SignedIn(factory, "kevin");
+
+        await client.PostAsJsonAsync("/api/chat",
+            new[] { SampleMessage("user", "first"), SampleMessage("assistant", "reply") });
+
+        var del = await client.DeleteAsync("/api/chat");
+        Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
+
+        var list = await (await client.GetAsync("/api/chat"))
+            .Content.ReadFromJsonAsync<JsonArray>();
+        Assert.Empty(list!);
+    }
+
+    [Fact]
+    public async Task DeleteRejectsAnonymous()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var res = await client.DeleteAsync("/api/chat");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
     public async Task PostIsScopedToTheCallingUser()
     {
         using var factory = new ApiFactory();

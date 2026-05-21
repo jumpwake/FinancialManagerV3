@@ -3,6 +3,7 @@ import { ChatHistory } from "./ChatHistory";
 import { ChatInput } from "./ChatInput";
 import { useChat } from "./useChat";
 import { TOP_BAR_HEIGHT } from "../TopBar";
+import { appPath } from "../api";
 
 interface Props {
   scope: ChatScope;
@@ -55,7 +56,22 @@ export function Sidebar({
         }}
       >
         <strong>💬 Chat</strong>
-        <button onClick={() => onCollapsedChange(true)} style={{ fontSize: 11 }}>×</button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={async () => {
+              if (chat.streaming) return;
+              try { await fetch(appPath("/api/chat"), { method: "DELETE" }); } catch { /* non-fatal */ }
+              chat.clear();
+              onScopeChange({ type: "global" });
+            }}
+            disabled={chat.streaming}
+            title="Start a new chat (clears history)"
+            style={{ fontSize: 11 }}
+          >
+            New
+          </button>
+          <button onClick={() => onCollapsedChange(true)} style={{ fontSize: 11 }}>×</button>
+        </div>
       </header>
 
       {scope.type !== "global" && (

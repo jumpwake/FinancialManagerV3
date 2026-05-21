@@ -7,6 +7,7 @@ import {
   type ChatInputContext,
 } from "../ai/chat";
 import { aiClient as client } from "../ai/client";
+import { appPath } from "../api";
 
 export interface UseChatResult {
   send: (
@@ -19,6 +20,7 @@ export interface UseChatResult {
   pendingToolUse: { tool: string; payload: Record<string, unknown> } | null;
   streaming: boolean;
   resetPending: () => void;
+  clear: () => void;
 }
 
 function makeMsgId(): string {
@@ -27,7 +29,7 @@ function makeMsgId(): string {
 }
 
 async function persist(messages: ChatMessage[]): Promise<void> {
-  await fetch("/api/chat", {
+  await fetch(appPath("/api/chat"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(messages),
@@ -42,6 +44,12 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
   const [streaming, setStreaming] = useState(false);
 
   const resetPending = useCallback(() => {
+    setPendingAssistantText("");
+    setPendingToolUse(null);
+  }, []);
+
+  const clear = useCallback(() => {
+    setHistory([]);
     setPendingAssistantText("");
     setPendingToolUse(null);
   }, []);
@@ -124,5 +132,5 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
     [history],
   );
 
-  return { send, history, pendingAssistantText, pendingToolUse, streaming, resetPending };
+  return { send, history, pendingAssistantText, pendingToolUse, streaming, resetPending, clear };
 }
