@@ -216,7 +216,7 @@ export default function App() {
       >
         {/* Header */}
         <div style={{ marginBottom: "2rem" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
+          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
             {typedData.portfolio.account_label}
           </h1>
           <p style={{ fontSize: 13, color: COLORS.textMuted }}>
@@ -226,7 +226,7 @@ export default function App() {
             ({typedData.portfolio_score.toFixed(1)}/10)
           </p>
           {typedData.narratives?.headline_summary && (
-            <p style={{ fontSize: 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
+            <p style={{ fontSize: isMobile ? 13 : 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>
               {typedData.narratives.headline_summary}
             </p>
           )}

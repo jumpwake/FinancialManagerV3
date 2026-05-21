@@ -7,6 +7,13 @@ import { TOP_BAR_HEIGHT } from "../TopBar";
 import { appPath } from "../api";
 import { useIsMobile } from "../hooks/useIsMobile";
 
+const SHEET_HEIGHT =
+  typeof window !== "undefined" &&
+  typeof CSS !== "undefined" &&
+  CSS.supports?.("height: 1dvh")
+    ? "85dvh"
+    : "85vh";
+
 interface Props {
   scope: ChatScope;
   onScopeChange: (scope: ChatScope) => void;
@@ -149,7 +156,7 @@ export function Sidebar({
             left: 0,
             right: 0,
             bottom: 0,
-            height: "85dvh",
+            height: SHEET_HEIGHT,
             background: "#11141a",
             borderTop: "1px solid #2a2d34",
             borderTopLeftRadius: 12,
