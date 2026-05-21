@@ -3,7 +3,6 @@ import type { Situation, AnalysisOutput } from "../types";
 import { runPulseCheck } from "../ai/pulseCheck";
 import { aiClient } from "../ai/client";
 import { appPath } from "../api";
-import { useIsMobile } from "../hooks/useIsMobile";
 
 interface Props {
   situations: Situation[];
@@ -20,12 +19,21 @@ function verdictPillStyle(verdict: string): React.CSSProperties {
   return { background: "#2a2d34", color: "#9ca3af" };
 }
 
-const actionButtonStyle: React.CSSProperties = { fontSize: 10, padding: "3px 8px" };
+const iconButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid #2a2d34",
+  borderRadius: 4,
+  color: "#aaa",
+  cursor: "pointer",
+  fontSize: 13,
+  lineHeight: 1,
+  padding: "4px 8px",
+  minWidth: 30,
+};
 
 export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onDelete }: Props) {
   const open = situations.filter((s) => s.status === "open");
   const [pulsing, setPulsing] = useState<Set<string>>(new Set());
-  const isMobile = useIsMobile();
 
   if (open.length === 0) return null;
 
@@ -144,33 +152,34 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
                   )
                   .join(", ")}`}
             </div>
-            <div
-              style={{
-                marginTop: 8,
-                display: isMobile ? "grid" : "flex",
-                gridTemplateColumns: isMobile ? "1fr" : undefined,
-                gap: 6,
-              }}
-            >
+            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
               <button
+                type="button"
                 onClick={() => onDiscuss(sit)}
-                style={{ ...actionButtonStyle, width: isMobile ? "100%" : undefined }}
+                title="Discuss in chat"
+                aria-label="Discuss in chat"
+                style={iconButtonStyle}
               >
-                Discuss in chat
+                💬
               </button>
               <button
+                type="button"
                 onClick={() => onResolve(sit)}
-                style={{ ...actionButtonStyle, width: isMobile ? "100%" : undefined }}
+                title="Mark resolved"
+                aria-label="Mark resolved"
+                style={iconButtonStyle}
               >
-                Mark resolved
+                ✓
               </button>
               <button
                 type="button"
                 disabled={pulsing.has(sit.id)}
                 onClick={() => refreshVerdict(sit)}
-                style={{ ...actionButtonStyle, width: isMobile ? "100%" : undefined }}
+                title={pulsing.has(sit.id) ? "Refreshing verdict…" : "Refresh verdict"}
+                aria-label="Refresh verdict"
+                style={iconButtonStyle}
               >
-                {pulsing.has(sit.id) ? "Checking…" : "Refresh verdict"}
+                {pulsing.has(sit.id) ? "⏳" : "↻"}
               </button>
             </div>
           </div>
