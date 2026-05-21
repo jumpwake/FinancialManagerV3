@@ -113,8 +113,13 @@ export function OpenSituations({ situations, analysis, onDiscuss, onResolve, onD
                 )}
                 <button
                   type="button"
-                  onClick={() => onDelete(sit)}
+                  onClick={() => {
+                    if (window.confirm(`Delete situation: "${sit.title}"?\n\nThis cannot be undone.`)) {
+                      onDelete(sit);
+                    }
+                  }}
                   title="Delete situation"
+                  aria-label="Delete situation"
                   style={{
                     background: "transparent",
                     border: "none",
