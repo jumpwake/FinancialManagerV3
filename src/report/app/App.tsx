@@ -36,10 +36,13 @@ export default function App() {
 
   useEffect(() => persistCollapsed(chatCollapsed), [chatCollapsed]);
 
-  // Auto-open chat when something elsewhere scopes it (💬 buttons, situations).
-  useEffect(() => {
-    if (scope.type !== "global") setChatCollapsed(false);
-  }, [scope.type, scope.finding_key, scope.situation_id]);
+  // Discuss handlers everywhere call this — it both sets the scope and
+  // (re-)opens the chat sheet. Explicit, so re-clicking Discuss after closing
+  // the sheet works even when the scope value didn't change.
+  const startDiscussion = useCallback((newScope: ChatScope) => {
+    setScope(newScope);
+    setChatCollapsed(false);
+  }, []);
 
   const loadAnalysis = useCallback(async () => {
     try {
@@ -247,7 +250,7 @@ export default function App() {
         <OpenSituations
           situations={situations}
           analysis={typedData}
-          onDiscuss={(sit) => setScope({ type: "situation", situation_id: sit.id })}
+          onDiscuss={(sit) => startDiscussion({ type: "situation", situation_id: sit.id })}
           onResolve={handleResolve}
           onDelete={handleDelete}
         />
@@ -256,7 +259,7 @@ export default function App() {
           <AllocationBreakdown
             data={typedData}
             inflightMoves={inflightMoves}
-            onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
+            onDiscussMove={(id) => startDiscussion({ type: "tactical_move", move_id: id })}
             onTrackMove={(deploymentMove) => handleTrackMove({
               id: deploymentMove.id,
               category: "deploy_cash",
@@ -274,7 +277,7 @@ export default function App() {
         <Section label="3 — Dimension scorecard">
           <DimensionScorecard
             data={typedData}
-            onDiscuss={(id) => setScope({ type: "dimension", dimension_id: id })}
+            onDiscuss={(id) => startDiscussion({ type: "dimension", dimension_id: id })}
           />
         </Section>
         <Section label="4 — Key findings">
@@ -287,17 +290,17 @@ export default function App() {
           <AdditionalTakeaways data={typedData} />
         </Section>
         <Section label="7 — Gaps">
-          <Gaps data={typedData} onDiscuss={(k) => setScope({ type: "gap", finding_key: k })} />
+          <Gaps data={typedData} onDiscuss={(k) => startDiscussion({ type: "gap", finding_key: k })} />
         </Section>
         <Section label="8 — Flags">
-          <Flags data={typedData} onDiscuss={(k) => setScope({ type: "flag", finding_key: k })} />
+          <Flags data={typedData} onDiscuss={(k) => startDiscussion({ type: "flag", finding_key: k })} />
         </Section>
         <div id="next-moves">
           <Section label="9 — Next moves">
             <NextMoves
               data={typedData}
               inflightMoves={inflightMoves}
-              onDiscussMove={(id) => setScope({ type: "tactical_move", move_id: id })}
+              onDiscussMove={(id) => startDiscussion({ type: "tactical_move", move_id: id })}
               onTrackMove={(move) => handleTrackMove(move)}
             />
           </Section>
