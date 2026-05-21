@@ -100,6 +100,7 @@ export default function RadarChart({ data }: { data: AnalysisOutput }) {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
     },
@@ -133,7 +134,7 @@ export default function RadarChart({ data }: { data: AnalysisOutput }) {
 
   return (
     <div>
-      <div style={{ maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ width: "100%", aspectRatio: "1 / 1", maxWidth: 460, margin: "0 auto" }}>
         <Radar data={chartData} options={chartOptions as never} />
       </div>
 

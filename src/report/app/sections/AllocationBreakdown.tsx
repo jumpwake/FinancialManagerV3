@@ -104,6 +104,7 @@ export default function AllocationBreakdown({
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -163,7 +164,7 @@ export default function AllocationBreakdown({
             </div>
           ))}
         </div>
-        <div style={{ flex: "0 0 220px", maxWidth: 220 }}>
+        <div style={{ width: "100%", maxWidth: 360, aspectRatio: "1 / 1", margin: "0 auto" }}>
           <Doughnut data={chartData} options={chartOptions as never} />
         </div>
       </div>
