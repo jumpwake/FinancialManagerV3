@@ -161,7 +161,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
             marginTop: 1,
           }}
         >
-          💬
+          💬 Discuss
         </button>
       )}
     </div>
