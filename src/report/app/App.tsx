@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnalysisOutput, ChatScope, Situation, TacticalMove, ChatMessage } from "./types";
 import { COLORS } from "./theme";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { appPath } from "./api";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
@@ -19,6 +20,7 @@ import { initialChatState, persistCollapsed } from "./sidebar/chatStore";
 import Landing from "./Landing";
 
 export default function App() {
+  const isMobile = useIsMobile();
   const [data, setData] = useState<AnalysisOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
   // null = still checking /api/me; true/false = signed-in state known.
@@ -196,8 +198,22 @@ export default function App() {
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <TopBar onOpenProfile={() => setProfileOpen(true)} onToggleChat={toggleChat} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", flex: 1 }}>
-      <main style={{ padding: "2rem 1rem", maxWidth: 900, margin: "0 auto", fontFamily: "system-ui, sans-serif", width: "100%" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr auto",
+          flex: 1,
+        }}
+      >
+      <main
+        style={{
+          padding: isMobile ? "1.25rem 1rem" : "2rem 1rem",
+          maxWidth: 900,
+          margin: "0 auto",
+          fontFamily: "system-ui, sans-serif",
+          width: "100%",
+        }}
+      >
         {/* Header */}
         <div style={{ marginBottom: "2rem" }}>
           <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 4, color: COLORS.text }}>
