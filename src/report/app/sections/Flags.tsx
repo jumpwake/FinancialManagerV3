@@ -73,7 +73,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
           {flag.severity}
         </span>
         <span style={{
-          flexShrink: 0,
+          minWidth: 0,
           fontSize: 11,
           fontWeight: 600,
           color: COLORS.text,
@@ -82,6 +82,9 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
           borderRadius: 4,
           padding: "2px 7px",
           fontFamily: "monospace",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}>
           {flag.ticker}
         </span>
@@ -107,7 +110,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
       </div>
 
       {/* Row 2: title — own row, full card width */}
-      <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", overflowWrap: "anywhere", minWidth: 0 }}>
         <span>{flag.title}</span>
         {isSuppressed && (
           <span style={{
@@ -125,7 +128,7 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
       </div>
 
       {/* Row 3: body — own row, full card width */}
-      <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6 }}>
+      <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.6, overflowWrap: "anywhere", minWidth: 0 }}>
         {flag.body}
       </div>
 
