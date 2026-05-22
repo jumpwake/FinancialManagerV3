@@ -25,6 +25,16 @@ const StockMetricsSchema = z.object({
   analyst_consensus: z.number().nullable(),
 });
 
+// Asset classes that only need the minimal shape (asset_class +
+// expense_ratio + classified_at + optional notes). Sector ETFs, balanced
+// funds, individual stocks, and unknown each have their own branch below
+// because they require additional discriminator-specific fields.
+const MINIMAL_SHAPE_ASSET_CLASSES = [
+  "us_equity_total_market", "us_equity_large_cap", "us_equity_large_cap_growth",
+  "us_equity_small_mid", "international_equity", "us_bond_aggregate",
+  "us_bond_short", "us_bond_tips", "target_date", "cash", "cash_pending",
+] as const;
+
 // Discriminated union: each asset_class branch has its own required fields.
 const TickerEntrySchema = z.discriminatedUnion("asset_class", [
   z.object({
@@ -54,9 +64,7 @@ const TickerEntrySchema = z.discriminatedUnion("asset_class", [
     notes: z.string().optional(),
   }),
   // All remaining asset classes share the same minimal shape.
-  ...(["us_equity_total_market", "us_equity_large_cap", "us_equity_large_cap_growth",
-       "us_equity_small_mid", "international_equity", "us_bond_aggregate",
-       "us_bond_short", "us_bond_tips", "target_date", "cash", "cash_pending"] as const).map(ac =>
+  ...MINIMAL_SHAPE_ASSET_CLASSES.map(ac =>
     z.object({
       asset_class: z.literal(ac),
       expense_ratio: z.number().nullable(),
@@ -107,6 +115,14 @@ export function loadTickerMetadata(filePath: string = DEFAULT_FILE): TickerMetad
   return parsed;
 }
 
+/**
+ * Looks up a canonicalized ticker in the metadata file. Reads from whatever
+ * path `loadTickerMetadata(filePath)` was last called with in this process;
+ * falls back to `DEFAULT_FILE` if the cache is cold. Production callers
+ * always call `loadTickerMetadata()` once at startup, so the fallback only
+ * fires for tests that forget to prime. Returns null if the ticker isn't
+ * in the file.
+ */
 export function lookupTicker(symbol: string): TickerMetadata | null {
   const file = loadTickerMetadata(_cachedPath ?? DEFAULT_FILE);
   const entry = file.tickers[canonicalTicker(symbol)];
