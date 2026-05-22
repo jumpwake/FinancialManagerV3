@@ -18,6 +18,8 @@ import { generateFlags, generateGapItems, generatePlanPhases } from "./engine/pl
 import { buildReferenceModels } from "./engine/benchmarks";
 import { deriveScoringProfile } from "./engine/riskProfile";
 import { generateNarratives } from "./ai/narratives";
+import { loadTickerMetadata, classifyTickers, lookupTicker } from "./intake/tickerClassifier";
+import { canonicalTicker } from "./intake/tickerMetadata";
 import { loadUserContext, saveUserContext } from "./userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
@@ -160,6 +162,46 @@ async function main() {
   const snapshotDate = `${snapshot.date.slice(0, 4)}-${snapshot.date.slice(4, 6)}-${snapshot.date.slice(6, 8)}`;
   const consolidated = consolidatePortfolio(allHoldings, snapshotDate, "All Accounts");
   console.log(`  After consolidation: ${consolidated.holdings.length} unique holdings`);
+
+  // Ticker classification: any holding whose ticker isn't in data/ticker-metadata.json
+  // came out of normalize with asset_class: "unknown". Call Claude once for all
+  // unknowns, then patch the consolidated portfolio in place.
+  loadTickerMetadata();
+  const unknownSymbols = Array.from(new Set(
+    consolidated.holdings
+      .filter(h => h.asset_class === "unknown")
+      .map(h => canonicalTicker(h.ticker)),
+  ));
+  if (unknownSymbols.length > 0) {
+    console.log("");
+    console.log(`Classifying ${unknownSymbols.length} new ticker(s): ${unknownSymbols.join(", ")}`);
+    await classifyTickers(unknownSymbols);
+    // Patch every unknown holding with the now-resolved metadata.
+    for (const h of consolidated.holdings) {
+      if (h.asset_class !== "unknown") continue;
+      const meta = lookupTicker(h.ticker);
+      if (!meta) continue;
+      h.asset_class = meta.asset_class;
+      h.expense_ratio = meta.expense_ratio;
+      h.sector_tag = meta.sector_tag;
+      h.stock_metrics = meta.stock_metrics;
+      h.underlying_composition = meta.underlying_composition;
+    }
+  }
+
+  // Material-value check: any unknown holding still on the books?
+  const materialUnknowns = consolidated.holdings.filter(
+    h => h.asset_class === "unknown" && h.market_value > 0,
+  );
+  if (materialUnknowns.length > 0) {
+    const lines = materialUnknowns.map(
+      h => `  ${h.ticker}: ${fmtMoney(h.market_value)} (${h.label})`,
+    ).join("\n");
+    throw new Error(
+      `Cannot analyze portfolio — ${materialUnknowns.length} holding(s) could not be classified:\n${lines}\n` +
+      `Edit data/ticker-metadata.json to set the correct asset_class, then re-run.`,
+    );
+  }
 
   // Validate via zod
   const portfolio = parsePortfolio(consolidated);

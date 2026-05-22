@@ -161,48 +161,42 @@ export function buildClassifyPrompt(symbols: string[]): string {
   return JSON.stringify({ symbols });
 }
 
-// Wraps the entry schema with a required `symbol` for the response.
-const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
-  z.object({
-    symbol: z.string(),
-    asset_class: z.literal("us_equity_sector"),
-    expense_ratio: z.number().nullable(),
-    sector_tag: z.string(),
-    classified_at: z.string(),
-    notes: z.string().optional(),
-  }),
-  z.object({
-    symbol: z.string(),
-    asset_class: z.literal("balanced"),
-    expense_ratio: z.number().nullable(),
-    underlying_composition: UnderlyingCompositionSchema,
-    classified_at: z.string(),
-    notes: z.string().optional(),
-  }),
-  z.object({
-    symbol: z.string(),
-    asset_class: z.literal("individual_stock"),
-    expense_ratio: z.null(),
-    stock_metrics: StockMetricsSchema,
-    classified_at: z.string(),
-    notes: z.string().optional(),
-  }),
-  z.object({
-    symbol: z.string(),
-    asset_class: z.literal("unknown"),
-    classified_at: z.string(),
-    notes: z.string().optional(),
-  }),
-  ...MINIMAL_SHAPE_ASSET_CLASSES.map(ac =>
-    z.object({
-      symbol: z.string(),
-      asset_class: z.literal(ac),
-      expense_ratio: z.number().nullable(),
-      classified_at: z.string(),
-      notes: z.string().optional(),
-    }),
-  ),
-]);
+// Flat response entry schema for the Anthropic API call. Using a flat object
+// (rather than a discriminated union) avoids the Anthropic limit on optional
+// and union-typed parameters. Fields that only apply to certain asset classes
+// are marked optional; the system prompt tells the model when to include them.
+const ClassifyResponseEntrySchema = z.object({
+  symbol: z.string(),
+  asset_class: z.enum([
+    "us_equity_sector", "balanced", "individual_stock", "unknown",
+    ...MINIMAL_SHAPE_ASSET_CLASSES,
+  ]),
+  classified_at: z.string(),
+  // expense_ratio: omit for individual_stock; provide for funds/ETFs.
+  expense_ratio: z.number().optional(),
+  // Sector ETFs only.
+  sector_tag: z.string().optional(),
+  // Balanced/target-date funds only (weights must sum to 1.0).
+  underlying_composition: z.object({
+    us_equity: z.number(),
+    international_equity: z.number(),
+    fixed_income: z.number(),
+    cash: z.number(),
+  }).optional(),
+  // Individual stocks only.
+  stock_metrics: z.object({
+    pe_ratio: z.number().optional(),
+    ev_ebitda: z.number().optional(),
+    fcf_yield: z.number().optional(),
+    roe: z.number().optional(),
+    eps_growth_yoy: z.number().optional(),
+    revenue_growth_yoy: z.number().optional(),
+    net_debt_ebitda: z.number().optional(),
+    beta: z.number().optional(),
+    analyst_consensus: z.number().optional(),
+  }).optional(),
+  notes: z.string().optional(),
+});
 
 const ClassifyResponseSchema = z.object({
   entries: z.array(ClassifyResponseEntrySchema),
