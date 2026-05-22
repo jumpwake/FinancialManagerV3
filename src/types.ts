@@ -12,7 +12,8 @@ export type AssetClass =
   | "target_date"
   | "individual_stock"
   | "cash"
-  | "cash_pending";
+  | "cash_pending"
+  | "unknown";
 
 export interface UnderlyingComposition {
   us_equity: number;            // 0..1

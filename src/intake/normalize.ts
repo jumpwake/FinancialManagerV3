@@ -1,5 +1,6 @@
 import { Holding, Portfolio, UnderlyingComposition } from "../types";
-import { lookupTicker, canonicalTicker } from "./tickerMetadata";
+import { lookupTicker } from "./tickerClassifier";
+import { canonicalTicker } from "./tickerMetadata";
 import { glidePathComposition, extractTargetYear } from "./composition";
 
 /** Parse a dollar-formatted string like "$1,234.56" or "-$1,000.00" into a number. Returns 0 for empty/null/undefined. */
@@ -71,7 +72,7 @@ export function normalizeFidelityAccounts(accounts: FidelityRawAccount[], accoun
 
       const ticker = canonicalTicker(raw.symbol);
       const meta = lookupTicker(raw.symbol);
-      const asset_class = meta?.asset_class ?? "us_equity_total_market";
+      const asset_class = meta?.asset_class ?? "unknown";
       out.push({
         ticker,
         label: raw.description || ticker,
@@ -115,7 +116,7 @@ export function normalizeEmpowerAccounts(accounts: EmpowerRawAccount[], account_
       if (market_value <= 0) continue;
 
       const meta = lookupTicker(raw.symbol);
-      const asset_class = meta?.asset_class ?? "us_equity_total_market";
+      const asset_class = meta?.asset_class ?? "unknown";
       out.push({
         ticker: raw.symbol,
         label: raw.symbol,
@@ -201,7 +202,7 @@ export function normalizeRobinhoodAccounts(accounts: VanguardRawAccount[], accou
 
       const ticker = canonicalTicker(raw.symbol);
       const meta = lookupTicker(raw.symbol);
-      const asset_class = meta?.asset_class ?? "us_equity_total_market";
+      const asset_class = meta?.asset_class ?? "unknown";
       out.push({
         ticker,
         label: ticker,
@@ -251,7 +252,7 @@ export function normalizeVanguardAccounts(accounts: VanguardRawAccount[], accoun
 
       const ticker = canonicalTicker(raw.symbol);
       const meta = lookupTicker(raw.symbol);
-      const asset_class = meta?.asset_class ?? "us_equity_total_market";
+      const asset_class = meta?.asset_class ?? "unknown";
       out.push({
         ticker,
         label: ticker,

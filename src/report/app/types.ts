@@ -20,7 +20,7 @@ export type AssetClass =
   | "us_equity_total_market" | "us_equity_large_cap" | "us_equity_large_cap_growth"
   | "us_equity_small_mid" | "us_equity_sector" | "international_equity"
   | "us_bond_aggregate" | "us_bond_short" | "us_bond_tips"
-  | "balanced" | "target_date" | "individual_stock" | "cash" | "cash_pending";
+  | "balanced" | "target_date" | "individual_stock" | "cash" | "cash_pending" | "unknown";
 
 export interface UnderlyingComposition {
   us_equity: number;
