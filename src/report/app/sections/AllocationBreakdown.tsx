@@ -28,6 +28,7 @@ const ASSET_BUCKET_MAP: Record<AssetClass, { label: string; color: string }> = {
   individual_stock:           { label: "Individual Stocks",        color: COLORS.donut.individual_stock },
   cash:                       { label: "Cash",                     color: COLORS.donut.cash },
   cash_pending:               { label: "Cash (Pending)",           color: COLORS.donut.cash },
+  unknown:                    { label: "Unknown",                  color: COLORS.donut.cash },
 };
 
 interface BucketEntry {
