@@ -173,7 +173,7 @@ const ClassifyResponseEntrySchema = z.object({
   ]),
   classified_at: z.string(),
   // expense_ratio: omit for individual_stock; provide for funds/ETFs.
-  expense_ratio: z.number().optional(),
+  expense_ratio: z.number().nullable().optional(),
   // Sector ETFs only.
   sector_tag: z.string().optional(),
   // Balanced/target-date funds only (weights must sum to 1.0).
@@ -185,15 +185,15 @@ const ClassifyResponseEntrySchema = z.object({
   }).optional(),
   // Individual stocks only.
   stock_metrics: z.object({
-    pe_ratio: z.number().optional(),
-    ev_ebitda: z.number().optional(),
-    fcf_yield: z.number().optional(),
-    roe: z.number().optional(),
-    eps_growth_yoy: z.number().optional(),
-    revenue_growth_yoy: z.number().optional(),
-    net_debt_ebitda: z.number().optional(),
-    beta: z.number().optional(),
-    analyst_consensus: z.number().optional(),
+    pe_ratio: z.number().nullable().optional(),
+    ev_ebitda: z.number().nullable().optional(),
+    fcf_yield: z.number().nullable().optional(),
+    roe: z.number().nullable().optional(),
+    eps_growth_yoy: z.number().nullable().optional(),
+    revenue_growth_yoy: z.number().nullable().optional(),
+    net_debt_ebitda: z.number().nullable().optional(),
+    beta: z.number().nullable().optional(),
+    analyst_consensus: z.number().nullable().optional(),
   }).optional(),
   notes: z.string().optional(),
 });
