@@ -113,6 +113,22 @@ describe("normalizeFidelityAccounts", () => {
     const holdings = normalizeFidelityAccounts(raw, "acct_a");
     expect(holdings[0].sector_tag).toBe("utilities");
   });
+
+  it("classifies unknown tickers as 'unknown' (no silent US-equity fallback)", () => {
+    const raw = [
+      {
+        account_id: "A1", account_name: "Test", account_label: "", total_value: "$100",
+        holdings: [
+          { symbol: "ZZTOTALLYFAKE", description: "Bogus", quantity: "1", balance: "$100.00" },
+        ],
+      },
+    ];
+    const holdings = normalizeFidelityAccounts(raw, "acct_a");
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0].asset_class).toBe("unknown");
+    expect(holdings[0].expense_ratio).toBeNull();
+    expect(holdings[0].sector_tag).toBeUndefined();
+  });
 });
 
 describe("normalizeEmpowerAccounts", () => {
