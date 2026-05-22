@@ -156,9 +156,19 @@
     },
     "AVUV": {
       "asset_class": "us_equity_small_mid",
-      "classified_at": "2025-07-16",
       "expense_ratio": 0.0025,
+      "classified_at": "2025-07-16",
       "notes": "Avantis U.S. Small Cap Value ETF. Actively managed small-cap value fund targeting US small-cap stocks with value and profitability tilts."
+    },
+    "VTI": {
+      "asset_class": "us_equity_total_market",
+      "expense_ratio": 0.0003,
+      "classified_at": "2025-01-24"
+    },
+    "VXUS": {
+      "asset_class": "international_equity",
+      "expense_ratio": 0.0007,
+      "classified_at": "2025-01-24"
     }
   }
 }

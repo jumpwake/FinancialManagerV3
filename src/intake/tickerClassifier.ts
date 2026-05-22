@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as z from "zod/v4";
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { canonicalTicker } from "./tickerMetadata";
 import type { UnderlyingComposition, StockMetrics, AssetClass } from "../types";
 
@@ -155,48 +154,70 @@ Rules:
 - For asset_class "balanced": include underlying_composition with us_equity / international_equity / fixed_income / cash weights summing to 1.0.
 - For asset_class "individual_stock": include best-effort stock_metrics. Use null for any field you don't have data for, but provide values where you can — even slightly stale data is useful.
 - For asset_class "unknown": use ONLY when the ticker is genuinely unrecognized. Include a notes field explaining (e.g., "no public market data found").
-- classified_at: today's date in YYYY-MM-DD format.`.trim();
+- classified_at: today's date in YYYY-MM-DD format.
+
+Output format: Return ONLY a JSON object of shape { "entries": [ ... ] }, where each entry has these fields:
+- symbol (string): the canonical ticker
+- asset_class (string): one of the allowed enum values
+- expense_ratio (number or null): see rules above
+- classified_at (string): today's date as YYYY-MM-DD
+- sector_tag (string): required if asset_class is "us_equity_sector"
+- underlying_composition (object): required if asset_class is "balanced"; shape { us_equity, international_equity, fixed_income, cash } — numbers summing to 1.0
+- stock_metrics (object): required if asset_class is "individual_stock"; shape { pe_ratio, ev_ebitda, fcf_yield, roe, eps_growth_yoy, revenue_growth_yoy, net_debt_ebitda, beta, analyst_consensus } — each value is a number or null
+- notes (string): optional; required if asset_class is "unknown"
+
+Do not include any other text, markdown, or explanation. Return ONLY the JSON object.`.trim();
 
 export function buildClassifyPrompt(symbols: string[]): string {
   return JSON.stringify({ symbols });
 }
 
-// Flat response entry schema for the Anthropic API call. Using a flat object
-// (rather than a discriminated union) avoids the Anthropic limit on optional
-// and union-typed parameters. Fields that only apply to certain asset classes
-// are marked optional; the system prompt tells the model when to include them.
-const ClassifyResponseEntrySchema = z.object({
-  symbol: z.string(),
-  asset_class: z.enum([
-    "us_equity_sector", "balanced", "individual_stock", "unknown",
-    ...MINIMAL_SHAPE_ASSET_CLASSES,
-  ]),
-  classified_at: z.string(),
-  // expense_ratio: omit for individual_stock; provide for funds/ETFs.
-  expense_ratio: z.number().nullable().optional(),
-  // Sector ETFs only.
-  sector_tag: z.string().optional(),
-  // Balanced/target-date funds only (weights must sum to 1.0).
-  underlying_composition: z.object({
-    us_equity: z.number(),
-    international_equity: z.number(),
-    fixed_income: z.number(),
-    cash: z.number(),
-  }).optional(),
-  // Individual stocks only.
-  stock_metrics: z.object({
-    pe_ratio: z.number().nullable().optional(),
-    ev_ebitda: z.number().nullable().optional(),
-    fcf_yield: z.number().nullable().optional(),
-    roe: z.number().nullable().optional(),
-    eps_growth_yoy: z.number().nullable().optional(),
-    revenue_growth_yoy: z.number().nullable().optional(),
-    net_debt_ebitda: z.number().nullable().optional(),
-    beta: z.number().nullable().optional(),
-    analyst_consensus: z.number().nullable().optional(),
-  }).optional(),
-  notes: z.string().optional(),
-});
+// Discriminated union response schema — each asset_class branch enforces its
+// own required fields. Validated after manual JSON.parse() of Claude's text
+// response (we no longer use messages.parse() / zodOutputFormat, which timed
+// out the API's grammar compiler for both this union and the earlier flat
+// schema).
+const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
+  z.object({
+    symbol: z.string(),
+    asset_class: z.literal("us_equity_sector"),
+    expense_ratio: z.number().nullable(),
+    sector_tag: z.string(),
+    classified_at: z.string(),
+    notes: z.string().optional(),
+  }),
+  z.object({
+    symbol: z.string(),
+    asset_class: z.literal("balanced"),
+    expense_ratio: z.number().nullable(),
+    underlying_composition: UnderlyingCompositionSchema,
+    classified_at: z.string(),
+    notes: z.string().optional(),
+  }),
+  z.object({
+    symbol: z.string(),
+    asset_class: z.literal("individual_stock"),
+    expense_ratio: z.null(),
+    stock_metrics: StockMetricsSchema,
+    classified_at: z.string(),
+    notes: z.string().optional(),
+  }),
+  z.object({
+    symbol: z.string(),
+    asset_class: z.literal("unknown"),
+    classified_at: z.string(),
+    notes: z.string().optional(),
+  }),
+  ...MINIMAL_SHAPE_ASSET_CLASSES.map(ac =>
+    z.object({
+      symbol: z.string(),
+      asset_class: z.literal(ac),
+      expense_ratio: z.number().nullable(),
+      classified_at: z.string(),
+      notes: z.string().optional(),
+    }),
+  ),
+]);
 
 const ClassifyResponseSchema = z.object({
   entries: z.array(ClassifyResponseEntrySchema),
@@ -217,15 +238,10 @@ export async function classifyTickers(
   const client = new Anthropic();
   let response;
   try {
-    response = await client.messages.parse({
+    response = await client.messages.create({
       model: process.env.CLAUDE_MODEL_CLASSIFIER ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
       max_tokens: 4000,
       thinking: { type: "adaptive" },
-      output_config: {
-        effort: "medium",
-        // Same v3/v4 type-bridging cast pattern as narratives.ts and tacticalAdvisor.ts.
-        format: zodOutputFormat(ClassifyResponseSchema as never),
-      },
       system: CLASSIFY_SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildClassifyPrompt(unknowns) }],
     });
@@ -237,15 +253,46 @@ export async function classifyTickers(
     );
   }
 
-  if (!response.parsed_output) {
+  // Extract text content (skip thinking blocks).
+  const textParts = response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map(b => b.text);
+  if (textParts.length === 0) {
     throw new Error(
-      `Cannot classify [${unknowns.join(", ")}] — Anthropic returned no parsed_output. ` +
+      `Cannot classify [${unknowns.join(", ")}] — Anthropic returned no text content. ` +
+      `Either retry, or add entries manually to ${filePath}.`,
+    );
+  }
+  const text = textParts.join("").trim();
+
+  // Strip ```json ... ``` markdown fences if Claude wrapped the JSON.
+  const jsonText = (() => {
+    const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    return fenceMatch ? fenceMatch[1].trim() : text;
+  })();
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(jsonText);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Cannot classify [${unknowns.join(", ")}] — Claude returned invalid JSON: ${detail}. ` +
+      `Raw response: ${text.slice(0, 500)}. ` +
       `Either retry, or add entries manually to ${filePath}.`,
     );
   }
 
-  // Cast needed because zodOutputFormat receives `as never` to bridge stale SDK v3 types.
-  const parsed = response.parsed_output as z.infer<typeof ClassifyResponseSchema>;
+  let parsed;
+  try {
+    parsed = ClassifyResponseSchema.parse(raw);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Cannot classify [${unknowns.join(", ")}] — response failed schema validation: ${detail}. ` +
+      `Either retry, or add entries manually to ${filePath}.`,
+    );
+  }
 
   // Merge new entries into the existing file and persist.
   const existing = loadTickerMetadata(filePath);

@@ -14,5 +14,17 @@ Rules:
 - For asset_class "balanced": include underlying_composition with us_equity / international_equity / fixed_income / cash weights summing to 1.0.
 - For asset_class "individual_stock": include best-effort stock_metrics. Use null for any field you don't have data for, but provide values where you can — even slightly stale data is useful.
 - For asset_class "unknown": use ONLY when the ticker is genuinely unrecognized. Include a notes field explaining (e.g., "no public market data found").
-- classified_at: today's date in YYYY-MM-DD format."
+- classified_at: today's date in YYYY-MM-DD format.
+
+Output format: Return ONLY a JSON object of shape { "entries": [ ... ] }, where each entry has these fields:
+- symbol (string): the canonical ticker
+- asset_class (string): one of the allowed enum values
+- expense_ratio (number or null): see rules above
+- classified_at (string): today's date as YYYY-MM-DD
+- sector_tag (string): required if asset_class is "us_equity_sector"
+- underlying_composition (object): required if asset_class is "balanced"; shape { us_equity, international_equity, fixed_income, cash } — numbers summing to 1.0
+- stock_metrics (object): required if asset_class is "individual_stock"; shape { pe_ratio, ev_ebitda, fcf_yield, roe, eps_growth_yoy, revenue_growth_yoy, net_debt_ebitda, beta, analyst_consensus } — each value is a number or null
+- notes (string): optional; required if asset_class is "unknown"
+
+Do not include any other text, markdown, or explanation. Return ONLY the JSON object."
 `;
