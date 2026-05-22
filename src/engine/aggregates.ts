@@ -47,7 +47,11 @@ export function computeAggregates(
   portfolio: Portfolio,
   accounts?: AccountConfig,
 ): PortfolioAggregates {
-  const holdings = portfolio.holdings;
+  // Filter out 'unknown' holdings defensively. The pipeline throws upstream if
+  // any unknown holding has material value, so in practice only zero-value
+  // stragglers reach here — but keeping the filter local protects future
+  // callers and keeps total_value honest.
+  const holdings = portfolio.holdings.filter(h => h.asset_class !== "unknown");
   const total_value = holdings.reduce((sum, h) => sum + h.market_value, 0);
   const w = (h: Holding) => (total_value > 0 ? h.market_value / total_value : 0);
 

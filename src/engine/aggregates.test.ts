@@ -384,3 +384,18 @@ describe("aggregates — constrained cash", () => {
     expect(agg.cash_weight).toBeCloseTo(1.0, 2);
   });
 });
+
+describe("aggregates — unknown asset_class filtering", () => {
+  it("excludes 'unknown' asset_class holdings from weight calculations", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "VTSAX", asset_class: "us_equity_total_market", market_value: 8000 }),
+        makeHolding({ ticker: "FAKE", asset_class: "unknown", market_value: 2000 }),
+      ],
+    });
+    const aggregates = computeAggregates(portfolio);
+    // Without the filter, FAKE's $2000 falls into no bucket and weights normalize wrong.
+    // With the filter, VTSAX is 100% of the "classified" portfolio.
+    expect(aggregates.equity_weight).toBeCloseTo(1.0, 3);
+  });
+});
