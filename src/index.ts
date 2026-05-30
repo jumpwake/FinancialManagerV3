@@ -12,6 +12,7 @@ import {
 import { parseAccountsCSV, findLatestSnapshotFiles } from "./intake/parseAccountsCSV";
 import { parsePortfolio } from "./intake/parsePortfolio";
 import { parseMacro } from "./intake/parseMacro";
+import { refreshMacro } from "./intake/refreshMacro";
 import { computeAggregates } from "./engine/aggregates";
 import { scoreAllDimensions, computePortfolioScore, scoreToGrade } from "./engine/dimensions";
 import { generateFlags, generateGapItems, generatePlanPhases } from "./engine/plan";
@@ -205,6 +206,24 @@ async function main() {
 
   // Validate via zod
   const portfolio = parsePortfolio(consolidated);
+
+  // Refresh macro snapshot (FRED + AI) BEFORE the engine reads it. The file on
+  // disk is otherwise a hand-edited static — without this step the dimension
+  // scoring calibrates against whatever regime the file says, regardless of
+  // current conditions. Skipped if --no-refresh is on argv (offline / testing).
+  const noRefresh = process.argv.includes("--no-refresh");
+  if (noRefresh) {
+    console.log("  --no-refresh on argv; skipping macro refresh");
+  } else {
+    console.log("  Refreshing macro snapshot...");
+    try {
+      await refreshMacro({ macroFile: MACRO_FILE });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      console.warn(`  ⚠ macro refresh failed (${detail}); using existing ${MACRO_FILE}`);
+    }
+  }
+
   const macro = parseMacro(loadJSON(MACRO_FILE));
   console.log(`  Macro regime: ${macro.market_regime}`);
 
