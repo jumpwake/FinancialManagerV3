@@ -10,6 +10,7 @@ output/
 data/**/user-context.json
 data/**/accounts.csv
 data/**/analysis.json
+data/macro.json
 
 # .NET build output
 [Bb]in/
