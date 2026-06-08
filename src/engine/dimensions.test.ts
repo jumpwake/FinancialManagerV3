@@ -799,6 +799,24 @@ describe("scoreAssetLocation", () => {
     expect(result.score).toBeGreaterThanOrEqual(1);
     expect(result.score).toBeLessThanOrEqual(10);
   });
+
+  it("rewards crypto placed in Roth over the same crypto in pre-tax", () => {
+    const pBad = makePortfolio({ holdings: [
+      makeHolding({ ticker: "FBTC", market_value: 1000, asset_class: "crypto", expense_ratio: 0.0025, account_id: "fid_401k" }),
+    ]});
+    const pGood = makePortfolio({ holdings: [
+      makeHolding({ ticker: "FBTC", market_value: 1000, asset_class: "crypto", expense_ratio: 0.0025, account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "fid_401k", account_type: "pretax_ira" }),
+        makeAccount({ id: "vng_roth", account_type: "roth_ira" }),
+      ],
+    };
+    const bad = scoreAssetLocation(pBad, accounts).score;
+    const good = scoreAssetLocation(pGood, accounts).score;
+    expect(good).toBeGreaterThan(bad);
+  });
 });
 
 describe("computePortfolioScore renormalization", () => {

@@ -311,6 +311,7 @@ const QUALITY_TICKERS: Record<string, number> = {
 const GROWTH_CLASSES = new Set<string>([
   "us_equity_large_cap_growth",
   "us_equity_small_mid",
+  "crypto",
 ]);
 
 export function scoreQualityTilt(
