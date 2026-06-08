@@ -135,6 +135,7 @@ export interface PortfolioAggregates {
   equity_weight: number;
   fixed_income_weight: number;
   individual_stock_weight: number;
+  crypto_weight: number;
   balanced_weight: number;
   sector_holdings: SectorHolding[];
 }

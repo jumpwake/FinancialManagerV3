@@ -375,7 +375,7 @@ describe("plan generators with a bond_balance-dropped ScoringProfile", () => {
       duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
       international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
       pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.9, fixed_income_weight: 0.02,
-      individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+      individual_stock_weight: 0, crypto_weight: 0, balanced_weight: 0, sector_holdings: [],
     } as PortfolioAggregates;
     const dims: DimensionScore[] = [
       { id: "single_stock_risk", label: "Single-stock risk", score: 10, rating: "green", display_value: "", note: "", weight: 0.11 },
@@ -392,7 +392,7 @@ describe("plan generators with a bond_balance-dropped ScoringProfile", () => {
       duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
       international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
       pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.98, fixed_income_weight: 0.02,
-      individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+      individual_stock_weight: 0, crypto_weight: 0, balanced_weight: 0, sector_holdings: [],
     } as PortfolioAggregates;
     const macro = makeMacro({ yield_curve_status: "inverted" });
     const flags = generateFlags(portfolio, agg, macro, undefined, droppedSp);
@@ -405,7 +405,7 @@ describe("plan generators with a bond_balance-dropped ScoringProfile", () => {
       duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
       international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
       pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.98, fixed_income_weight: 0.02,
-      individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+      individual_stock_weight: 0, crypto_weight: 0, balanced_weight: 0, sector_holdings: [],
     } as PortfolioAggregates;
     const { phases } = generatePlanPhases(agg, makeMacro(), 7, droppedSp);
     const allActions = phases.flatMap((p) => p.actions.map((a) => a.description));
@@ -425,7 +425,7 @@ describe("plan FI triggers use the profile target floor, not a hardcoded thresho
     duplicate_groups: [], cross_account_groups: [], top3_weight: 0.2, top3_tickers: [],
     international_weight: 0.1, cash_weight: 0, idle_cash_weight: 0, constrained_cash_weight: 0,
     pending_cash_weight: 0, pending_cash_value: 0, equity_weight: 0.7, fixed_income_weight: 0.20,
-    individual_stock_weight: 0, balanced_weight: 0, sector_holdings: [],
+    individual_stock_weight: 0, crypto_weight: 0, balanced_weight: 0, sector_holdings: [],
   } as PortfolioAggregates;
 
   it("generateFlags fires the inverted-curve flag at 20% FI when the profile floor is 30%", () => {

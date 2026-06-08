@@ -399,3 +399,15 @@ describe("aggregates — unknown asset_class filtering", () => {
     expect(aggregates.equity_weight).toBeCloseTo(1.0, 3);
   });
 });
+
+describe("crypto sleeve", () => {
+  it("counts crypto in crypto_weight and excludes it from equity_weight", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "FSKAX", market_value: 800, asset_class: "us_equity_total_market" }),
+      makeHolding({ ticker: "FBTC", market_value: 200, asset_class: "crypto", expense_ratio: 0.0025 }),
+    ]});
+    const agg = computeAggregates(p);
+    expect(agg.crypto_weight).toBeCloseTo(0.2, 5);
+    expect(agg.equity_weight).toBeCloseTo(0.8, 5);
+  });
+});

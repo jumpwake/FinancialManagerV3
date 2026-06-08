@@ -155,6 +155,10 @@ export function computeAggregates(
     .filter(h => h.asset_class === "individual_stock")
     .reduce((sum, h) => sum + w(h), 0);
 
+  const crypto_weight = holdings
+    .filter(h => h.asset_class === "crypto")
+    .reduce((sum, h) => sum + w(h), 0);
+
   const balanced_weight = holdings
     .filter(h => h.asset_class === "balanced" || h.asset_class === "target_date")
     .reduce((sum, h) => sum + w(h), 0);
@@ -190,6 +194,7 @@ export function computeAggregates(
     equity_weight,
     fixed_income_weight,
     individual_stock_weight,
+    crypto_weight,
     balanced_weight,
     sector_holdings,
     pending_deployment_label: firstPending?.deployment_label,
