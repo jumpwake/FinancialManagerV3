@@ -20,10 +20,10 @@ describe("renderTacticalInput", () => {
         total_value: 100_000, equity_weight: 0.6, fixed_income_weight: 0.35,
         international_weight: 0.05, cash_weight: 0, idle_cash_weight: 0,
         constrained_cash_weight: 0, pending_cash_weight: 0, pending_cash_value: 0,
-        individual_stock_weight: 0, balanced_weight: 1.0, holding_count: 1,
+        individual_stock_weight: 0, crypto_weight: 0, balanced_weight: 1.0, holding_count: 1,
         top3_weight: 1.0, top3_tickers: ["VWENX"], blended_expense_ratio: 0.0017,
         duplicate_groups: [], cross_account_groups: [], sector_holdings: [],
-      } as any,
+      },
       macro: {
         snapshot_date: "2026-05-10", federal_funds_rate: 4.75, cpi_yoy_headline: 2.8,
         cpi_yoy_core: 2.6, yield_curve_spread_10y_2y: -0.12, yield_curve_status: "inverted",
