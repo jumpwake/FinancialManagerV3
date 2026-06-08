@@ -26,7 +26,7 @@ const ASSET_BUCKET_MAP: Record<AssetClass, { label: string; color: string }> = {
   balanced:                   { label: "Balanced",                 color: COLORS.donut.balanced },
   target_date:                { label: "Target Date",              color: COLORS.donut.balanced },
   individual_stock:           { label: "Individual Stocks",        color: COLORS.donut.individual_stock },
-  crypto:                     { label: "Crypto",                   color: COLORS.donut.other },
+  crypto:                     { label: "Crypto",                   color: COLORS.donut.crypto },
   cash:                       { label: "Cash",                     color: COLORS.donut.cash },
   cash_pending:               { label: "Cash (Pending)",           color: COLORS.donut.cash },
   unknown:                    { label: "Unknown",                  color: COLORS.donut.cash },

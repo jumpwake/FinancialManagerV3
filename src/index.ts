@@ -414,6 +414,9 @@ async function main() {
   console.log(`  Fixed income:  ${fmtPct(aggregates.fixed_income_weight)}`);
   console.log(`  International: ${fmtPct(aggregates.international_weight)}`);
   console.log(`  Balanced:      ${fmtPct(aggregates.balanced_weight)}`);
+  if (aggregates.crypto_weight > 0) {
+    console.log(`  Crypto:        ${fmtPct(aggregates.crypto_weight)}`);
+  }
   console.log(`  Cash (idle):   ${fmtPct(aggregates.idle_cash_weight)}`);
   if (aggregates.pending_cash_weight > 0) {
     console.log(`  Cash (pending):${fmtPct(aggregates.pending_cash_weight)}`);

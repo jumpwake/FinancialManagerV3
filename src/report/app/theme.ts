@@ -17,6 +17,7 @@ export const COLORS = {
     international: "#4a5fa0",
     fixed_income: "#4a7ac4",
     individual_stock: "#a05030",
+    crypto: "#e8a33d",
     sector_tech: "#c48830",
     sector_utilities: "#7a9060",
     sector_nasdaq: "#903080",
