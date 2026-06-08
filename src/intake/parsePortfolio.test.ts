@@ -31,9 +31,30 @@ describe("parsePortfolio", () => {
   test("rejects invalid asset_class", () => {
     const bad = {
       ...VALID_INPUT,
-      holdings: [{ ...VALID_INPUT.holdings[0], asset_class: "crypto" }],
+      holdings: [{ ...VALID_INPUT.holdings[0], asset_class: "not_a_class" }],
     };
     expect(() => parsePortfolio(bad)).toThrow();
+  });
+
+  it("accepts a holding with asset_class crypto", () => {
+    const portfolio = {
+      snapshot_date: "2026-06-08",
+      account_label: "All Accounts",
+      holdings: [
+        {
+          ticker: "FBTC",
+          label: "Fidelity Wise Origin Bitcoin Fund",
+          market_value: 5000,
+          asset_class: "crypto",
+          account_id: "fid_roth",
+          is_cash: false,
+          is_pending_deployment: false,
+          expense_ratio: 0.0025,
+        },
+      ],
+    };
+    const result = parsePortfolio(portfolio);
+    expect(result.holdings[0].asset_class).toBe("crypto");
   });
 
   test("rejects negative market_value", () => {
