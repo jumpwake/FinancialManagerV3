@@ -84,6 +84,18 @@ describe("TickerMetadataFileSchema", () => {
   });
 });
 
+describe("crypto asset class", () => {
+  it("TickerMetadataFileSchema accepts a crypto entry (minimal shape)", () => {
+    const parsed = TickerMetadataFileSchema.parse({
+      version: 1,
+      tickers: {
+        FBTC: { asset_class: "crypto", expense_ratio: 0.0025, classified_at: "2026-06-08" },
+      },
+    });
+    expect(parsed.tickers.FBTC.asset_class).toBe("crypto");
+  });
+});
+
 describe("lookupTicker", () => {
   beforeEach(() => {
     fs.writeFileSync(tmpFile, JSON.stringify({

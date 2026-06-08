@@ -11,6 +11,7 @@ export type AssetClass =
   | "balanced"
   | "target_date"
   | "individual_stock"
+  | "crypto"
   | "cash"
   | "cash_pending"
   | "unknown";

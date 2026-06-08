@@ -33,7 +33,7 @@ const StockMetricsSchema = z.object({
 const MINIMAL_SHAPE_ASSET_CLASSES = [
   "us_equity_total_market", "us_equity_large_cap", "us_equity_large_cap_growth",
   "us_equity_small_mid", "international_equity", "us_bond_aggregate",
-  "us_bond_short", "us_bond_tips", "target_date", "cash", "cash_pending",
+  "us_bond_short", "us_bond_tips", "target_date", "cash", "cash_pending", "crypto",
 ] as const;
 
 // Discriminated union: each asset_class branch has its own required fields.
@@ -150,6 +150,7 @@ Rules:
 - Use the canonical ticker as the symbol field (e.g., "BRK-B" not "BRK B").
 - Pick the most accurate asset_class from the allowed enum. Be precise: VXUS is international_equity, not us_equity_total_market.
 - expense_ratio: provide the published ratio as a decimal (e.g., 0.0007 for 7 basis points). May be null for individual stocks and money-market funds.
+- For asset_class "crypto": use for spot bitcoin/ether ETFs and ETPs (e.g. FBTC, IBIT, ETHA, FETH, GBTC). Provide the published expense_ratio. No sector_tag or stock_metrics.
 - For asset_class "us_equity_sector": include a sector_tag like "utilities", "healthcare", "technology", "consumer_staples", "industrials", "energy", "financials", "real_estate", "materials", "communication_services", "consumer_discretionary".
 - For asset_class "balanced": include underlying_composition with us_equity / international_equity / fixed_income / cash weights summing to 1.0.
 - For asset_class "individual_stock": include best-effort stock_metrics. Use null for any field you don't have data for, but provide values where you can — even slightly stale data is useful.
