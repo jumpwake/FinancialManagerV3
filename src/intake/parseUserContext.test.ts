@@ -149,6 +149,37 @@ describe("parseUserContext", () => {
   });
 });
 
+describe("parseUserContext — speculative sleeve", () => {
+  const base = {
+    version: 2,
+    profile: null,
+    situations: [],
+    notes: [],
+    chat_history: [],
+  };
+
+  it("parses speculative_holds", () => {
+    const ctx = parseUserContext({
+      ...base,
+      speculative_holds: [
+        { ticker: "TSLA", reason: "Long-term personal hold", designated_at: "2026-06-20" },
+        { ticker: "NVDA", designated_at: "2026-06-20" },
+      ],
+      speculative_sleeve_threshold: 0.05,
+    });
+    expect(ctx.speculative_holds).toHaveLength(2);
+    expect(ctx.speculative_holds[0].ticker).toBe("TSLA");
+    expect(ctx.speculative_holds[1].reason).toBeUndefined();
+    expect(ctx.speculative_sleeve_threshold).toBe(0.05);
+  });
+
+  it("defaults speculative_holds to [] and threshold to 0.05 when absent", () => {
+    const ctx = parseUserContext(base);
+    expect(ctx.speculative_holds).toEqual([]);
+    expect(ctx.speculative_sleeve_threshold).toBe(0.05);
+  });
+});
+
 describe("emptyUserContext", () => {
   it("returns a valid empty UserContext that round-trips through parseUserContext", () => {
     const empty = emptyUserContext();

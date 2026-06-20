@@ -166,7 +166,7 @@ export interface PortfolioAggregates {
 }
 
 export interface FlagSuppressionRef {
-  source: "note" | "situation";
+  source: "note" | "situation" | "speculative_hold";
   id: string;
   body: string;
 }
@@ -335,12 +335,20 @@ export interface UserProfile {
   risk_tolerance: RiskTolerance;
 }
 
+export interface SpeculativeHold {
+  ticker: string;
+  reason?: string;
+  designated_at: string;
+}
+
 export interface UserContext {
   version: 2;
   profile: UserProfile | null;  // null = not yet captured
   situations: Situation[];
   notes: Note[];
   chat_history: ChatMessage[];
+  speculative_holds: SpeculativeHold[];
+  speculative_sleeve_threshold: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

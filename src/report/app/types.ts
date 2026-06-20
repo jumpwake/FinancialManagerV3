@@ -177,7 +177,7 @@ export interface ReferenceModel {
 }
 
 export interface FlagSuppressionRef {
-  source: "note" | "situation";
+  source: "note" | "situation" | "speculative_hold";
   id: string;
   body: string;
 }

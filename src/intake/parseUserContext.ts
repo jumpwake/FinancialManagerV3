@@ -59,6 +59,12 @@ const NoteSchema = z.object({
   created_at: z.string(),
 });
 
+const SpeculativeHoldSchema = z.object({
+  ticker: z.string().min(1),
+  reason: z.string().optional(),
+  designated_at: z.string(),
+});
+
 const ChatScopeSchema = z.object({
   type: z.enum(["global", "flag", "gap", "situation", "dimension", "tactical_move"]),
   finding_key: z.string().optional(),
@@ -99,6 +105,8 @@ export const UserContextSchema = z.object({
   situations: z.array(SituationSchema),
   notes: z.array(NoteSchema),
   chat_history: z.array(ChatMessageSchema),
+  speculative_holds: z.array(SpeculativeHoldSchema).default([]),
+  speculative_sleeve_threshold: z.number().default(0.05),
 });
 
 /** Normalize a version-1 context to the version-2 shape. */
@@ -118,5 +126,13 @@ export function parseUserContext(input: unknown): UserContext {
 }
 
 export function emptyUserContext(): UserContext {
-  return { version: 2, profile: null, situations: [], notes: [], chat_history: [] };
+  return {
+    version: 2,
+    profile: null,
+    situations: [],
+    notes: [],
+    chat_history: [],
+    speculative_holds: [],
+    speculative_sleeve_threshold: 0.05,
+  };
 }
