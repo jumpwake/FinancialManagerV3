@@ -24,6 +24,7 @@ import { canonicalTicker } from "./intake/tickerMetadata";
 import { loadUserContext, saveUserContext } from "./userContextStore";
 import { applyPortfolioEffects } from "./engine/portfolioEffects";
 import { applyNoteSuppressions } from "./engine/suppression";
+import { speculativeTickerSet, applySpeculativeSuppressions } from "./engine/speculative";
 import { runPulseCheck } from "./report/app/ai/pulseCheck";
 import { runTacticalAdvisor } from "./ai/tacticalAdvisor";
 import type { AccountConfig, Holding, Finding, PulseVerdict, TacticalAdvisorOutput } from "./types";
@@ -244,9 +245,11 @@ async function main() {
   // Apply open Situation portfolio_effects before scoring
   const effectedPortfolio = applyPortfolioEffects(portfolio, userContext.situations);
 
+  const speculativeSet = speculativeTickerSet(userContext.speculative_holds);
+
   // Run engine
-  const aggregates = computeAggregates(effectedPortfolio, accounts);
-  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro, accounts, scoringProfile);
+  const aggregates = computeAggregates(effectedPortfolio, accounts, [...speculativeSet]);
+  const dimension_scores = scoreAllDimensions(effectedPortfolio, aggregates, macro, accounts, scoringProfile, speculativeSet);
   const portfolio_score = computePortfolioScore(dimension_scores);
   const portfolio_grade = scoreToGrade(portfolio_score);
   const rawFlags = generateFlags(effectedPortfolio, aggregates, macro, accounts, scoringProfile);
@@ -254,7 +257,12 @@ async function main() {
 
   // Apply Note suppressions (cosmetic — flags retain finding_key, annotated with suppressed_by)
   const suppressed = applyNoteSuppressions(rawFlags, rawGapItems, userContext.notes);
-  const flags = suppressed.flags;
+  const flags = applySpeculativeSuppressions(
+    suppressed.flags,
+    userContext.speculative_holds,
+    aggregates.speculative_sleeve_weight ?? 0,
+    userContext.speculative_sleeve_threshold,
+  );
   const gap_items = suppressed.gaps;
 
   const { phases: plan_phases, trajectory: score_trajectory } =
@@ -277,6 +285,7 @@ async function main() {
         dimension_scores,
         reference_models,
         flags,
+        speculative_holds: userContext.speculative_holds,
       });
       findings = [
         ...narratives.strengths.map(s => ({ type: "strength" as const, title: "Strength", body: s })),
@@ -363,6 +372,7 @@ async function main() {
         gap_items,
         accounts,
         open_situations: userContext.situations,
+        speculative_holds: userContext.speculative_holds,
       });
       console.log(`  Tactical plan: ${tactical_advisor.tactical_plan.next_7_days.length} moves in next 7d, ${tactical_advisor.tactical_plan.next_30_days.length} moves in next 30d`);
       if (tactical_advisor.deployment_recommendation) {
