@@ -1,6 +1,7 @@
 import { PortfolioAggregates, DimensionScore, Rating, MacroContext, Portfolio, AccountConfig, AccountType, Holding, taxTreatmentFor } from "../types";
 import { FI_TARGETS_BY_REGIME, DEFAULT_FI_TARGET, NEUTRAL_SCORING_PROFILE, deriveScoringProfile } from "./riskProfile";
 import type { ScoringProfile } from "./riskProfile";
+import { canonicalTicker } from "../intake/tickerMetadata";
 
 export function toRating(score: number): Rating {
   if (score >= 7.5) return "green";
@@ -204,6 +205,7 @@ export function scoreSingleStockRisk(
   portfolio: Portfolio,
   agg: PortfolioAggregates,
   sp: ScoringProfile = NEUTRAL_SCORING_PROFILE,
+  speculative: Set<string> = new Set(),
 ): DimensionScore {
   const total = agg.total_value;
   const stocks = portfolio.holdings.filter(h => h.asset_class === "individual_stock" && h.stock_metrics);
@@ -223,6 +225,7 @@ export function scoreSingleStockRisk(
   let totalPenalty = 0;
   const flaggedTickers: string[] = [];
   for (const s of stocks) {
+    if (speculative.has(canonicalTicker(s.ticker))) continue;
     const m = s.stock_metrics!;
     const w = s.market_value / total;
     let penalty = 0;
@@ -243,13 +246,21 @@ export function scoreSingleStockRisk(
 
   const score = Math.max(1, 10 - totalPenalty * sp.singleStockPenaltyScale);
 
+  const excluded = stocks
+    .map(s => s.ticker)
+    .filter(t => speculative.has(canonicalTicker(t)));
+  const baseNote = "Penalizes stocks with P/E > 100, negative EPS growth, high beta, or declining revenue";
+  const note = excluded.length > 0
+    ? `${baseNote}. ${excluded.length} position(s) excluded as speculative sleeve (${excluded.join(", ")})`
+    : baseNote;
+
   return {
     id: "single_stock_risk",
     label: "Single-stock risk",
     score,
     rating: toRating(score),
     display_value: flaggedTickers.length > 0 ? `${flaggedTickers.join(", ")} flagged` : "No flags",
-    note: "Penalizes stocks with P/E > 100, negative EPS growth, high beta, or declining revenue",
+    note,
     weight: 0.12,
   };
 }
@@ -281,6 +292,7 @@ export function scoreAllDimensions(
   macro: MacroContext,
   accounts?: AccountConfig,
   scoringProfile?: ScoringProfile,
+  speculative: Set<string> = new Set(),
 ): DimensionScore[] {
   // No profile threaded in → fall back to the regime-only, all-dimensions-active
   // profile, which reproduces today's behavior exactly.
@@ -291,7 +303,7 @@ export function scoreAllDimensions(
     scoreDiversification(agg),
     scoreCashEfficiency(agg, sp),
     scoreMacroAlignment(agg, macro),
-    scoreSingleStockRisk(portfolio, agg, sp),
+    scoreSingleStockRisk(portfolio, agg, sp, speculative),
     scoreSimplicity(agg),
     scoreBondBalance(agg, macro, sp),
     scoreConcentration(agg, sp),

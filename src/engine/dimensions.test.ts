@@ -585,6 +585,44 @@ describe("scoreSingleStockRisk", () => {
     expect(s.display_value).toContain("TSLA");
     expect(s.display_value).toContain("NVDA");
   });
+
+  test("excludes a speculative ticker from the penalty and discloses it", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47, beta: 1.8, revenue_growth_yoy: -0.03 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio, undefined, ["TSLA"]);
+    const s = scoreSingleStockRisk(portfolio, agg, undefined, new Set(["TSLA"]));
+    expect(s.score).toBe(10);
+    expect(s.display_value).not.toContain("TSLA");
+    expect(s.note).toContain("speculative");
+  });
+
+  test("still penalizes a non-speculative risky stock when another is exempt", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 600 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47, beta: 1.8, revenue_growth_yoy: -0.03 }),
+        }),
+        makeHolding({
+          ticker: "PLTR", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47, beta: 1.8, revenue_growth_yoy: -0.03 }),
+        }),
+      ],
+    });
+    const agg = computeAggregates(portfolio, undefined, ["TSLA"]);
+    const s = scoreSingleStockRisk(portfolio, agg, undefined, new Set(["TSLA"]));
+    expect(s.score).toBeLessThan(10);
+    expect(s.display_value).toContain("PLTR");
+    expect(s.display_value).not.toContain("TSLA");
+  });
 });
 
 describe("scoreQualityTilt", () => {
