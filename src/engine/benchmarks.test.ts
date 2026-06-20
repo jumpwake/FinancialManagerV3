@@ -4,7 +4,7 @@ import { scoreToGrade, computePortfolioScore, scoreAllDimensions } from "./dimen
 import { computeAggregates } from "./aggregates";
 import { ALL_DIMENSION_IDS } from "./riskProfile";
 import { DimensionScore } from "../types";
-import { makeHolding, makePortfolio } from "../../tests/fixtures/samplePortfolio";
+import { makeHolding, makePortfolio, makeStockMetrics } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
 
 const ALL = new Set<string>(ALL_DIMENSION_IDS);
@@ -88,6 +88,24 @@ describe("benchmarks WEIGHTS stay in sync with engine dimension weights", () => 
     for (const d of dims) {
       expect(BENCHMARK_WEIGHTS[d.id]).toBe(d.weight);
     }
+  });
+
+  it("single_stock_risk weight matches benchmarks even when individual stocks are held", () => {
+    // The FSKAX-only fixture above hits scoreSingleStockRisk's no-stocks early
+    // return; this case holds an individual stock so the main return path is
+    // exercised, guarding against the two paths drifting to different weights.
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800 }),
+        makeHolding({
+          ticker: "TSLA", market_value: 200, asset_class: "individual_stock",
+          stock_metrics: makeStockMetrics({ pe_ratio: 410, eps_growth_yoy: -0.47 }),
+        }),
+      ],
+    });
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio), makeMacro());
+    const ssr = dims.find((d) => d.id === "single_stock_risk")!;
+    expect(ssr.weight).toBe(BENCHMARK_WEIGHTS.single_stock_risk);
   });
 
   it("benchmarks WEIGHTS has exactly the engine's 11 dimension ids and no stale keys", () => {

@@ -261,7 +261,7 @@ export function scoreSingleStockRisk(
     rating: toRating(score),
     display_value: flaggedTickers.length > 0 ? `${flaggedTickers.join(", ")} flagged` : "No flags",
     note,
-    weight: 0.12,
+    weight: 0.11,
   };
 }
 
