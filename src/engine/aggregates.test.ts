@@ -436,4 +436,13 @@ describe("computeAggregates — speculative sleeve", () => {
     expect(agg.speculative_sleeve_weight).toBe(0);
     expect(agg.speculative_sleeve_tickers).toEqual([]);
   });
+
+  test("matches Vanguard-formatted tickers via canonicalization", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "BRK B", market_value: 500, asset_class: "individual_stock" })],
+    });
+    const agg = computeAggregates(portfolio, undefined, ["BRK-B"]);
+    expect(agg.speculative_sleeve_weight).toBeCloseTo(1.0, 6);
+    expect(agg.speculative_sleeve_tickers).toEqual(["BRK-B"]);
+  });
 });
