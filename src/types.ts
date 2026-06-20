@@ -160,6 +160,8 @@ export interface PortfolioAggregates {
   individual_stock_weight: number;
   crypto_weight: number;
   balanced_weight: number;
+  speculative_sleeve_weight?: number;
+  speculative_sleeve_tickers?: string[];
   sector_holdings: SectorHolding[];
   pending_deployment_label?: string;
   pending_deployment_date?: string;

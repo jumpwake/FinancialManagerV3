@@ -9,6 +9,7 @@ import {
   UnderlyingComposition,
   AssetClass,
 } from "../types";
+import { canonicalTicker } from "../intake/tickerMetadata";
 
 const EQUITY_CLASSES: string[] = [
   "us_equity_total_market", "us_equity_large_cap", "us_equity_large_cap_growth",
@@ -46,6 +47,7 @@ function getComposition(h: Holding): UnderlyingComposition | null {
 export function computeAggregates(
   portfolio: Portfolio,
   accounts?: AccountConfig,
+  speculativeTickers: string[] = [],
 ): PortfolioAggregates {
   // Filter out 'unknown' holdings defensively. The pipeline throws upstream if
   // any unknown holding has material value, so in practice only zero-value
@@ -163,6 +165,13 @@ export function computeAggregates(
     .filter(h => h.asset_class === "balanced" || h.asset_class === "target_date")
     .reduce((sum, h) => sum + w(h), 0);
 
+  const specSet = new Set(speculativeTickers.map(canonicalTicker));
+  const specHoldings = holdings.filter(h => specSet.has(canonicalTicker(h.ticker)));
+  const speculative_sleeve_weight = specHoldings.reduce((sum, h) => sum + w(h), 0);
+  const speculative_sleeve_tickers = [
+    ...new Set(specHoldings.map(h => canonicalTicker(h.ticker))),
+  ];
+
   const sector_map: Record<string, string[]> = {};
   for (const h of holdings.filter(h => h.sector_tag)) {
     const tag = h.sector_tag!;
@@ -196,6 +205,8 @@ export function computeAggregates(
     individual_stock_weight,
     crypto_weight,
     balanced_weight,
+    speculative_sleeve_weight,
+    speculative_sleeve_tickers,
     sector_holdings,
     pending_deployment_label: firstPending?.deployment_label,
     pending_deployment_date: firstPending?.deployment_date,

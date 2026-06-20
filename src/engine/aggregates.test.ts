@@ -411,3 +411,29 @@ describe("crypto sleeve", () => {
     expect(agg.equity_weight).toBeCloseTo(0.8, 5);
   });
 });
+
+describe("computeAggregates — speculative sleeve", () => {
+  test("sums combined weight of speculative tickers and lists those present", () => {
+    const portfolio = makePortfolio({
+      holdings: [
+        makeHolding({ ticker: "FSKAX", market_value: 800, asset_class: "us_equity_total_market" }),
+        makeHolding({ ticker: "TSLA", market_value: 150, asset_class: "individual_stock" }),
+        makeHolding({ ticker: "NVDA", market_value: 50, asset_class: "individual_stock" }),
+      ],
+    });
+    const agg = computeAggregates(portfolio, undefined, ["TSLA", "NVDA", "AAPL"]);
+    // (150 + 50) / 1000 = 0.20
+    expect(agg.speculative_sleeve_weight).toBeCloseTo(0.20, 6);
+    // Only tickers actually present are listed; AAPL is absent.
+    expect(agg.speculative_sleeve_tickers).toEqual(["TSLA", "NVDA"]);
+  });
+
+  test("defaults to zero weight / empty list when no speculative tickers given", () => {
+    const portfolio = makePortfolio({
+      holdings: [makeHolding({ ticker: "FSKAX", market_value: 1000 })],
+    });
+    const agg = computeAggregates(portfolio);
+    expect(agg.speculative_sleeve_weight).toBe(0);
+    expect(agg.speculative_sleeve_tickers).toEqual([]);
+  });
+});
