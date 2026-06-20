@@ -167,6 +167,7 @@ app.MapUserContextEndpoints();
 app.MapSituationsEndpoints();
 app.MapNotesEndpoints();
 app.MapProfileEndpoints();
+app.MapSpeculativeHoldsEndpoints();
 app.MapChatEndpoints();
 app.MapAiProxyEndpoints();
 app.MapAuthEndpoints();
