@@ -57,7 +57,7 @@ Rules:
 - Each strength must reference specific tickers or values that make it true
 - Additional takeaways should surface non-obvious insights (overlap analysis, macro-timing nuance, sector positioning)
 - The phase1 macro note must cite specific macro indicators from the input data
-- Speculative sleeve: the input may include a "speculative_holds" array — tickers the user holds deliberately outside the metrics discipline. Do not raise them as gaps or recommend trimming/selling them on valuation, beta, or growth grounds; treat them as fixed positions.`.trim();
+- Speculative sleeve: the input may include a "speculative_holds" array — tickers the user holds deliberately outside the metrics discipline. Do not raise them as gaps or recommend trimming, selling, or rebalancing them on valuation, beta, or growth grounds; treat them as fixed positions. Reference the sleeve only if a flag with finding_key "speculative_sleeve:over_threshold" is present.`.trim();
 
 export interface NarrativesInput {
   portfolio: Portfolio;
