@@ -157,9 +157,10 @@ export default function App() {
   const removeSpeculativeHold = useCallback(
     async (ticker: string) => {
       try {
-        await fetch(appPath(`/api/speculative-holds/${encodeURIComponent(ticker)}`), {
+        const r = await fetch(appPath(`/api/speculative-holds/${encodeURIComponent(ticker)}`), {
           method: "DELETE",
         });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         await loadSpeculativeHolds();
       } catch (err) {
         console.warn("Failed to remove speculative hold:", err);

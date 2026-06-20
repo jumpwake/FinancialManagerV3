@@ -220,7 +220,7 @@ function FlagRow({
             fontWeight: 600,
             flexShrink: 0,
           }}>
-            speculative
+            {(isHeldLive || flag.suppressed_by?.source === "speculative_hold") ? "speculative" : "suppressed"}
           </span>
         )}
       </div>
