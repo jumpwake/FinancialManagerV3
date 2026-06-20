@@ -21,8 +21,9 @@ export function applySpeculativeSuppressions(
   const reasonByTicker = new Map(holds.map(h => [canonicalTicker(h.ticker), h.reason]));
 
   const annotated: Flag[] = flags.map(f => {
-    const reason = reasonByTicker.get(canonicalTicker(f.ticker));
-    if (reason === undefined && !reasonByTicker.has(canonicalTicker(f.ticker))) return f;
+    const canonical = canonicalTicker(f.ticker);
+    if (!reasonByTicker.has(canonical)) return f;
+    const reason = reasonByTicker.get(canonical);
     return {
       ...f,
       suppressed_by: {
