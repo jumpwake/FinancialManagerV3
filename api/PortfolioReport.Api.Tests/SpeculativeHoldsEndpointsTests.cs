@@ -86,13 +86,39 @@ public class SpeculativeHoldsEndpointsTests
         using var factory = new ApiFactory();
         using var client = SignedIn(factory, "kevin");
 
-        await client.PostAsJsonAsync("/api/speculative-holds", new { ticker = "TSLA" });
+        var first = await client.PostAsJsonAsync("/api/speculative-holds", new { ticker = "TSLA" });
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+
         var second = await client.PostAsJsonAsync("/api/speculative-holds", new { ticker = "TSLA", reason = "dup" });
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        var secondBody = await second.Content.ReadFromJsonAsync<JsonObject>();
+        Assert.False(secondBody!.ContainsKey("reason"), "Second POST must return the original hold (no reason), not the dup payload");
 
         var list = await (await client.GetAsync("/api/speculative-holds"))
             .Content.ReadFromJsonAsync<JsonArray>();
         Assert.Single(list!);
+    }
+
+    [Fact]
+    public async Task PostReturnsUnauthorizedWhenAnonymous()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var res = await client.PostAsJsonAsync("/api/speculative-holds", new { ticker = "TSLA" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteReturnsUnauthorizedWhenAnonymous()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+
+        var res = await client.DeleteAsync("/api/speculative-holds/TSLA");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
 
     [Fact]
