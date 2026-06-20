@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AnalysisOutput, ChatScope, Situation, TacticalMove, ChatMessage } from "./types";
+import { AnalysisOutput, ChatScope, Situation, TacticalMove, ChatMessage, SpeculativeHold } from "./types";
 import { COLORS } from "./theme";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { appPath } from "./api";
@@ -27,6 +27,7 @@ export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [scope, setScope] = useState<ChatScope>({ type: "global" });
   const [liveSituations, setLiveSituations] = useState<Situation[]>([]);
+  const [liveSpeculativeHolds, setLiveSpeculativeHolds] = useState<SpeculativeHold[]>([]);
   const [inflightMoves, setInflightMoves] = useState<Set<string>>(new Set());
   const [profileOpen, setProfileOpen] = useState(false);
   const closeProfile = useCallback(() => setProfileOpen(false), []);
@@ -75,6 +76,17 @@ export default function App() {
     }
   }, []);
 
+  const loadSpeculativeHolds = useCallback(async () => {
+    try {
+      const r = await fetch(appPath("/api/speculative-holds"));
+      if (!r.ok) return;
+      const list = (await r.json()) as SpeculativeHold[];
+      setLiveSpeculativeHolds(list);
+    } catch {
+      // Network error — keep prior state.
+    }
+  }, []);
+
   // On mount, check whether a user is signed in before loading anything.
   useEffect(() => {
     let cancelled = false;
@@ -89,9 +101,10 @@ export default function App() {
     if (authed !== true) return;
     loadAnalysis();
     loadSituations();
+    loadSpeculativeHolds();
     const id = setInterval(loadSituations, 5000);
     return () => clearInterval(id);
-  }, [authed, loadAnalysis, loadSituations]);
+  }, [authed, loadAnalysis, loadSituations, loadSpeculativeHolds]);
 
   // Load persisted chat history once we know the user is signed in.
   useEffect(() => {
@@ -122,6 +135,37 @@ export default function App() {
       await loadSituations();
     },
     [loadSituations],
+  );
+
+  const addSpeculativeHold = useCallback(
+    async (ticker: string, reason?: string) => {
+      try {
+        const r = await fetch(appPath("/api/speculative-holds"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker, reason }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        await loadSpeculativeHolds();
+      } catch (err) {
+        console.warn("Failed to add speculative hold:", err);
+      }
+    },
+    [loadSpeculativeHolds],
+  );
+
+  const removeSpeculativeHold = useCallback(
+    async (ticker: string) => {
+      try {
+        await fetch(appPath(`/api/speculative-holds/${encodeURIComponent(ticker)}`), {
+          method: "DELETE",
+        });
+        await loadSpeculativeHolds();
+      } catch (err) {
+        console.warn("Failed to remove speculative hold:", err);
+      }
+    },
+    [loadSpeculativeHolds],
   );
 
   const handleTrackMove = useCallback(async (move: TacticalMove) => {
@@ -297,7 +341,13 @@ export default function App() {
           <Gaps data={typedData} onDiscuss={(k) => startDiscussion({ type: "gap", finding_key: k })} />
         </Section>
         <Section label="8 — Flags">
-          <Flags data={typedData} onDiscuss={(k) => startDiscussion({ type: "flag", finding_key: k })} />
+          <Flags
+            data={typedData}
+            speculativeHolds={liveSpeculativeHolds}
+            onAddHold={addSpeculativeHold}
+            onRemoveHold={removeSpeculativeHold}
+            onDiscuss={(k) => startDiscussion({ type: "flag", finding_key: k })}
+          />
         </Section>
         <div id="next-moves">
           <Section label="9 — Next moves">

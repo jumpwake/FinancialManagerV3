@@ -184,6 +184,12 @@ export interface FlagSuppressionRef {
   body: string;
 }
 
+export interface SpeculativeHold {
+  ticker: string;
+  reason?: string;
+  designated_at: string;
+}
+
 export interface Flag {
   ticker: string;
   severity: "red" | "yellow";
