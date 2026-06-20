@@ -96,29 +96,51 @@ export function renderTacticalInput(ctx: TacticalInputContext): string {
   );
 }
 
+// The model occasionally emits a structured-output value that violates the Zod
+// schema (e.g. a move `category` outside the allowed enum), which makes
+// messages.parse() throw. It's an intermittent sampling artifact — a fresh call
+// almost always validates — so retry a few times before giving up. After the
+// last attempt the original error propagates, preserving the caller's
+// degrade-to-null behavior in src/index.ts.
+const ADVISOR_PARSE_ATTEMPTS = 3;
+
 export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<TacticalAdvisorOutput> {
   const client = new Anthropic();
+  let lastErr: unknown;
 
-  const response = await client.messages.parse({
-    model:
-      process.env.CLAUDE_MODEL_ADVISOR ??
-      process.env.CLAUDE_MODEL ??
-      "claude-opus-4-7",
-    max_tokens: 16000,
-    output_config: {
-      effort: "medium",
-      // SDK 0.95's zodOutputFormat .d.ts still types its argument as zod v3
-      // (ZodType), but its .mjs imports from "zod/v4" and only accepts v4
-      // schemas at runtime. We construct a v4 schema (correct for runtime);
-      // the cast bridges the stale types until the SDK ships v4-typed defs.
-      format: zodOutputFormat(outputSchema as never),
-    },
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: renderTacticalInput(ctx) }],
-  });
+  for (let attempt = 1; attempt <= ADVISOR_PARSE_ATTEMPTS; attempt++) {
+    try {
+      const response = await client.messages.parse({
+        model:
+          process.env.CLAUDE_MODEL_ADVISOR ??
+          process.env.CLAUDE_MODEL ??
+          "claude-opus-4-7",
+        max_tokens: 16000,
+        output_config: {
+          effort: "medium",
+          // SDK 0.95's zodOutputFormat .d.ts still types its argument as zod v3
+          // (ZodType), but its .mjs imports from "zod/v4" and only accepts v4
+          // schemas at runtime. We construct a v4 schema (correct for runtime);
+          // the cast bridges the stale types until the SDK ships v4-typed defs.
+          format: zodOutputFormat(outputSchema as never),
+        },
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: renderTacticalInput(ctx) }],
+      });
 
-  if (!response.parsed_output) {
-    throw new Error("Anthropic API returned no parsed_output");
+      if (!response.parsed_output) {
+        throw new Error("Anthropic API returned no parsed_output");
+      }
+      return response.parsed_output as TacticalAdvisorOutput;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < ADVISOR_PARSE_ATTEMPTS) {
+        console.warn(
+          `  Tactical advisor attempt ${attempt}/${ADVISOR_PARSE_ATTEMPTS} failed (${err instanceof Error ? err.message.split("\n")[0] : err}); retrying...`,
+        );
+      }
+    }
   }
-  return response.parsed_output as TacticalAdvisorOutput;
+
+  throw lastErr;
 }
