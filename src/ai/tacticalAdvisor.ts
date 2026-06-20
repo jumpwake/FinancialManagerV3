@@ -12,6 +12,7 @@ import type {
   Situation,
   TacticalAdvisorOutput,
   UserProfile,
+  SpeculativeHold,
 } from "../types";
 import { ADVISOR_PERSONA } from "../report/app/ai/advisorPersona";
 
@@ -22,7 +23,9 @@ Produce ONE structured output object with:
 - deployment_recommendation: present ONLY if the user has pending_cash_value > 0; recommend specific dollar moves into specific account labels with rationale tied to score gaps + macro.
 - tactical_plan: 0-3 moves in the next 7 days + 0-3 moves in the next 30 days + 2-3 scenario_resilience_notes.
 
-Every move must cite (a) specific dollars, (b) target account by label, (c) which scenarios it addresses, (d) which dimension scores it lifts.`.trim();
+Every move must cite (a) specific dollars, (b) target account by label, (c) which scenarios it addresses, (d) which dimension scores it lifts.
+
+SPECULATIVE SLEEVE: The input includes a "speculative_holds" array — tickers the user holds deliberately, for personal/long-term reasons, OUTSIDE the metrics discipline. Do NOT recommend trimming, selling, rebalancing, or reducing these positions on valuation, beta, growth, or single-stock-risk grounds. Treat them as fixed. You MAY reference the sleeve only if a flag with finding_key "speculative_sleeve:over_threshold" is present, in which case you may note the sleeve has grown beyond its size budget.`.trim();
 
 const moveSchema = z.object({
   id: z.string(),
@@ -69,6 +72,7 @@ export interface TacticalInputContext {
   accounts: AccountConfig;
   open_situations: Situation[];
   profile?: UserProfile | null;
+  speculative_holds?: SpeculativeHold[];
 }
 
 export function renderTacticalInput(ctx: TacticalInputContext): string {
@@ -85,6 +89,7 @@ export function renderTacticalInput(ctx: TacticalInputContext): string {
       accounts: ctx.accounts,
       open_situations: ctx.open_situations.filter(s => s.status === "open"),
       profile: ctx.profile ?? null,
+      speculative_holds: ctx.speculative_holds ?? [],
     },
     null,
     2,

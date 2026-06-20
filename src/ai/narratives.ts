@@ -10,6 +10,7 @@ import type {
   ReferenceModel,
   Flag,
   UserProfile,
+  SpeculativeHold,
 } from "../types";
 
 const AINarrativesSchema = z.object({
@@ -55,7 +56,8 @@ Rules:
 - Each gap must reference specific values from the data and propose specific actions
 - Each strength must reference specific tickers or values that make it true
 - Additional takeaways should surface non-obvious insights (overlap analysis, macro-timing nuance, sector positioning)
-- The phase1 macro note must cite specific macro indicators from the input data`.trim();
+- The phase1 macro note must cite specific macro indicators from the input data
+- Speculative sleeve: the input may include a "speculative_holds" array — tickers the user holds deliberately outside the metrics discipline. Do not raise them as gaps or recommend trimming/selling them on valuation, beta, or growth grounds; treat them as fixed positions.`.trim();
 
 export interface NarrativesInput {
   portfolio: Portfolio;
@@ -67,6 +69,7 @@ export interface NarrativesInput {
   reference_models: ReferenceModel[];
   flags: Flag[];
   profile?: UserProfile | null;
+  speculative_holds?: SpeculativeHold[];
 }
 
 export async function generateNarratives(
@@ -88,6 +91,7 @@ export async function generateNarratives(
     macro: input.macro,
     flags: input.flags,
     profile: input.profile ?? null,
+    speculative_holds: input.speculative_holds ?? [],
   });
 
   const response = await client.messages.parse({

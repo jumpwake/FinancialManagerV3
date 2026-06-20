@@ -45,6 +45,9 @@ describe("renderTacticalInput", () => {
         ],
       },
       open_situations: [],
+      speculative_holds: [
+        { ticker: "TSLA", reason: "Long-term personal hold", designated_at: "2026-06-20" },
+      ],
     });
 
     const parsed = JSON.parse(out);
@@ -52,5 +55,7 @@ describe("renderTacticalInput", () => {
     expect(parsed.accounts.accounts[0].account_type).toBe("taxable_brokerage");
     expect(parsed.macro.market_regime).toBe("Late Cycle");
     expect(parsed.dimension_scores[0].score).toBe(6);
+    expect(parsed.speculative_holds).toHaveLength(1);
+    expect(parsed.speculative_holds[0].ticker).toBe("TSLA");
   });
 });
