@@ -29,8 +29,22 @@ export default function Flags({ data, onDiscuss }: Props) {
     );
   }
 
+  const sleeveWeight = data.aggregates.speculative_sleeve_weight ?? 0;
+  const sleeveTickers = data.aggregates.speculative_sleeve_tickers ?? [];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {sleeveTickers.length > 0 && (
+        <div style={{
+          fontSize: 12,
+          color: "#888",
+          padding: "6px 10px",
+          border: "1px dashed #444",
+          borderRadius: 6,
+        }}>
+          Speculative sleeve: {(sleeveWeight * 100).toFixed(1)}% — {sleeveTickers.join(", ")} (excluded from risk scoring)
+        </div>
+      )}
       {flags.map((flag, i) => (
         <FlagRow key={`${flag.finding_key ?? "flag"}-${i}`} flag={flag} onDiscuss={onDiscuss} />
       ))}
@@ -134,7 +148,9 @@ function FlagRow({ flag, onDiscuss }: { flag: Flag; onDiscuss?: (key: string) =>
 
       {isSuppressed && flag.suppressed_by && (
         <div style={{ fontSize: 11, color: "#888", fontStyle: "italic" }}>
-          Suppressed by your note: "{flag.suppressed_by.body}"
+          {flag.suppressed_by.source === "speculative_hold"
+            ? `Speculative-sleeve hold — excluded from scoring${flag.suppressed_by.body ? `: "${flag.suppressed_by.body}"` : ""}`
+            : `Suppressed by your note: "${flag.suppressed_by.body}"`}
         </div>
       )}
 
