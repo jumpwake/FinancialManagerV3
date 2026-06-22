@@ -3,6 +3,7 @@ import {
   classifyYieldCurve,
   classifyMarketRegime,
   sectorTiltsFor,
+  SECTOR_TAGS,
   type MacroNumerics,
 } from "./macroRules";
 
@@ -144,6 +145,17 @@ describe("sectorTiltsFor", () => {
       const tilts = sectorTiltsFor(regime);
       expect(tilts.overweight.length).toBeGreaterThan(0);
       expect(tilts.underweight.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("every tilt string is a recognized sector tag (no dead tilts)", () => {
+    // A tilt outside SECTOR_TAGS can never match a holding's sector_tag, so it
+    // silently does nothing. Guard against reintroducing such dead strings.
+    for (const regime of ["Late Cycle", "Mid Cycle", "Early Cycle", "Recession"] as const) {
+      const tilts = sectorTiltsFor(regime);
+      for (const tag of [...tilts.overweight, ...tilts.underweight]) {
+        expect(SECTOR_TAGS, `${regime} tilt "${tag}" is not a recognized sector tag`).toContain(tag);
+      }
     }
   });
 });

@@ -43,17 +43,39 @@ export function classifyMarketRegime(m: MacroNumerics): MarketRegime {
   return "Mid Cycle";
 }
 
+/**
+ * Canonical GICS-style sector vocabulary. A holding's `sector_tag` and every
+ * string in SECTOR_TILTS must be drawn from this set — macro-alignment scoring
+ * joins the two by exact string match (`dimensions.ts` sector tilt loop), so a
+ * tilt string outside this vocabulary can never match a holding and is dead.
+ * Keep in sync with the sector list in the ticker classifier prompt
+ * (`tickerClassifier.ts`).
+ */
+export const SECTOR_TAGS = [
+  "utilities",
+  "healthcare",
+  "technology",
+  "consumer_staples",
+  "industrials",
+  "energy",
+  "financials",
+  "real_estate",
+  "materials",
+  "communication_services",
+  "consumer_discretionary",
+] as const;
+
 const SECTOR_TILTS: Record<MarketRegime, { overweight: string[]; underweight: string[] }> = {
   "Late Cycle": {
     overweight: ["healthcare", "consumer_staples", "utilities"],
-    underweight: ["consumer_discretionary", "real_estate", "small_cap_growth"],
+    underweight: ["consumer_discretionary", "real_estate"],
   },
   "Mid Cycle": {
     overweight: ["technology", "industrials", "financials"],
     underweight: ["utilities", "consumer_staples"],
   },
   "Early Cycle": {
-    overweight: ["consumer_discretionary", "financials", "industrials", "small_cap_growth"],
+    overweight: ["consumer_discretionary", "financials", "industrials"],
     underweight: ["utilities", "consumer_staples"],
   },
   Recession: {
