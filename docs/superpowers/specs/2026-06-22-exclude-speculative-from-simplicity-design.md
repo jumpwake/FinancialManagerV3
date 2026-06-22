@@ -65,27 +65,54 @@ Relevant facts already true today:
 
 ## Design
 
-### 1. Thread the speculative set into `scoreSimplicity`
+### 1. Read the speculative count from aggregates (no signature change)
 
-Change the signature from `scoreSimplicity(agg)` to `scoreSimplicity(agg, speculative)`,
-mirroring `scoreSingleStockRisk(s, macro, sp, speculative)`. Update the call site in
-`scoreAllDimensions` (`dimensions.ts:307`) to pass the set it already holds.
+`scoreSimplicity(agg)` keeps its single-argument signature. It reads
+`agg.speculative_sleeve_tickers` — which `computeAggregates` already populates from the
+speculative set passed in `src/index.ts`.
+
+Reading the aggregate is preferred over threading the raw `Set<string>` (the approach used
+by `scoreSingleStockRisk`) for two reasons:
+
+- **Pre-filtered to holdings present.** `speculative_sleeve_tickers` is the distinct,
+  canonical speculative tickers *actually held* (`aggregates.ts:168-173`). The raw
+  speculative set can contain tickers the user designated but does not currently hold;
+  `scoreSimplicity` has no `Portfolio` to filter against, so threading the raw set would
+  over-subtract.
+- **Distinct + canonical already.** The list is de-duplicated by canonical ticker, so its
+  `.length` is exactly the number of distinct speculative effective-positions — which gives
+  the double-count guard (below) for free.
+
+`speculative_sleeve_tickers` is an optional field (`types.ts:164`), so it must be read
+optional-safely: `agg.speculative_sleeve_tickers?.length ?? 0`. This also keeps every
+existing test (whose aggregate fixtures omit the field) passing unchanged.
 
 ### 2. Subtract speculative positions from the effective count
 
-Reduce the effective count by the number of distinct speculative effective-positions
-present in the portfolio. The intended result:
+Reduce the effective count by `speculativeCount = agg.speculative_sleeve_tickers?.length ?? 0`:
+
+```ts
+const effective =
+  agg.holding_count - extraFromSameAccountDups - extraFromCrossAccount - speculativeCount;
+```
+
+The intended result is the invariant:
 
 > `effective = count of distinct non-speculative effective positions`
 
 ### 3. Double-count guard
 
-If a speculative ticker also sits in a duplicate group (rare, but possible), it must not be
-subtracted twice — once as a duplicate-extra and once as speculative. The implementation
-must compute effective such that each distinct effective position is counted at most once
-and speculative positions are removed exactly once. The exact arithmetic will be verified
-against the existing duplicate-collapse logic during implementation; the invariant to hold
-is "effective = distinct non-speculative effective positions."
+A speculative ticker can also sit in a duplicate group (e.g. the same speculative stock held
+in two accounts → a cross-account group). This is handled correctly by construction, not by
+special-casing:
+
+- The N copies of that ticker contribute `+N` to `holding_count`.
+- The duplicate-collapse subtracts `N-1` (collapsing the copies to one effective position).
+- `speculative_sleeve_tickers` lists the ticker **once** (distinct), so the speculative
+  subtraction removes that one remaining effective position — net contribution `0`.
+
+Because `speculative_sleeve_tickers` is distinct, a duplicated speculative ticker is never
+subtracted more than once beyond its duplicate-collapse. A test locks this in.
 
 ### 4. Display — silent exclusion (per user choice)
 
