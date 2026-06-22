@@ -314,7 +314,17 @@ export function scoreAllDimensions(
     scoreAssetLocation(portfolio, accounts),
   ];
 
-  return all.filter((d) => sp.activeDimensionIds.has(d.id));
+  // Every dimension emits a clean integer score. Discrete-ladder dimensions are
+  // already integral; formula dimensions (asset_location, single_stock_risk) can
+  // land on a fraction, which would otherwise pollute trajectory history. Round at
+  // this single chokepoint and re-derive the rating so it always matches the
+  // displayed integer.
+  return all
+    .filter((d) => sp.activeDimensionIds.has(d.id))
+    .map((d) => {
+      const rounded = Math.round(d.score);
+      return rounded === d.score ? d : { ...d, score: rounded, rating: toRating(rounded) };
+    });
 }
 
 const QUALITY_TICKERS: Record<string, number> = {

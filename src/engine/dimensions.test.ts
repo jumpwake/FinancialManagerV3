@@ -1,5 +1,5 @@
 import { describe, test, it, expect } from "vitest";
-import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions, scoreAssetLocation } from "./dimensions";
+import { scoreCostEfficiency, scoreSimplicity, scoreConcentration, scoreCashEfficiency, scoreInternational, scoreDiversification, scoreBondBalance, scoreMacroAlignment, scoreSingleStockRisk, scoreQualityTilt, scoreToGrade, computePortfolioScore, scoreAllDimensions, scoreAssetLocation, toRating } from "./dimensions";
 import { computeAggregates } from "./aggregates";
 import { makeHolding, makePortfolio, makeStockMetrics, makeAccount } from "../../tests/fixtures/samplePortfolio";
 import { makeMacro } from "../../tests/fixtures/sampleMacro";
@@ -774,6 +774,33 @@ describe("scoreAllDimensions", () => {
     const dims = scoreAllDimensions(portfolio, agg, makeMacro());
     const totalWeight = dims.reduce((sum, d) => sum + d.weight, 0);
     expect(totalWeight).toBeCloseTo(1.0, 2);
+  });
+
+  test("rounds every dimension score to a clean integer with rating to match", () => {
+    // A fractional asset-location score: a single penalty whose weight (100/700)
+    // is non-terminating, so raw lands at 7 − (100/700)·20 ≈ 4.143 — clamped but
+    // un-rounded today.
+    const portfolio = makePortfolio({ holdings: [
+      makeHolding({ ticker: "TSLA", market_value: 100, asset_class: "individual_stock", account_id: "ira" }),
+      makeHolding({ ticker: "BND", market_value: 600, asset_class: "us_bond_aggregate", account_id: "tax" }),
+    ]});
+    const accounts = { accounts: [
+      makeAccount({ id: "ira", account_type: "pretax_ira" }),
+      makeAccount({ id: "tax", account_type: "taxable_brokerage" }),
+    ]};
+
+    // Precondition: the standalone dimension really does emit a fraction, so the
+    // chokepoint rounding is exercised (not silently a no-op).
+    const rawAssetLocation = scoreAssetLocation(portfolio, accounts).score;
+    expect(Number.isInteger(rawAssetLocation)).toBe(false);
+
+    const dims = scoreAllDimensions(portfolio, computeAggregates(portfolio, accounts), makeMacro(), accounts);
+    for (const d of dims) {
+      expect(Number.isInteger(d.score), `${d.id} emitted non-integer score ${d.score}`).toBe(true);
+      expect(d.rating).toBe(toRating(d.score));
+    }
+    const al = dims.find(d => d.id === "asset_location")!;
+    expect(al.score).toBe(Math.round(rawAssetLocation));
   });
 });
 
