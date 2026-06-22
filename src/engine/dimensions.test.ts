@@ -125,6 +125,53 @@ describe("scoreSimplicity", () => {
     });
     expect(scoreSimplicity(agg).display_value).toBe("7 effective positions (8 across accounts)");
   });
+
+  test("excludes speculative-sleeve names from the effective count", () => {
+    // 14 raw holdings would score 4; excluding 4 speculative names → 10 effective → score 6.
+    const agg = aggForSimplicity({
+      holding_count: 14,
+      speculative_sleeve_tickers: ["GME", "AMC", "BB", "KOSS"],
+    });
+    expect(scoreSimplicity(agg).score).toBe(6);
+  });
+
+  test("counts a duplicated speculative ticker only once (no double-subtraction)", () => {
+    // 9 core stocks + the same speculative stock GME held in 2 accounts = 11 raw holdings.
+    // Cross-account collapse removes 1; speculative removes the remaining GME position.
+    // effective = 11 - 0 - 1 - 1 = 9 → score 6.
+    // A naive "subtract every speculative holding" bug would give 11 - 1 - 2 = 8 → score 8.
+    const agg = aggForSimplicity({
+      holding_count: 11,
+      cross_account_groups: [
+        {
+          asset_class: "individual_stock",
+          label: "GME",
+          tickers_by_account: [
+            { account_id: "a1", ticker: "GME" },
+            { account_id: "a2", ticker: "GME" },
+          ],
+          combined_weight: 0.1,
+        },
+      ],
+      speculative_sleeve_tickers: ["GME"],
+    });
+    expect(scoreSimplicity(agg).score).toBe(6);
+  });
+
+  test("empty speculative sleeve leaves the score unchanged", () => {
+    const agg = aggForSimplicity({ holding_count: 10, speculative_sleeve_tickers: [] });
+    expect(scoreSimplicity(agg).score).toBe(6);
+  });
+
+  test("display_value reflects the speculative-adjusted effective count without naming speculative", () => {
+    const agg = aggForSimplicity({
+      holding_count: 12,
+      speculative_sleeve_tickers: ["GME", "AMC"],
+    });
+    const result = scoreSimplicity(agg);
+    expect(result.display_value).toBe("10 effective positions (12 across accounts)");
+    expect(result.display_value).not.toMatch(/speculativ/i);
+  });
 });
 
 function aggForConc(top3: number, tickers: string[] = ["A", "B", "C"]): PortfolioAggregates {

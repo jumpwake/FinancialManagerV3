@@ -38,7 +38,9 @@ export function scoreSimplicity(agg: PortfolioAggregates): DimensionScore {
     (sum, g) => sum + (g.tickers_by_account.length - 1),
     0,
   );
-  const effective = agg.holding_count - extraFromSameAccountDups - extraFromCrossAccount;
+  const speculativeCount = agg.speculative_sleeve_tickers?.length ?? 0;
+  const effective =
+    agg.holding_count - extraFromSameAccountDups - extraFromCrossAccount - speculativeCount;
 
   const score =
     effective <= 5  ? 10 :
