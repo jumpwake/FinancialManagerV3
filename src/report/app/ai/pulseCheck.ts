@@ -105,7 +105,7 @@ export async function runPulseCheck(input: PulseInput, client: Anthropic): Promi
   const userContent = renderPulseInput(input);
 
   const response = await client.messages.parse({
-    model: "claude-opus-4-7",
+    model: "claude-opus-4-8",
     max_tokens: 1500,
     thinking: { type: "adaptive" },
     output_config: {

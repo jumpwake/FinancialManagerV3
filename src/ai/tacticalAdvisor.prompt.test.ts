@@ -1,5 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { renderTacticalInput } from "./tacticalAdvisor";
+import { renderTacticalInput, outputSchema } from "./tacticalAdvisor";
+
+describe("outputSchema tactical move category tolerance", () => {
+  const move = (category: string) => ({
+    id: "mv_1",
+    category,
+    action: "Add fixed income",
+    target_account: "Pre-Tax IRA",
+    dollars: 40_000,
+    rationale: "…",
+    scenarios_addressed: ["yield_curve"],
+  });
+  const wrap = (m: unknown) => ({
+    deployment_recommendation: null,
+    tactical_plan: {
+      summary: "…",
+      target_grade: "B+",
+      next_7_days: [],
+      next_30_days: [m],
+      scenario_resilience_notes: ["a", "b"],
+    },
+  });
+
+  it("coerces an out-of-enum move category to 'rebalance' instead of failing the whole parse", () => {
+    // Reproduces the observed failure: the model emitted a next_30_days move
+    // whose category was outside the enum, which used to throw and discard the
+    // entire advisor output.
+    const result = outputSchema.safeParse(wrap(move("increase_allocation")));
+    expect(result.success).toBe(true);
+    expect(result.data!.tactical_plan.next_30_days[0].category).toBe("rebalance");
+  });
+
+  it("preserves a valid move category unchanged", () => {
+    const result = outputSchema.safeParse(wrap(move("scenario_hedge")));
+    expect(result.success).toBe(true);
+    expect(result.data!.tactical_plan.next_30_days[0].category).toBe("scenario_hedge");
+  });
+});
 
 describe("renderTacticalInput", () => {
   it("includes account model, composition, macro, dimension scores, flags, gaps, open situations", () => {

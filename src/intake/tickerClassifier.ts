@@ -240,7 +240,7 @@ export async function classifyTickers(
   let response;
   try {
     response = await client.messages.create({
-      model: process.env.CLAUDE_MODEL_CLASSIFIER ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+      model: process.env.CLAUDE_MODEL_CLASSIFIER ?? process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
       max_tokens: 4000,
       thinking: { type: "adaptive" },
       system: CLASSIFY_SYSTEM_PROMPT,

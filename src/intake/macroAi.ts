@@ -50,7 +50,7 @@ export async function fetchMacroAI(referenceDate?: string): Promise<MacroAIResul
     model:
       process.env.CLAUDE_MODEL_MACRO ??
       process.env.CLAUDE_MODEL ??
-      "claude-sonnet-4-6",
+      "claude-opus-4-8",
     max_tokens: 4000,
     system: MACRO_AI_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildMacroAIPrompt(referenceDate) }],

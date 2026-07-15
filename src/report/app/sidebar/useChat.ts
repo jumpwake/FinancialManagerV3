@@ -85,7 +85,7 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
 
       try {
         const stream = client.messages.stream({
-          model: "claude-sonnet-4-6",
+          model: "claude-opus-4-8",
           max_tokens: 2000,
           system: CHAT_SYSTEM_PROMPT,
           tools: CHAT_TOOLS as never,

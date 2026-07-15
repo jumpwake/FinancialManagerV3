@@ -18,7 +18,7 @@ public class AiProxyEndpointsTests
         using var client = factory.CreateClient();
 
         var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
-            new { model = "claude-sonnet-4-6", max_tokens = 100, messages = Array.Empty<object>() });
+            new { model = "claude-opus-4-8", max_tokens = 100, messages = Array.Empty<object>() });
 
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
@@ -36,7 +36,7 @@ public class AiProxyEndpointsTests
 
         var requestBody = new
         {
-            model = "claude-sonnet-4-6",
+            model = "claude-opus-4-8",
             max_tokens = 100,
             messages = new[] { new { role = "user", content = "hi" } },
         };
@@ -63,7 +63,7 @@ public class AiProxyEndpointsTests
         using var client = SignedIn(factory, "kevin");
 
         var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
-            new { model = "claude-sonnet-4-6", max_tokens = 50, messages = Array.Empty<object>() });
+            new { model = "claude-opus-4-8", max_tokens = 50, messages = Array.Empty<object>() });
 
         var body = await res.Content.ReadAsStringAsync();
         Assert.Contains("\"id\":\"msg_y\"", body);
@@ -78,7 +78,7 @@ public class AiProxyEndpointsTests
         using var client = SignedIn(factory, "kevin");
 
         var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
-            new { model = "claude-sonnet-4-6", max_tokens = 50, messages = Array.Empty<object>() });
+            new { model = "claude-opus-4-8", max_tokens = 50, messages = Array.Empty<object>() });
 
         Assert.Equal(HttpStatusCode.BadGateway, res.StatusCode);
     }
@@ -95,7 +95,7 @@ public class AiProxyEndpointsTests
         using var client = SignedIn(factory, "kevin");
 
         var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
-            new { model = "claude-sonnet-4-6", max_tokens = 50, messages = Array.Empty<object>() });
+            new { model = "claude-opus-4-8", max_tokens = 50, messages = Array.Empty<object>() });
 
         Assert.Equal(HttpStatusCode.TooManyRequests, res.StatusCode);
         Assert.Contains("rate_limit_error", await res.Content.ReadAsStringAsync());
@@ -108,7 +108,7 @@ public class AiProxyEndpointsTests
         using var client = SignedIn(factory, "kevin");
 
         var res = await client.PostAsJsonAsync("/api/ai/v1/messages",
-            new { model = "claude-sonnet-4-6", max_tokens = 50000, messages = Array.Empty<object>() });
+            new { model = "claude-opus-4-8", max_tokens = 50000, messages = Array.Empty<object>() });
 
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
@@ -124,7 +124,7 @@ public class AiProxyEndpointsTests
         for (var i = 0; i < 61; i++)
         {
             last = await client.PostAsJsonAsync("/api/ai/v1/messages",
-                new { model = "claude-sonnet-4-6", max_tokens = 10, messages = Array.Empty<object>() });
+                new { model = "claude-opus-4-8", max_tokens = 10, messages = Array.Empty<object>() });
             if (last.StatusCode == HttpStatusCode.TooManyRequests) break;
         }
 

@@ -25,11 +25,22 @@ Produce ONE structured output object with:
 
 Every move must cite (a) specific dollars, (b) target account by label, (c) which scenarios it addresses, (d) which dimension scores it lifts.
 
+Each move's "category" MUST be exactly one of: deploy_cash, rebalance, trim, asset_location_swap, scenario_hedge, tax_loss_harvest. Do not invent other category values — if a move doesn't fit cleanly, use "rebalance".
+
 SPECULATIVE SLEEVE: The input includes a "speculative_holds" array — tickers the user holds deliberately, for personal/long-term reasons, OUTSIDE the metrics discipline. Do NOT recommend trimming, selling, rebalancing, or reducing these positions on valuation, beta, growth, or single-stock-risk grounds. Treat them as fixed. You MAY reference the sleeve only if a flag with finding_key "speculative_sleeve:over_threshold" is present, in which case you may note the sleeve has grown beyond its size budget.`.trim();
 
+// `category` is a closed union consumed downstream as a fixed lookup key
+// (report's CATEGORY_COLOR map, TacticalMoveCategory type). The model
+// intermittently emits a 30-day move whose category word falls outside this
+// set, which used to fail the ENTIRE structured-output parse. `.catch()`
+// coerces any out-of-enum value to a safe in-union default ("rebalance") so one
+// stray tag never discards the whole tactical plan; the enum still appears in
+// the generated JSON schema, so the model remains guided toward valid values.
 const moveSchema = z.object({
   id: z.string(),
-  category: z.enum(["deploy_cash", "rebalance", "trim", "asset_location_swap", "scenario_hedge", "tax_loss_harvest"]),
+  category: z
+    .enum(["deploy_cash", "rebalance", "trim", "asset_location_swap", "scenario_hedge", "tax_loss_harvest"])
+    .catch("rebalance"),
   action: z.string(),
   target_account: z.string(),
   dollars: z.number(),
@@ -38,7 +49,7 @@ const moveSchema = z.object({
   expected_score_delta: z.number().optional(),
 });
 
-const outputSchema = z.object({
+export const outputSchema = z.object({
   deployment_recommendation: z.object({
     summary: z.string(),
     moves: z.array(z.object({
@@ -96,12 +107,13 @@ export function renderTacticalInput(ctx: TacticalInputContext): string {
   );
 }
 
-// The model occasionally emits a structured-output value that violates the Zod
-// schema (e.g. a move `category` outside the allowed enum), which makes
-// messages.parse() throw. It's an intermittent sampling artifact — a fresh call
-// almost always validates — so retry a few times before giving up. After the
-// last attempt the original error propagates, preserving the caller's
-// degrade-to-null behavior in src/index.ts.
+// The model can still occasionally emit a structured-output value that violates
+// the Zod schema (e.g. a missing required string), which makes messages.parse()
+// throw. (Out-of-enum move categories are now tolerated via `.catch()` above, so
+// they no longer fail here.) Remaining failures are intermittent sampling
+// artifacts — a fresh call almost always validates — so retry a few times before
+// giving up. After the last attempt the original error propagates, preserving the
+// caller's degrade-to-null behavior in src/index.ts.
 const ADVISOR_PARSE_ATTEMPTS = 3;
 
 export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<TacticalAdvisorOutput> {
@@ -114,7 +126,7 @@ export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<Tac
         model:
           process.env.CLAUDE_MODEL_ADVISOR ??
           process.env.CLAUDE_MODEL ??
-          "claude-opus-4-7",
+          "claude-opus-4-8",
         max_tokens: 16000,
         output_config: {
           effort: "medium",

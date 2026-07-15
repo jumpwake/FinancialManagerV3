@@ -8,7 +8,7 @@ The full stack is in place on the `tdd-engine-intake` branch (branched from `mai
 
 - **Engine + intake**: built test-first across 22 plan tasks + 3 normalization tasks. 174 vitest tests passing, `tsc --noEmit` clean.
 - **CLI** (`src/index.ts`): runs the pipeline end-to-end against the 5 brokerage sample files. Writes `output/analysis.json` and prints a structured console summary.
-- **Narratives** (`src/ai/narratives.ts`): single `claude-sonnet-4-6` call producing structured AI text via `messages.parse()` + Zod schema. Skipped gracefully if `ANTHROPIC_API_KEY` is unset.
+- **Narratives** (`src/ai/narratives.ts`): single `claude-opus-4-8` call producing structured AI text via `messages.parse()` + Zod schema. Skipped gracefully if `ANTHROPIC_API_KEY` is unset.
 - **React report** (`src/report/app/`): Vite + chart.js. Renders all 9 sections per dev doc §12.
 
 The full TDD plan is at `docs/superpowers/plans/2026-05-11-tdd-portfolio-analyzer.md`. The dev doc (`Documentation/DevelopmentDoc1.md`) is the original spec — it's older than the actual implementation in several places (model ID, SDK version, scoreDiversification formula bug).

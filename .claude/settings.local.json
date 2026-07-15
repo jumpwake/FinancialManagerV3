@@ -83,7 +83,32 @@
       "Bash(Get-Content \"docs/superpowers/plans/2026-05-19-hosted-report-phase2.md\")",
       "Bash(Select-String -Context 0,80 \"Task 5\")",
       "Bash(Select-Object -First 1)",
-      "Bash(set -e)"
+      "Bash(set -e)",
+      "Bash(Test-Path C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3\\\\src\\\\report\\\\app\\\\hooks *)",
+      "Bash(Get-ChildItem src/report/app/public/icons/)",
+      "Bash(Select-Object Name, Length)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(sorted\\(d['tickers'].keys\\(\\)\\)\\)\")",
+      "WebFetch(domain:fred.stlouisfed.org)",
+      "Bash(curl -s -A \"Mozilla/5.0\" -o fred-v2-docs.html -w \"HTTP %{http_code}\\\\n\" \"https://fred.stlouisfed.org/docs/api/fred/v2/index.html\")",
+      "Bash(curl -sL -A \"Mozilla/5.0\" -w \"HTTP %{http_code}\\\\n\" \"https://fred.stlouisfed.org/docs/api/fred/v2/index.html\")",
+      "Bash(curl -v -L -A \"Mozilla/5.0\" \"https://fred.stlouisfed.org/docs/api/fred/v2/index.html\")",
+      "Bash(curl -sL --http1.1 -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) Chrome/120.0\" -H \"Accept: text/html,application/xhtml+xml\" \"https://fred.stlouisfed.org/docs/api/fred/v2/index.html\" -w \"\\\\nHTTP %{http_code}\\\\n\" -o fred-v2.html)",
+      "Bash(dir fred*.html)",
+      "Bash(powershell -Command \"if \\(Test-Path fred-v2.html\\) { Get-Item fred-v2.html | Format-List Length,LastWriteTime } else { Write-Host 'no file yet' }\")",
+      "Bash(powershell *)",
+      "Bash(curl *)",
+      "WebFetch(domain:api.stlouisfed.org)",
+      "Bash(grep -v \"^$\")",
+      "Bash(ls \"C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3\\\\data\\\\accounts.csv\")",
+      "Bash(ls \"C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3\\\\data\\\\SamplePortfolio\")",
+      "Bash(ls data/kevin)",
+      "Bash(ls data/SamplePortfolio)",
+      "Bash(bash *)",
+      "Bash(python -)",
+      "PowerShell(cd C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManagerV3; $portfolioDir = \"C:\\\\Users\\\\bowde\\\\source\\\\repos\\\\FinancialManager\\\\Data\"; if \\(Test-Path $portfolioDir\\) { Get-ChildItem $portfolioDir | Select-Object -First 10 } else { Write-Output \"Portfolio dir not found: $portfolioDir\" })",
+      "PowerShell(dotnet test *)",
+      "PowerShell(& \"scripts/build-api.ps1\"; \"EXITCODE=$LASTEXITCODE\")",
+      "Bash(echo \"Exit code: $?\")"
     ]
   }
 }

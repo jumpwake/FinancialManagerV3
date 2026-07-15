@@ -100,7 +100,7 @@ export async function generateNarratives(
   });
 
   const response = await client.messages.parse({
-    model: process.env.CLAUDE_MODEL_NARRATIVES ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+    model: process.env.CLAUDE_MODEL_NARRATIVES ?? process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
     // The structured output is 11 prose fields and adaptive thinking shares
     // this budget — 2000 truncated the JSON for content-rich portfolios.
     max_tokens: 8000,

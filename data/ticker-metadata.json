@@ -169,6 +169,35 @@
       "asset_class": "international_equity",
       "expense_ratio": 0.0007,
       "classified_at": "2025-01-24"
+    },
+    "FBTC": {
+      "asset_class": "crypto",
+      "expense_ratio": 0.0025,
+      "classified_at": "2025-07-09"
+    },
+    "SPCX": {
+      "asset_class": "us_equity_sector",
+      "expense_ratio": 0.0095,
+      "sector_tag": "financials",
+      "classified_at": "2025-07-09",
+      "notes": "The SPAC and New Issue ETF by Tuttle Capital Management; focused on Special Purpose Acquisition Companies (SPACs) and recent IPOs listed on US exchanges. The fund was liquidated/closed in 2022 as SPAC market activity significantly declined. Classification reflects the fund's primary exposure to US-listed SPAC vehicles, categorized under financials."
+    },
+    "SF-C": {
+      "asset_class": "individual_stock",
+      "expense_ratio": null,
+      "stock_metrics": {
+        "pe_ratio": null,
+        "ev_ebitda": null,
+        "fcf_yield": null,
+        "roe": null,
+        "eps_growth_yoy": null,
+        "revenue_growth_yoy": null,
+        "net_debt_ebitda": null,
+        "beta": 0.25,
+        "analyst_consensus": null
+      },
+      "classified_at": "2025-07-15",
+      "notes": "Preferred stock (Series C) of Stifel Financial Corp. Brokerage ticker SF.PRC normalized to canonical NYSE format SF-C. This is a non-cumulative preferred equity instrument; most common-equity stock metrics (P/E, EV/EBITDA, etc.) are not applicable. Beta estimate is approximate, reflecting the typically lower volatility of preferred shares relative to common stock."
     }
   }
 }
