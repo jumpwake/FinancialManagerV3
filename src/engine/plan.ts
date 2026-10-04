@@ -109,18 +109,21 @@ export function generateFlags(
   }
 
   for (const group of agg.duplicate_groups) {
+    const acctLabel = accounts?.accounts.find(a => a.id === group.account_id)?.label ?? group.account_id;
     flags.push({
       ticker: group.tickers.join("/"),
       severity: "yellow",
       title: `Redundant funds — ${group.label}`,
-      body: `${group.tickers.join(", ")} hold near-identical underlying exposure. Combined ${(group.combined_weight * 100).toFixed(1)}% — consolidate into one.`,
+      body: `${group.tickers.join(", ")} hold near-identical underlying exposure in the same account. Combined ${(group.combined_weight * 100).toFixed(1)}% — consolidate into one within ${acctLabel}.`,
       finding_key: buildFindingKey({ dimension: "cost", type: "duplicate_funds", label: group.label }),
     });
   }
 
-  // Asset-location flags — only fire when an external transfer is actually possible.
-  // Policy-locked accounts (CBP, accounts with excluded_from_deployment or conservative_only)
-  // cannot move holdings out to other brokerages, so suggesting it is misleading.
+  // Asset-location flags. Money never moves between accounts, so the remedy is
+  // always an exchange within the flagged account (with the matching exposure
+  // rebuilt inside another account from its own holdings). Policy-locked
+  // accounts (CBP, excluded_from_deployment, conservative_only) are skipped —
+  // their fund menu is fixed by plan rules.
   if (accounts) {
     const typeById = new Map(accounts.accounts.map(a => [a.id, a]));
     for (const h of portfolio.holdings) {
@@ -139,7 +142,7 @@ export function generateFlags(
           ticker: h.ticker,
           severity: "yellow",
           title: `${h.ticker} in taxable — distribution drag`,
-          body: `${h.ticker} (${wPct}% of portfolio) is held in ${acct.label} (taxable). Balanced and target-date funds distribute capital gains annually, taxed as ordinary income. Consider moving to a tax-deferred account.`,
+          body: `${h.ticker} (${wPct}% of portfolio) is held in ${acct.label} (taxable). Balanced and target-date funds distribute capital gains annually, taxed as ordinary income. Fix within ${acct.label}: exchange into a tax-efficient broad index fund, and rebuild the bond exposure inside a tax-deferred account by exchanging part of its equity there.`,
           finding_key: buildFindingKey({ dimension: "asset_location", type: "taxable_balanced", ticker: h.ticker }),
         });
       }
@@ -148,7 +151,7 @@ export function generateFlags(
           ticker: h.ticker,
           severity: "yellow",
           title: `${h.ticker} in pre-tax — LTCG benefit lost`,
-          body: `${h.ticker} (${wPct}% of portfolio) is in ${acct.label} (pre-tax). Long-term capital gains tax rate is lost — gains taxed as ordinary income on withdrawal. Consider holding in a taxable account.`,
+          body: `${h.ticker} (${wPct}% of portfolio) is in ${acct.label} (pre-tax). Long-term capital gains tax rate is lost — gains taxed as ordinary income on withdrawal. If adjusting, act within each account: hold bonds or broad funds in ${acct.label}, and build any single-stock exposure inside a taxable account from its own cash or holdings.`,
           finding_key: buildFindingKey({ dimension: "asset_location", type: "tax_deferred_individual_stock", ticker: h.ticker }),
         });
       }
@@ -210,7 +213,7 @@ export function generateGapItems(
     gaps.push({
       title: "Fund overlap / redundancy",
       type: "amber",
-      body: `${g.tickers.join(" + ")} hold nearly identical securities. Consolidate to reduce complexity.`,
+      body: `${g.tickers.join(" + ")} hold nearly identical securities in the same account. Consolidate within that account to reduce complexity.`,
       progress: 20,
       finding_key: buildFindingKey({ dimension: "simplicity", type: "fund_overlap", label: g.label }),
     });
@@ -263,7 +266,7 @@ export function generatePlanPhases(
     const g = agg.duplicate_groups[0];
     p1Actions.push({
       category: "rebalance",
-      description: `Consolidate ${g.tickers.join(" + ")} — identical ${g.label} exposure. Keep lowest-cost fund, redeploy the rest.`,
+      description: `Consolidate ${g.tickers.join(" + ")} within their shared account — identical ${g.label} exposure. Keep the lowest-cost fund and exchange the rest into it.`,
       tags: ["simplification"],
     });
     p1Delta += 0.15;

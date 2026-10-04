@@ -3,6 +3,7 @@ import type { ChatScope, ChatMessage, Situation, Note, AnalysisOutput } from "..
 import { ChatHistory } from "./ChatHistory";
 import { ChatInput } from "./ChatInput";
 import { useChat } from "./useChat";
+import { modelDisplayName } from "../ai/models";
 import { TOP_BAR_HEIGHT } from "../TopBar";
 import { appPath } from "../api";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -94,7 +95,10 @@ export function Sidebar({
           alignItems: "center",
         }}
       >
-        <strong>💬 Chat</strong>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <strong>💬 Chat</strong>
+          <span style={{ fontSize: 10, color: "#888" }}>{modelDisplayName(chat.model)}</span>
+        </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
             onClick={async () => {

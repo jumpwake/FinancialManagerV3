@@ -7,7 +7,7 @@ describe("classifyTickers prompt", () => {
   });
 
   it("formats the user message with the ticker list", () => {
-    const msg = buildClassifyPrompt(["VXUS", "VTIAX", "TLT"]);
+    const msg = buildClassifyPrompt(["VXUS", "VTIAX", "TLT"], "2026-05-12");
     expect(msg).toMatchSnapshot();
   });
 });

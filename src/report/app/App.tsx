@@ -3,6 +3,7 @@ import { AnalysisOutput, ChatScope, Situation, TacticalMove, ChatMessage, Specul
 import { COLORS } from "./theme";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { appPath } from "./api";
+import { aiModelsLabel } from "./ai/models";
 import AllocationBreakdown from "./sections/AllocationBreakdown";
 import BenchmarkComparison from "./sections/BenchmarkComparison";
 import DimensionScorecard from "./sections/DimensionScorecard";
@@ -276,6 +277,7 @@ export default function App() {
             {typedData.portfolio.holdings.length} holdings · Grade{" "}
             <strong style={{ color: COLORS.text }}>{typedData.portfolio_grade}</strong>{" "}
             ({typedData.portfolio_score.toFixed(1)}/10)
+            {aiModelsLabel(typedData.ai_models) && <> · AI: {aiModelsLabel(typedData.ai_models)}</>}
           </p>
           {typedData.narratives?.headline_summary && (
             <p style={{ fontSize: isMobile ? 13 : 14, color: "#bbb", marginTop: 12, lineHeight: 1.6 }}>

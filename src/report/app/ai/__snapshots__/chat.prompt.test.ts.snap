@@ -2,6 +2,7 @@
 
 exports[`renderChatInput > emits a global-scope context block including header, top flags, and macro 1`] = `
 "{
+  "today": "2026-05-12",
   "user_message": "Why is my grade B+?",
   "scope": {
     "type": "global"

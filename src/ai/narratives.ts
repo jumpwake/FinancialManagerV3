@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { ACCOUNT_SILO_RULES } from "../report/app/ai/advisorPersona";
+import { todayIso } from "../report/app/ai/today";
+import { DEFAULT_MODEL, refusalError } from "../report/app/ai/models";
 import type {
   AINarratives,
   Portfolio,
@@ -35,7 +38,7 @@ const AINarrativesSchema = z.object({
   additional_takeaways: z
     .array(z.string())
     .describe(
-      "Exactly 3 observations about overlap, macro timing, or positioning nuance. Each 1-2 sentences.",
+      "Exactly 3 observations about look-through exposure, macro timing, or positioning nuance. Each 1-2 sentences.",
     ),
   phase1_macro_note: z
     .string()
@@ -44,7 +47,7 @@ const AINarrativesSchema = z.object({
     ),
 });
 
-const SYSTEM_PROMPT = `You are a portfolio health analyst generating a comparative assessment for an investor dashboard. You receive structured portfolio data including computed dimension scores and macro context.
+export const NARRATIVES_SYSTEM_PROMPT = `You are a portfolio health analyst generating a comparative assessment for an investor dashboard. You receive structured portfolio data including computed dimension scores and macro context.
 
 Rules:
 - Use actual values from the data (e.g., "25.4% cash" not "high cash")
@@ -52,13 +55,17 @@ Rules:
 - No vague language: not "consider rebalancing", not "may want to look at"
 - No words "robust" or "optimize"
 - Tone: direct, like a CFA reading a portfolio to a colleague
+- The input's "today" field is the current date. Reason about timing and data age against it, not your training cutoff
 - When an investor profile (age, risk tolerance) is present, frame the assessment for that investor — judge the portfolio against what suits their horizon and risk appetite, not a generic ideal
 - Each gap must reference specific values from the data and propose specific actions
 - Each strength must reference specific tickers or values that make it true
-- Additional takeaways should surface non-obvious insights (overlap analysis, macro-timing nuance, sector positioning)
+- Additional takeaways should surface non-obvious insights (look-through exposure, macro-timing nuance, sector positioning)
 - The phase1 macro note must cite specific macro indicators from the input data
 - Sector guidance: derive ALL sector recommendations strictly from the sector_overweight and sector_underweight fields in the macro block. Recommend adding to or maintaining the sectors listed in sector_overweight; recommend trimming or avoiding the sectors listed in sector_underweight. NEVER infer a sector preference from the regime name or CPI level, and NEVER recommend adding a sector that appears in sector_underweight (or trimming one that appears in sector_overweight)
-- Speculative sleeve: the input may include a "speculative_holds" array — tickers the user holds deliberately outside the metrics discipline. Do not raise them as gaps or recommend trimming, selling, or rebalancing them on valuation, beta, or growth grounds; treat them as fixed positions. Reference the sleeve only if a flag with finding_key "speculative_sleeve:over_threshold" is present.`.trim();
+- Speculative sleeve: the input may include a "speculative_holds" array — tickers the user holds deliberately outside the metrics discipline. Do not raise them as gaps or recommend trimming, selling, or rebalancing them on valuation, beta, or growth grounds; treat them as fixed positions. Reference the sleeve only if a flag with finding_key "speculative_sleeve:over_threshold" is present.
+- Every gap action you propose must follow the account-silo rules below.
+
+${ACCOUNT_SILO_RULES}`.trim();
 
 export interface NarrativesInput {
   portfolio: Portfolio;
@@ -75,10 +82,11 @@ export interface NarrativesInput {
 
 export async function generateNarratives(
   input: NarrativesInput,
-): Promise<AINarratives> {
+): Promise<{ narratives: AINarratives; model: string }> {
   const client = new Anthropic();
 
   const userContent = JSON.stringify({
+    today: todayIso(),
     snapshot_date: input.portfolio.snapshot_date,
     portfolio_grade: input.portfolio_grade,
     portfolio_score: input.portfolio_score,
@@ -91,7 +99,7 @@ export async function generateNarratives(
     })),
     macro: input.macro,
     // Surfaced explicitly (also present inside `macro`) so sector guidance is
-    // driven by these fields, not regime-name inference. See SYSTEM_PROMPT.
+    // driven by these fields, not regime-name inference. See NARRATIVES_SYSTEM_PROMPT.
     sector_overweight: input.macro.sector_overweight,
     sector_underweight: input.macro.sector_underweight,
     flags: input.flags,
@@ -100,7 +108,7 @@ export async function generateNarratives(
   });
 
   const response = await client.messages.parse({
-    model: process.env.CLAUDE_MODEL_NARRATIVES ?? process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
+    model: process.env.CLAUDE_MODEL_NARRATIVES ?? process.env.CLAUDE_MODEL ?? DEFAULT_MODEL,
     // The structured output is 11 prose fields and adaptive thinking shares
     // this budget — 2000 truncated the JSON for content-rich portfolios.
     max_tokens: 8000,
@@ -113,12 +121,15 @@ export async function generateNarratives(
       // the cast bridges the stale types until the SDK ships v4-typed defs.
       format: zodOutputFormat(AINarrativesSchema as never),
     },
-    system: SYSTEM_PROMPT,
+    system: NARRATIVES_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userContent }],
   });
+  const refused = refusalError("generateNarratives", response);
+  if (refused) throw refused;
 
   if (!response.parsed_output) {
     throw new Error("Anthropic API returned no parsed_output");
   }
-  return response.parsed_output;
+  // response.model is the model that actually served the call (shown in the report header).
+  return { narratives: response.parsed_output, model: response.model };
 }

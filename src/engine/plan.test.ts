@@ -346,6 +346,71 @@ describe("plan.ts — asset-location flags", () => {
     expect(flags.some(f => f.ticker === "VWENX" && /taxable/i.test(f.body))).toBe(true);
   });
 
+  it("asset-location flags never suggest moving a holding to another account", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({
+        ticker: "VWENX", market_value: 100_000, asset_class: "balanced", account_id: "vng_taxable",
+        underlying_composition: { us_equity: 0.60, international_equity: 0.05, fixed_income: 0.35, cash: 0.0 },
+      }),
+      makeHolding({
+        ticker: "TSLA", market_value: 50_000, asset_class: "individual_stock", account_id: "fid_ira",
+        stock_metrics: makeStockMetrics(),
+      }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "vng_taxable", account_type: "taxable_brokerage", label: "Vanguard Taxable" }),
+        makeAccount({ id: "fid_ira", account_type: "pretax_ira", label: "Fidelity IRA", broker: "Fidelity" }),
+      ],
+    };
+    const agg = computeAggregates(p, accounts);
+    const flags = generateFlags(p, agg, makeMacro(), accounts)
+      .filter(f => f.finding_key.startsWith("asset_location"));
+    expect(flags).toHaveLength(2);
+    for (const f of flags) {
+      expect(f.body).not.toMatch(/moving to|move to|transfer|holding in a taxable account/i);
+      expect(f.body).toMatch(/within/i);
+    }
+  });
+
+  it("same-account duplicate flag names the account and keeps consolidation inside it", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "VTSAX", market_value: 500, asset_class: "us_equity_total_market", account_id: "vng_roth" }),
+      makeHolding({ ticker: "VTI", market_value: 500, asset_class: "us_equity_total_market", account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [ makeAccount({ id: "vng_roth", account_type: "roth_ira", label: "Vanguard Roth" }) ],
+    };
+    const agg = computeAggregates(p, accounts);
+    const dup = generateFlags(p, agg, makeMacro(), accounts).find(f => f.title.includes("Redundant"));
+    expect(dup).toBeDefined();
+    expect(dup!.body).toContain("within Vanguard Roth");
+  });
+
+  it("emits no redundancy flag, gap, or plan action for equivalent funds in different accounts", () => {
+    const p = makePortfolio({ holdings: [
+      makeHolding({ ticker: "FSKAX", market_value: 500, asset_class: "us_equity_total_market", account_id: "fid_roth" }),
+      makeHolding({ ticker: "VTSAX", market_value: 500, asset_class: "us_equity_total_market", account_id: "vng_roth" }),
+    ]});
+    const accounts = {
+      accounts: [
+        makeAccount({ id: "fid_roth", account_type: "roth_ira", label: "Fidelity Roth", broker: "Fidelity" }),
+        makeAccount({ id: "vng_roth", account_type: "roth_ira", label: "Vanguard Roth" }),
+      ],
+    };
+    const macro = makeMacro();
+    const agg = computeAggregates(p, accounts);
+    const dims = scoreAllDimensions(p, agg, macro);
+    const flags = generateFlags(p, agg, macro, accounts);
+    const gaps = generateGapItems(agg, dims, macro);
+    const { phases } = generatePlanPhases(agg, macro, 7);
+    const consolidate = /consolidat|redundan|overlap/i;
+    expect(flags.filter(f => consolidate.test(f.title + f.body))).toEqual([]);
+    expect(gaps.filter(g => consolidate.test(g.title + g.body))).toEqual([]);
+    const actions = phases.flatMap(ph => ph.actions.map(a => a.description));
+    expect(actions.filter(a => consolidate.test(a))).toEqual([]);
+  });
+
   it("excludes constrained-account cash from idle-cash flag", () => {
     const p = makePortfolio({ holdings: [
       makeHolding({ ticker: "Cash", market_value: 500_000, asset_class: "cash", is_cash: true, account_id: "vng_business" }),

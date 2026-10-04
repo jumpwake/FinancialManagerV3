@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { ACCOUNT_SILO_RULES } from "./advisorPersona";
+import { todayIso } from "./today";
+import { DEFAULT_MODEL, refusalError } from "./models";
 import type {
   Situation,
   PulseVerdict,
@@ -31,7 +34,7 @@ const PulseVerdictSchema = z.object({
     .describe("Optional threshold that would change the verdict (e.g., 'if VIX > 25 or curve inverts'). Null if no clear threshold."),
 });
 
-const SYSTEM_PROMPT = `You are a CFA-trained portfolio advisor evaluating an open user situation about an ongoing deployment, rebalance, or strategic decision. You read current macro signals through a contrarian lens:
+export const PULSE_SYSTEM_PROMPT = `You are a CFA-trained portfolio advisor evaluating an open user situation about an ongoing deployment, rebalance, or strategic decision. You read current macro signals through a contrarian lens:
 - Calm markets / low VIX / euphoric sentiment → caution on deployments
 - Fear / elevated VIX / negative sentiment → opportunity for deployment
 - Late-cycle / recession risk → favor defensive tranches (FI, staples) over growth
@@ -43,18 +46,24 @@ STYLE:
 - Concrete suggested_action — what to do this week, not "consider rebalancing"
 - Use Unicode minus (−) for negatives, never ASCII -
 - Tone: colleague-to-colleague, no hedging language
-- No words "robust" or "optimize"`.trim();
+- No words "robust" or "optimize"
+- The input's "today" field is the current date. Judge timing (target dates, data age) against it, not your training cutoff.
+
+${ACCOUNT_SILO_RULES}`.trim();
 
 export interface PulseInput {
   situation: Situation;
   macro: MacroContext;
   portfolio: Portfolio;
   related_flags: Flag[];
+  /** Defaults to the current local date; tests pin it for determinism. */
+  today?: string;
 }
 
 export function renderPulseInput(input: PulseInput): string {
   return JSON.stringify(
     {
+      today: input.today ?? todayIso(),
       situation: {
         title: input.situation.title,
         intent: input.situation.intent,
@@ -105,17 +114,19 @@ export async function runPulseCheck(input: PulseInput, client: Anthropic): Promi
   const userContent = renderPulseInput(input);
 
   const response = await client.messages.parse({
-    model: "claude-opus-4-8",
-    max_tokens: 1500,
+    model: DEFAULT_MODEL,
+    max_tokens: 4000,
     thinking: { type: "adaptive" },
     output_config: {
-      effort: "medium",
+      effort: "low",
       format: zodOutputFormat(PulseVerdictSchema as never),
     },
-    system: SYSTEM_PROMPT,
+    system: PULSE_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userContent }],
   });
 
+  const refused = refusalError("pulse-check", response);
+  if (refused) throw refused;
   if (!response.parsed_output) {
     throw new Error("Anthropic API returned no parsed_output for pulse-check");
   }
