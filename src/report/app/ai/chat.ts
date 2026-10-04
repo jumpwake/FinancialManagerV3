@@ -5,6 +5,7 @@ import type {
   Note,
 } from "../types";
 import { ADVISOR_PERSONA } from "./advisorPersona";
+import { todayIso } from "./today";
 
 export const CHAT_SYSTEM_PROMPT = `${ADVISOR_PERSONA}
 
@@ -22,7 +23,7 @@ CONSTRAINTS:
 - NEVER fabricate values. If the requested data isn't in the context, say so.
 - When the user's scope is a specific finding, prefer answers grounded in that finding.
 - Tool use is PROPOSAL ONLY — user confirms in the UI.
-- Stream prose first, then emit at most one tool call per turn.
+- Stream prose first, then emit at most one tool call per turn. Write your full answer to the user as response text before any tool call — the UI shows only response text.
 
 RESPONSE FORMAT (strict — chat UI renders markdown):
 - Be TERSE. Default to a 2–4 sentence answer. Only go longer when the user explicitly asks for a deep analysis.
@@ -122,6 +123,8 @@ export interface ChatInputContext {
   situations: Situation[];
   notes: Note[];
   history: ChatMessage[];
+  /** Defaults to the current local date; tests pin it for determinism. */
+  today?: string;
 }
 
 function summarizeOpenSituations(situations: Situation[]) {
@@ -225,6 +228,7 @@ export function renderChatInput(ctx: ChatInputContext): string {
 
   return JSON.stringify(
     {
+      today: ctx.today ?? todayIso(),
       user_message: ctx.user_message,
       scope: ctx.scope,
       analysis_scope: trimAnalysisByScope(ctx.analysis, ctx.scope),

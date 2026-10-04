@@ -113,7 +113,7 @@ describe("scoreSimplicity", () => {
   test("subtracts duplicate-extra positions from effective count", () => {
     const agg = aggForSimplicity({
       holding_count: 8,
-      duplicate_groups: [{ label: "us equity total market", tickers: ["A", "B"], combined_weight: 0.3 }],
+      duplicate_groups: [{ account_id: "test_account", label: "us equity total market", tickers: ["A", "B"], combined_weight: 0.3 }],
     });
     expect(scoreSimplicity(agg).score).toBe(8);
   });
@@ -121,7 +121,7 @@ describe("scoreSimplicity", () => {
   test("display_value shows raw and effective counts", () => {
     const agg = aggForSimplicity({
       holding_count: 8,
-      duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
+      duplicate_groups: [{ account_id: "test_account", label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
     });
     expect(scoreSimplicity(agg).display_value).toBe("7 effective positions (8 across accounts)");
   });
@@ -385,7 +385,7 @@ describe("scoreDiversification", () => {
     const agg = aggForDiv({
       equity_weight: 0.55, international_weight: 0.15, fixed_income_weight: 0.20,
       balanced_weight: 0.05, individual_stock_weight: 0.05,
-      duplicate_groups: [{ label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
+      duplicate_groups: [{ account_id: "test_account", label: "x", tickers: ["A", "B"], combined_weight: 0.3 }],
     });
     expect(scoreDiversification(agg).score).toBe(9);
   });

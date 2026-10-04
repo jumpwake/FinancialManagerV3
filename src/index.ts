@@ -27,6 +27,7 @@ import { applyNoteSuppressions } from "./engine/suppression";
 import { speculativeTickerSet, applySpeculativeSuppressions } from "./engine/speculative";
 import { runPulseCheck } from "./report/app/ai/pulseCheck";
 import { runTacticalAdvisor } from "./ai/tacticalAdvisor";
+import type { AIModels } from "./report/app/ai/models";
 import type { AccountConfig, Holding, Finding, PulseVerdict, TacticalAdvisorOutput } from "./types";
 
 loadEnv();
@@ -268,6 +269,9 @@ async function main() {
   const { phases: plan_phases, trajectory: score_trajectory } =
     generatePlanPhases(aggregates, macro, portfolio_score, scoringProfile);
 
+  // Which model produced each AI section — written to analysis.json for the report header.
+  const ai_models: AIModels = {};
+
   // Generate AI narratives (single Anthropic API call)
   let narratives = null;
   let findings: Finding[] = [];
@@ -275,7 +279,7 @@ async function main() {
     console.log("");
     console.log("Calling Anthropic API for narratives...");
     try {
-      narratives = await generateNarratives({
+      const result = await generateNarratives({
         profile: userContext.profile,
         portfolio: effectedPortfolio,
         macro,
@@ -287,11 +291,13 @@ async function main() {
         flags,
         speculative_holds: userContext.speculative_holds,
       });
+      narratives = result.narratives;
+      ai_models.narratives = result.model;
       findings = [
         ...narratives.strengths.map(s => ({ type: "strength" as const, title: "Strength", body: s })),
         ...narratives.gaps.map(g => ({ type: "gap" as const, title: "Gap", body: g })),
       ];
-      console.log("  Narratives generated.");
+      console.log(`  Narratives generated (${result.model}).`);
     } catch (err) {
       console.warn("  Narratives generation failed:", err instanceof Error ? err.message : err);
       console.warn("  Continuing without AI narratives.");
@@ -360,7 +366,7 @@ async function main() {
     console.log("");
     console.log("Calling Anthropic API for tactical advisor recommendations...");
     try {
-      tactical_advisor = await runTacticalAdvisor({
+      const result = await runTacticalAdvisor({
         profile: userContext.profile,
         portfolio: effectedPortfolio,
         aggregates,
@@ -374,6 +380,9 @@ async function main() {
         open_situations: userContext.situations,
         speculative_holds: userContext.speculative_holds,
       });
+      tactical_advisor = result.output;
+      ai_models.tactical_advisor = result.model;
+      console.log(`  Tactical advisor ran on ${result.model}.`);
       console.log(`  Tactical plan: ${tactical_advisor.tactical_plan.next_7_days.length} moves in next 7d, ${tactical_advisor.tactical_plan.next_30_days.length} moves in next 30d`);
       if (tactical_advisor.deployment_recommendation) {
         console.log(`  Deployment: ${tactical_advisor.deployment_recommendation.moves.length} moves, projected grade ${tactical_advisor.deployment_recommendation.projected_grade}`);
@@ -403,6 +412,7 @@ async function main() {
     findings,
     narratives,  // null if API key wasn't set
     tactical_advisor,  // null if API key wasn't set or call failed
+    ai_models,  // empty if no AI call succeeded
     situations: userContext.situations,
     notes: userContext.notes,
   };

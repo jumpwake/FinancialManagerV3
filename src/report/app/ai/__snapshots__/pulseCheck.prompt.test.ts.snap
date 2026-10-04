@@ -2,6 +2,7 @@
 
 exports[`renderPulseInput > produces a deterministic JSON string for a given input 1`] = `
 "{
+  "today": "2026-05-12",
   "situation": {
     "title": "Rollover IRA — T3 deployment",
     "intent": "Deploying $600k from old IRA in 3 tranches; T1+T2 done; T3 pending.",

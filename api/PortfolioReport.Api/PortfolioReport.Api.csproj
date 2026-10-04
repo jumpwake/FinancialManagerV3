@@ -11,4 +11,17 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.15" />
   </ItemGroup>
 
+  <!--
+    App_Data holds per-user runtime state (user-context.json, analysis.json) that
+    is the AUTHORITATIVE store on the server. It must NEVER be shipped in the
+    deploy artifact: msdeploy sync would overwrite the live server files with the
+    stale local seeds, wiping accumulated history. DoNotDeleteRule does not
+    protect against this — it prevents deletion, not overwrite. Keep these files
+    out of the publish output so deploys touch code only.
+  -->
+  <ItemGroup>
+    <Content Update="App_Data\**" CopyToPublishDirectory="Never" />
+    <None Update="App_Data\**" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

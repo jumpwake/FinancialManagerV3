@@ -47,6 +47,7 @@ describe("renderPulseInput", () => {
       macro: baseMacro,
       portfolio: basePortfolio,
       related_flags: [] as Flag[],
+      today: "2026-05-12",
     });
     expect(out).toMatchSnapshot();
   });

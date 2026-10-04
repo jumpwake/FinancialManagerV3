@@ -3,6 +3,9 @@ import * as path from "node:path";
 import * as z from "zod/v4";
 import Anthropic from "@anthropic-ai/sdk";
 import { canonicalTicker } from "./tickerMetadata";
+import { extractJsonCandidates } from "./macroAi";
+import { todayIso } from "../report/app/ai/today";
+import { DEFAULT_MODEL, refusalError } from "../report/app/ai/models";
 import type { UnderlyingComposition, StockMetrics, AssetClass } from "../types";
 
 const DEFAULT_FILE = path.join(process.cwd(), "data", "ticker-metadata.json");
@@ -36,41 +39,44 @@ const MINIMAL_SHAPE_ASSET_CLASSES = [
   "us_bond_short", "us_bond_tips", "target_date", "cash", "cash_pending", "crypto",
 ] as const;
 
+// Provenance carried by every entry. `sources` are the URLs Claude cited when
+// it classified the ticker via web search; hand-curated entries omit it.
+const PROVENANCE = {
+  classified_at: z.string(),
+  notes: z.string().optional(),
+  sources: z.array(z.string()).optional(),
+};
+
 // Discriminated union: each asset_class branch has its own required fields.
 const TickerEntrySchema = z.discriminatedUnion("asset_class", [
   z.object({
     asset_class: z.literal("us_equity_sector"),
     expense_ratio: z.number().nullable(),
     sector_tag: z.string(),
-    classified_at: z.string(),
-    notes: z.string().optional(),
+    ...PROVENANCE,
   }),
   z.object({
     asset_class: z.literal("balanced"),
     expense_ratio: z.number().nullable(),
     underlying_composition: UnderlyingCompositionSchema,
-    classified_at: z.string(),
-    notes: z.string().optional(),
+    ...PROVENANCE,
   }),
   z.object({
     asset_class: z.literal("individual_stock"),
     expense_ratio: z.null(),
     stock_metrics: StockMetricsSchema,
-    classified_at: z.string(),
-    notes: z.string().optional(),
+    ...PROVENANCE,
   }),
   z.object({
     asset_class: z.literal("unknown"),
-    classified_at: z.string(),
-    notes: z.string().optional(),
+    ...PROVENANCE,
   }),
   // All remaining asset classes share the same minimal shape.
   ...MINIMAL_SHAPE_ASSET_CLASSES.map(ac =>
     z.object({
       asset_class: z.literal(ac),
       expense_ratio: z.number().nullable(),
-      classified_at: z.string(),
-      notes: z.string().optional(),
+      ...PROVENANCE,
     }),
   ),
 ]);
@@ -143,7 +149,9 @@ export function lookupTicker(symbol: string): TickerMetadata | null {
 // AI classifier
 // ---------------------------------------------------------------------------
 
-export const CLASSIFY_SYSTEM_PROMPT = `You are a financial-data classifier. You receive a list of brokerage ticker symbols and return one structured classification per symbol.
+export const CLASSIFY_SYSTEM_PROMPT = `You are a financial-data classifier. You receive today's date and a list of brokerage ticker symbols, and return one structured classification per symbol.
+
+Use the web_search tool to look up each symbol's CURRENT data as of today's date (fund provider pages, SEC filings, exchange or market-data sites). Do not rely on memory for numbers: expense ratios change, funds close, and tickers are reused.
 
 Rules:
 - Return one entry per input symbol, in the same order.
@@ -154,23 +162,23 @@ Rules:
 - For asset_class "us_equity_sector": include a sector_tag like "utilities", "healthcare", "technology", "consumer_staples", "industrials", "energy", "financials", "real_estate", "materials", "communication_services", "consumer_discretionary".
 - For asset_class "balanced": include underlying_composition with us_equity / international_equity / fixed_income / cash weights summing to 1.0.
 - For asset_class "individual_stock": include best-effort stock_metrics. Use null for any field you don't have data for, but provide values where you can — even slightly stale data is useful.
-- For asset_class "unknown": use ONLY when the ticker is genuinely unrecognized. Include a notes field explaining (e.g., "no public market data found").
-- classified_at: today's date in YYYY-MM-DD format.
+- For asset_class "unknown": use when the ticker is genuinely unrecognized, OR when the security has been liquidated, delisted, or merged away. Include a notes field explaining (e.g., "no public market data found", "fund liquidated 2022").
+- sources: list the URLs of the pages you actually used for that symbol. Every entry except "unknown" must have at least one.
 
 Output format: Return ONLY a JSON object of shape { "entries": [ ... ] }, where each entry has these fields:
 - symbol (string): the canonical ticker
 - asset_class (string): one of the allowed enum values
 - expense_ratio (number or null): see rules above
-- classified_at (string): today's date as YYYY-MM-DD
+- sources (array of strings): URLs you used; required unless asset_class is "unknown"
 - sector_tag (string): required if asset_class is "us_equity_sector"
 - underlying_composition (object): required if asset_class is "balanced"; shape { us_equity, international_equity, fixed_income, cash } — numbers summing to 1.0
 - stock_metrics (object): required if asset_class is "individual_stock"; shape { pe_ratio, ev_ebitda, fcf_yield, roe, eps_growth_yoy, revenue_growth_yoy, net_debt_ebitda, beta, analyst_consensus } — each value is a number or null
 - notes (string): optional; required if asset_class is "unknown"
 
-Do not include any other text, markdown, or explanation. Return ONLY the JSON object.`.trim();
+After searching, your final message must be ONLY the JSON object, with no other text, markdown, or explanation.`.trim();
 
-export function buildClassifyPrompt(symbols: string[]): string {
-  return JSON.stringify({ symbols });
+export function buildClassifyPrompt(symbols: string[], today: string = todayIso()): string {
+  return JSON.stringify({ today, symbols });
 }
 
 // Discriminated union response schema — each asset_class branch enforces its
@@ -184,7 +192,8 @@ const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
     asset_class: z.literal("us_equity_sector"),
     expense_ratio: z.number().nullable(),
     sector_tag: z.string(),
-    classified_at: z.string(),
+    classified_at: z.string().optional(),
+    sources: z.array(z.string()).optional(),
     notes: z.string().optional(),
   }),
   z.object({
@@ -192,7 +201,8 @@ const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
     asset_class: z.literal("balanced"),
     expense_ratio: z.number().nullable(),
     underlying_composition: UnderlyingCompositionSchema,
-    classified_at: z.string(),
+    classified_at: z.string().optional(),
+    sources: z.array(z.string()).optional(),
     notes: z.string().optional(),
   }),
   z.object({
@@ -200,13 +210,15 @@ const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
     asset_class: z.literal("individual_stock"),
     expense_ratio: z.null(),
     stock_metrics: StockMetricsSchema,
-    classified_at: z.string(),
+    classified_at: z.string().optional(),
+    sources: z.array(z.string()).optional(),
     notes: z.string().optional(),
   }),
   z.object({
     symbol: z.string(),
     asset_class: z.literal("unknown"),
-    classified_at: z.string(),
+    classified_at: z.string().optional(),
+    sources: z.array(z.string()).optional(),
     notes: z.string().optional(),
   }),
   ...MINIMAL_SHAPE_ASSET_CLASSES.map(ac =>
@@ -214,7 +226,8 @@ const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
       symbol: z.string(),
       asset_class: z.literal(ac),
       expense_ratio: z.number().nullable(),
-      classified_at: z.string(),
+      classified_at: z.string().optional(),
+    sources: z.array(z.string()).optional(),
       notes: z.string().optional(),
     }),
   ),
@@ -223,6 +236,36 @@ const ClassifyResponseEntrySchema = z.discriminatedUnion("asset_class", [
 const ClassifyResponseSchema = z.object({
   entries: z.array(ClassifyResponseEntrySchema),
 });
+
+type ClassifyResponseEntry = z.infer<typeof ClassifyResponseEntrySchema>;
+
+const MAX_EXPENSE_RATIO = 0.03;
+const DEAD_SECURITY = /liquidat|delist|merged into|no longer trad|ceased trading|fund closed/i;
+const MAX_PAUSE_CONTINUATIONS = 3;
+
+/**
+ * Plausibility check for one AI classification. Returns the rejection reason,
+ * or null when the entry is safe to persist. Rejected entries are not saved,
+ * so the holding stays unknown and surfaces through the normal unknown-ticker
+ * path instead of silently feeding bad numbers into scoring.
+ */
+export function rejectionReason(entry: ClassifyResponseEntry): string | null {
+  if (entry.asset_class === "unknown") return null;
+  if (entry.expense_ratio !== null && (entry.expense_ratio < 0 || entry.expense_ratio > MAX_EXPENSE_RATIO)) {
+    return `expense_ratio ${entry.expense_ratio} outside 0–${MAX_EXPENSE_RATIO}`;
+  }
+  if (entry.asset_class === "balanced") {
+    const c = entry.underlying_composition;
+    const sum = c.us_equity + c.international_equity + c.fixed_income + c.cash;
+    if (Math.abs(sum - 1) > 0.01) return `underlying_composition sums to ${sum.toFixed(3)}, not 1.0`;
+  }
+  if (entry.notes && DEAD_SECURITY.test(entry.notes)) {
+    return `notes indicate the security is no longer active ("${entry.notes}")`;
+  }
+  const urls = (entry.sources ?? []).filter(u => /^https?:\/\//i.test(u));
+  if (urls.length === 0) return "no source URLs cited";
+  return null;
+}
 
 export async function classifyTickers(
   unknowns: string[],
@@ -237,15 +280,28 @@ export async function classifyTickers(
   }
 
   const client = new Anthropic();
+  const today = todayIso();
+  const messages: Anthropic.MessageParam[] = [
+    { role: "user", content: buildClassifyPrompt(unknowns, today) },
+  ];
   let response;
   try {
-    response = await client.messages.create({
-      model: process.env.CLAUDE_MODEL_CLASSIFIER ?? process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
-      max_tokens: 4000,
-      thinking: { type: "adaptive" },
-      system: CLASSIFY_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildClassifyPrompt(unknowns) }],
-    });
+    // Web search is a server tool: Anthropic runs the searches inside this call.
+    // Long searches can end the turn early with stop_reason "pause_turn"; send
+    // the partial assistant turn back so the server resumes where it left off.
+    for (let i = 0; ; i++) {
+      response = await client.messages.create({
+        model: process.env.CLAUDE_MODEL_CLASSIFIER ?? process.env.CLAUDE_MODEL ?? DEFAULT_MODEL,
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        output_config: { effort: "medium" },
+        system: CLASSIFY_SYSTEM_PROMPT,
+        messages,
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: Math.min(20, 3 * unknowns.length) }],
+      });
+      if (response.stop_reason !== "pause_turn" || i >= MAX_PAUSE_CONTINUATIONS) break;
+      messages.push({ role: "assistant", content: response.content });
+    }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(
@@ -254,7 +310,10 @@ export async function classifyTickers(
     );
   }
 
-  // Extract text content (skip thinking blocks).
+  const refused = refusalError(`Cannot classify [${unknowns.join(", ")}]`, response);
+  if (refused) throw refused;
+
+  // Extract text content (skip thinking, search-call and search-result blocks).
   const textParts = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
     .map(b => b.text);
@@ -266,17 +325,21 @@ export async function classifyTickers(
   }
   const text = textParts.join("").trim();
 
-  // Strip ```json ... ``` markdown fences if Claude wrapped the JSON.
-  const jsonText = (() => {
-    const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-    return fenceMatch ? fenceMatch[1].trim() : text;
-  })();
-
+  // With web search Claude often narrates before the JSON ("I'll search for...").
+  // Try fenced JSON, then the last balanced {...} object, then the raw text.
   let raw: unknown;
-  try {
-    raw = JSON.parse(jsonText);
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+  let parseErr: unknown;
+  for (const candidate of extractJsonCandidates(text)) {
+    try {
+      raw = JSON.parse(candidate);
+      parseErr = undefined;
+      break;
+    } catch (err) {
+      parseErr = err;
+    }
+  }
+  if (raw === undefined) {
+    const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
     throw new Error(
       `Cannot classify [${unknowns.join(", ")}] — Claude returned invalid JSON: ${detail}. ` +
       `Raw response: ${text.slice(0, 500)}. ` +
@@ -301,10 +364,31 @@ export async function classifyTickers(
     version: 1,
     tickers: { ...existing.tickers },
   };
-  for (const entry of parsed.entries) {
-    const { symbol, ...rest } = entry;
-    merged.tickers[symbol] = rest as TickerEntry;
-  }
+  // Key every entry by the symbol we asked about, canonicalized — never by the
+  // `symbol` Claude echoed back. Claude sometimes substitutes its own idea of
+  // the canonical form ("SF.C" for a requested "SF PRC"), which lands the entry
+  // under a key `lookupTicker` never reaches: the holding stays unknown and the
+  // next run re-classifies it into yet another orphan key. Prefer an exact
+  // symbol match, fall back to position (the prompt asks for same-order
+  // entries) only when the counts line up, and drop entries for symbols nobody
+  // asked about.
+  const requested = unknowns.map(canonicalTicker);
+  const byReturnedSymbol = new Map(
+    parsed.entries.map(e => [canonicalTicker(e.symbol), e] as const),
+  );
+  const positional = parsed.entries.length === requested.length;
+  requested.forEach((key, i) => {
+    const entry = byReturnedSymbol.get(key) ?? (positional ? parsed.entries[i] : undefined);
+    if (!entry) return;
+    const reason = rejectionReason(entry);
+    if (reason) {
+      console.warn(`Rejected AI classification for ${key}: ${reason}. Add it manually to ${filePath} if needed.`);
+      return;
+    }
+    const { symbol: _symbol, ...rest } = entry;
+    // The date is stamped here, never taken from Claude, which can't know it.
+    merged.tickers[key] = { ...rest, classified_at: today } as TickerEntry;
+  });
   fs.writeFileSync(filePath, JSON.stringify(merged, null, 2));
   resetTickerMetadataCache();
   loadTickerMetadata(filePath); // re-prime cache

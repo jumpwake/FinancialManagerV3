@@ -95,6 +95,7 @@ describe("computeAggregates — holding_count and duplicates", () => {
     expect(dups).toHaveLength(1);
     expect(dups[0].tickers.sort()).toEqual(["FSKAX", "VTSAX"]);
     expect(dups[0].combined_weight).toBeCloseTo(1.0, 6);
+    expect(dups[0].account_id).toBe("test_account");
   });
 
   test("duplicate_groups empty when no class has 2+ funds", () => {

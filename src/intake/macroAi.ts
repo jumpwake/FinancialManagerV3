@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { DEFAULT_MODEL, refusalError } from "../report/app/ai/models";
 
 export interface MacroAIResult {
   lei_consecutive_declines: number;
@@ -50,12 +51,17 @@ export async function fetchMacroAI(referenceDate?: string): Promise<MacroAIResul
     model:
       process.env.CLAUDE_MODEL_MACRO ??
       process.env.CLAUDE_MODEL ??
-      "claude-opus-4-8",
-    max_tokens: 4000,
+      DEFAULT_MODEL,
+    // Thinking is always on with Opus 5.5 and shares this budget.
+    max_tokens: 8000,
+    output_config: { effort: "low" },
     system: MACRO_AI_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildMacroAIPrompt(referenceDate) }],
     tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
   });
+
+  const refused = refusalError("fetchMacroAI", response);
+  if (refused) throw refused;
 
   const textParts = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")

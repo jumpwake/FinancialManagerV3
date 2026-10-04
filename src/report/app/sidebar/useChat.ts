@@ -7,6 +7,7 @@ import {
   type ChatInputContext,
 } from "../ai/chat";
 import { aiClient as client } from "../ai/client";
+import { DEFAULT_MODEL, refusalError } from "../ai/models";
 import { appPath } from "../api";
 
 export interface UseChatResult {
@@ -19,6 +20,8 @@ export interface UseChatResult {
   pendingAssistantText: string;
   pendingToolUse: { tool: string; payload: Record<string, unknown> } | null;
   streaming: boolean;
+  /** Model ID of the latest reply (the configured default before the first one). */
+  model: string;
   resetPending: () => void;
   clear: () => void;
 }
@@ -42,6 +45,9 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
   const [pendingToolUse, setPendingToolUse] =
     useState<{ tool: string; payload: Record<string, unknown> } | null>(null);
   const [streaming, setStreaming] = useState(false);
+  // Model shown in the chat header: the configured default until a reply
+  // reports which model actually answered.
+  const [model, setModel] = useState(DEFAULT_MODEL);
 
   const resetPending = useCallback(() => {
     setPendingAssistantText("");
@@ -85,8 +91,10 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
 
       try {
         const stream = client.messages.stream({
-          model: "claude-opus-4-8",
-          max_tokens: 2000,
+          model: DEFAULT_MODEL,
+          // Thinking is always on with Opus 5.5 and counts toward max_tokens.
+          max_tokens: 8000,
+          output_config: { effort: "low" },
           system: CHAT_SYSTEM_PROMPT,
           tools: CHAT_TOOLS as never,
           messages: [{ role: "user", content: userContent }],
@@ -99,6 +107,12 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
           }
         }
         const final = await stream.finalMessage();
+        setModel(final.model);
+        const refused = refusalError("Chat", final);
+        if (refused) {
+          assistantText += `\n[${refused.message}]`;
+          setPendingAssistantText(assistantText);
+        }
         for (const block of final.content) {
           if (block.type === "tool_use") {
             toolUse = { tool: block.name, payload: block.input as Record<string, unknown> };
@@ -132,5 +146,5 @@ export function useChat(initialHistory: ChatMessage[] = []): UseChatResult {
     [history],
   );
 
-  return { send, history, pendingAssistantText, pendingToolUse, streaming, resetPending, clear };
+  return { send, history, pendingAssistantText, pendingToolUse, streaming, model, resetPending, clear };
 }

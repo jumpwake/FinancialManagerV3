@@ -15,12 +15,14 @@ import type {
   SpeculativeHold,
 } from "../types";
 import { ADVISOR_PERSONA } from "../report/app/ai/advisorPersona";
+import { todayIso } from "../report/app/ai/today";
+import { DEFAULT_MODEL, refusalError } from "../report/app/ai/models";
 
-const SYSTEM_PROMPT = `${ADVISOR_PERSONA}
+export const TACTICAL_SYSTEM_PROMPT = `${ADVISOR_PERSONA}
 
 TASK:
 Produce ONE structured output object with:
-- deployment_recommendation: present ONLY if the user has pending_cash_value > 0; recommend specific dollar moves into specific account labels with rationale tied to score gaps + macro.
+- deployment_recommendation: present ONLY if the user has pending_cash_value > 0; recommend specific dollar purchases inside the account that holds the pending cash (name it by label) with rationale tied to score gaps + macro.
 - tactical_plan: 0-3 moves in the next 7 days + 0-3 moves in the next 30 days + 2-3 scenario_resilience_notes.
 
 Every move must cite (a) specific dollars, (b) target account by label, (c) which scenarios it addresses, (d) which dimension scores it lifts.
@@ -84,11 +86,14 @@ export interface TacticalInputContext {
   open_situations: Situation[];
   profile?: UserProfile | null;
   speculative_holds?: SpeculativeHold[];
+  /** Defaults to the current local date; tests pin it for determinism. */
+  today?: string;
 }
 
 export function renderTacticalInput(ctx: TacticalInputContext): string {
   return JSON.stringify(
     {
+      today: ctx.today ?? todayIso(),
       portfolio: ctx.portfolio,
       aggregates: ctx.aggregates,
       macro: ctx.macro,
@@ -116,7 +121,9 @@ export function renderTacticalInput(ctx: TacticalInputContext): string {
 // caller's degrade-to-null behavior in src/index.ts.
 const ADVISOR_PARSE_ATTEMPTS = 3;
 
-export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<TacticalAdvisorOutput> {
+export async function runTacticalAdvisor(
+  ctx: TacticalInputContext,
+): Promise<{ output: TacticalAdvisorOutput; model: string }> {
   const client = new Anthropic();
   let lastErr: unknown;
 
@@ -126,7 +133,7 @@ export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<Tac
         model:
           process.env.CLAUDE_MODEL_ADVISOR ??
           process.env.CLAUDE_MODEL ??
-          "claude-opus-4-8",
+          DEFAULT_MODEL,
         max_tokens: 16000,
         output_config: {
           effort: "medium",
@@ -136,14 +143,17 @@ export async function runTacticalAdvisor(ctx: TacticalInputContext): Promise<Tac
           // the cast bridges the stale types until the SDK ships v4-typed defs.
           format: zodOutputFormat(outputSchema as never),
         },
-        system: SYSTEM_PROMPT,
+        system: TACTICAL_SYSTEM_PROMPT,
         messages: [{ role: "user", content: renderTacticalInput(ctx) }],
       });
+      const refused = refusalError("runTacticalAdvisor", response);
+      if (refused) throw refused;
 
       if (!response.parsed_output) {
         throw new Error("Anthropic API returned no parsed_output");
       }
-      return response.parsed_output as TacticalAdvisorOutput;
+      // response.model is the model that actually served the call (shown in the report header).
+      return { output: response.parsed_output as TacticalAdvisorOutput, model: response.model };
     } catch (err) {
       lastErr = err;
       if (attempt < ADVISOR_PARSE_ATTEMPTS) {

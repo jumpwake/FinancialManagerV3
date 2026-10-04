@@ -123,6 +123,7 @@ export interface MacroContext {
 }
 
 export interface DuplicateGroup {
+  account_id: string;   // duplicates are always within one account
   label: string;
   tickers: string[];
   combined_weight: number;

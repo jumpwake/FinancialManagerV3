@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "analyze": "tsx src/index.ts",
+    "analyze:kevin": "tsx src/index.ts --user kevin",
     "analyze:luke": "tsx src/index.ts --user luke",
     "analyze:carly": "tsx src/index.ts --user carly",
-    "report": "tsx scripts/report.ts",
+    "report:kevin": "tsx scripts/report.ts --user kevin",
     "report:luke": "tsx scripts/report.ts --user luke",
     "report:carly": "tsx scripts/report.ts --user carly",
     "publish": "tsx scripts/publish.ts",

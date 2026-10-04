@@ -87,6 +87,7 @@ export function computeAggregates(
     const sameAccountDups = Object.values(byAccount).filter(arr => arr.length >= 2);
     for (const arr of sameAccountDups) {
       duplicate_groups.push({
+        account_id: arr[0].account_id,
         label: arr[0].asset_class.replace(/_/g, " "),
         tickers: arr.map(h => h.ticker),
         combined_weight: arr.reduce((sum, h) => sum + w(h), 0),

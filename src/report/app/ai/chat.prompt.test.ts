@@ -24,6 +24,7 @@ describe("renderChatInput", () => {
       situations: [],
       notes: [],
       history: [],
+      today: "2026-05-12",
     });
     expect(out).toMatchSnapshot();
   });

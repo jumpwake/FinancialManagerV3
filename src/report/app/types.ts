@@ -1,3 +1,5 @@
+import type { AIModels } from "./ai/models";
+
 export type Rating = "green" | "yellow" | "red";
 export type RiskTolerance =
   | "conservative"
@@ -98,6 +100,7 @@ export interface Portfolio {
 }
 
 export interface DuplicateGroup {
+  account_id: string;   // duplicates are always within one account
   label: string;
   tickers: string[];
   combined_weight: number;
@@ -375,6 +378,8 @@ export interface AnalysisOutput {
   findings: Finding[];
   narratives: AINarratives | null;
   tactical_advisor: TacticalAdvisorOutput | null;
+  /** Model that produced each AI section; absent in analyses written before this field existed. */
+  ai_models?: AIModels;
   accounts?: AccountConfig | null;
   situations?: Situation[];
   notes?: Note[];

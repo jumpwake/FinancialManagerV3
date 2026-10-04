@@ -15,8 +15,20 @@ npx vite build (Join-Path $repo "src/report/app") --outDir "$wwwroot" --emptyOut
 if ($LASTEXITCODE -ne 0) { throw "vite build failed" }
 
 Write-Host "2/2  Publishing the .NET app..."
+# Clean the publish dir first: `dotnet publish` overlays rather than cleans, so a
+# stale App_Data/ from an older build would linger and get deployed even though
+# the .csproj now excludes it. Wiping the dir guarantees the artifact is fresh.
+$publishDir = Join-Path $repo "api/PortfolioReport.Api/bin/Release/net8.0/publish"
+if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 dotnet publish (Join-Path $repo "api/PortfolioReport.Api/PortfolioReport.Api.csproj") -c Release
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
+
+# Guardrail: App_Data holds authoritative per-user server state and must never be
+# in the deploy artifact (msdeploy would overwrite live data). Fail loudly if it
+# ever reappears in the publish output.
+if (Test-Path (Join-Path $publishDir "App_Data")) {
+    throw "App_Data present in publish output - it would overwrite live server data on deploy. Aborting."
+}
 
 Write-Host "Done. Deploy the contents of:"
 Write-Host "     api/PortfolioReport.Api/bin/Release/net8.0/publish/"

@@ -8,7 +8,7 @@ The full stack is in place on the `tdd-engine-intake` branch (branched from `mai
 
 - **Engine + intake**: built test-first across 22 plan tasks + 3 normalization tasks. 174 vitest tests passing, `tsc --noEmit` clean.
 - **CLI** (`src/index.ts`): runs the pipeline end-to-end against the 5 brokerage sample files. Writes `output/analysis.json` and prints a structured console summary.
-- **Narratives** (`src/ai/narratives.ts`): single `claude-opus-4-8` call producing structured AI text via `messages.parse()` + Zod schema. Skipped gracefully if `ANTHROPIC_API_KEY` is unset.
+- **Narratives** (`src/ai/narratives.ts`): single Claude call (model ID in `src/report/app/ai/models.ts` → `DEFAULT_MODEL`, currently `claude-opus-5-5`; override per CLI call with `CLAUDE_MODEL*` env vars) producing structured AI text via `messages.parse()` + Zod schema. Skipped gracefully if `ANTHROPIC_API_KEY` is unset.
 - **React report** (`src/report/app/`): Vite + chart.js. Renders all 9 sections per dev doc §12.
 
 The full TDD plan is at `docs/superpowers/plans/2026-05-11-tdd-portfolio-analyzer.md`. The dev doc (`Documentation/DevelopmentDoc1.md`) is the original spec — it's older than the actual implementation in several places (model ID, SDK version, scoreDiversification formula bug).
@@ -17,12 +17,12 @@ The full TDD plan is at `docs/superpowers/plans/2026-05-11-tdd-portfolio-analyze
 
 ```sh
 npm install
-npm run analyze         # runs pipeline against data/SamplePortfolio/*.json, writes output/analysis.json
-npm run report          # opens the React report at http://localhost:5173
+npm run analyze:kevin   # runs pipeline for a user (also :luke, :carly), writes data/<user>/analysis.json
+npm run report:kevin    # opens the React report at http://localhost:5173
 
 # To enable AI narratives, create .env with:
 #   ANTHROPIC_API_KEY=sk-ant-...
-# Then re-run npm run analyze. Narratives are optional — the rest of the pipeline runs without them.
+# Then re-run npm run analyze:<user>. Narratives are optional — the rest of the pipeline runs without them.
 ```
 
 ## Commands
@@ -30,8 +30,8 @@ npm run report          # opens the React report at http://localhost:5173
 ```sh
 npm test              # vitest run — engine + intake unit tests
 npm run test:watch    # vitest in watch mode
-npm run analyze       # tsx src/index.ts — runs full pipeline, writes output/analysis.json
-npm run report        # vite src/report/app --open — serves the React report
+npm run analyze:kevin # tsx src/index.ts --user kevin — runs full pipeline (see README for users/env)
+npm run report:kevin  # vite src/report/app --open — serves the React report
 npm run build         # tsc && vite build src/report/app
 ```
 
@@ -82,7 +82,7 @@ data/SamplePortfolio/*.json                       data/macro.json
 
 - **AI narratives style** (`narratives.ts` SYSTEM_PROMPT): use actual values not vague language ("25.4% cash" not "high cash"); grades use Unicode minus `−` (U+2212), not ASCII `-`; no words "robust" or "optimize"; CFA-to-colleague tone.
 - **Regime-aware text** in `plan.ts`: the FI target percentages (e.g. "18–30%") and adjectives (e.g. "late-cycle") in flag bodies and plan-phase action descriptions are derived from `macro.market_regime` via `FI_TARGETS_BY_REGIME` (exported from `dimensions.ts`). Don't hardcode "late-cycle" or "18–22%" anywhere.
-- **Ticker canonicalization**: `BRK B` (Vanguard's format) → `BRK-B` via `canonicalTicker()` in `tickerMetadata.ts`. The ticker metadata lookup uses canonical keys.
+- **Ticker canonicalization**: `BRK B` (Vanguard's format) → `BRK-B`, and preferred shares `SF PRC` → `SF-C`, via `canonicalTicker()` in `tickerMetadata.ts`. The ticker metadata lookup uses canonical keys, and `classifyTickers()` keys new entries by the canonicalized *requested* symbol — never by the symbol Claude echoes back — so an AI-invented variant can't create an unreachable key.
 - **Empower descriptive symbols**: funds like `"US Large Company Stocks Fund"` are keyed by their full label in `TICKER_METADATA` since they have no real ticker.
 
 ## TDD discipline

@@ -193,11 +193,11 @@
         "eps_growth_yoy": null,
         "revenue_growth_yoy": null,
         "net_debt_ebitda": null,
-        "beta": 0.25,
+        "beta": 0.35,
         "analyst_consensus": null
       },
-      "classified_at": "2025-07-15",
-      "notes": "Preferred stock (Series C) of Stifel Financial Corp. Brokerage ticker SF.PRC normalized to canonical NYSE format SF-C. This is a non-cumulative preferred equity instrument; most common-equity stock metrics (P/E, EV/EBITDA, etc.) are not applicable. Beta estimate is approximate, reflecting the typically lower volatility of preferred shares relative to common stock."
+      "classified_at": "2025-07-09",
+      "notes": "Stifel Financial Corporation 5.50% Non-Cumulative Preferred Stock, Series C (NYSE: SF-C). Preferred equity hybrid security; most common equity valuation metrics are not applicable. Beta is an approximation for a financial-sector preferred issue."
     }
   }
 }
