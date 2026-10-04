@@ -18,6 +18,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { loadEnv } from "../src/loadEnv";
+import { binPath } from "./binPath";
 
 const { user } = loadEnv();
 if (!user) {
@@ -52,10 +53,11 @@ async function main(): Promise<void> {
   // 2. Run the existing analyze pipeline for this user.
   console.log("publish: running analyze...");
   const analyze = spawnSync(
-    "npx",
-    ["tsx", "src/index.ts", "--user", user!],
-    { stdio: "inherit", shell: true },
+    process.execPath,
+    [binPath("tsx"), "src/index.ts", "--user", user!],
+    { stdio: "inherit" },
   );
+  if (analyze.error) throw analyze.error;
   if (analyze.status !== 0) throw new Error(`analyze exited ${analyze.status}`);
 
   // 3. Push the freshly written analysis.json.
